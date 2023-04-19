@@ -8,6 +8,16 @@
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
+	,
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"tamasfe.even-better-toml",
+				"usernamehw.errorlens"
+			]
+		}
+	}
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [5432],

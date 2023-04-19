@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  title: Folivafy
+  description: |-
+     Collection handling for validated forms
+  license:
+    name: AGPL-3.0 license
+    url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
+  version: 1.0.0
+servers:
+  - url: https://qwirl.de/
+tags:
+  - name: administration
+    description: Administrative tasks
+  - name: collection
+    description: Collection handling
+paths:
+  /collections:
+    get:
+      tags:
+        - administration
+      summary: List available collections
+      description: List all available collections on this server
+      operationId: getCollections
+      responses: 
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsList'
+    post:
+      tags:
+        - administration
+      summary: Create a collection
+      description: Create a new collection on this server
+      operationId: createCollection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              example:
+                kind: null
+                name: ipa-belege
+                active: true
+                title: IPA Belegnummer (fortlaufend)
+              properties:
+                name:
+                  description: Path name of the collection
+                  example: shapes
+                  maxLength: 32
+                  minLength: 1
+                  pattern: "^[a-z][-a-z0-9]*$"
+                  type: string
+                title:
+                  description: Human readable name of the collection
+                  example: Shapes
+                  maxLength: 150
+                  minLength: 1
+                  type: string
+                oao:
+                  description: Owner access only?
+                  type: boolean
+              required:
+                - oao
+                - name
+                - title
+              type: object
+        description: Information about the new collection
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 Created
+          description: successful operation
+        "400":
+          description: Creating the counter failed
+components:
+  schemas:
+    CollectionsList:
+      example:
+        total: 1
+        offset: 0
+        limit: 20
+        items:
+          - oao: false
+            name: shapes
+            title: Shapes
+          - oao: true
+            name: letters
+            title: Letters
+      properties:
+        limit:
+          default: 50
+          maximum: 250
+          minimum: 1
+          type: integer
+        offset:
+          default: 0
+          minimum: 0
+          type: integer
+        total:
+          default: 0
+          minimum: 0
+          type: integer
+        items:
+          items:
+            $ref: "#/components/schemas/CollectionsListItem"
+          type: array
+      required:
+        - items
+        - limit
+        - offset
+        - total
+      type: object
+    CollectionsListItem:
+      example:
+        oao: true
+        name: shapes
+        title: Shapes
+      properties:
+        name:
+          description: Path name of the collection
+          example: shapes
+          maxLength: 32
+          minLength: 1
+          pattern: "^[a-z][-a-z0-9]*$"
+          type: string
+        title:
+          description: Human readable name of the counter
+          example: Shapes
+          maxLength: 150
+          minLength: 1
+          type: string
+        oao:
+          description: |
+            Owner access only. Indicates if documents within the collection
+            are _owner access only_ (value `true`) or all documents in the
+            collection can be read by all users (`false`).
+          type: boolean
+      required:
+        - oao
+        - name
+        - title
+      type: object
