@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Folivafy
   description: |-
-     Collection handling for validated forms
+    Collection handling for validated forms
   license:
     name: AGPL-3.0 license
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
@@ -22,13 +22,13 @@ paths:
       summary: List available collections
       description: List all available collections on this server
       operationId: getCollections
-      responses: 
-        '200':
+      responses:
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CollectionsList'
+                $ref: "#/components/schemas/CollectionsList"
     post:
       tags:
         - administration
@@ -77,9 +77,131 @@ paths:
                 example: 201 Created
           description: successful operation
         "400":
-          description: Creating the counter failed
+          description: Creating the collection failed
+  /collections/{collection}:
+    get:
+      description: Get a list of items within the collection
+      operationId: listCollection
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionItemsList"
+          description: successful operation
+        "404":
+          description: Collection not found
+      summary: List collection items
+      tags:
+        - collection
+    post:
+      tags:
+        - collection
+      summary: Create new item
+      description: Create a new item in this collection
+      operationId: storeIntoCollection
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionItem"
+        description: Item payload
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 Created
+          description: successful operation
+        "400":
+          description: Creating the collection failed
+  /collections/{collection}/{documentId}:
+    get:
+      description: Get item data
+      operationId: getItemById
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+        - $ref: "#/components/parameters/DocumentIdParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionItem"
+          description: successful operation
+        "404":
+          description: Item not found
+      summary: Get item
+      tags:
+        - collection
+    put:
+      tags:
+        - collection
+      summary: Replace item
+      description: Replace the item data
+      operationId: updateItemById
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+        - $ref: "#/components/parameters/DocumentIdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionItem"
+        description: Item payload
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 Created
+          description: successful operation
+        "400":
+          description: Updating failed
 components:
+  parameters:
+    CollectionNameParam:
+      description: Path name of the collection
+      explode: false
+      in: path
+      name: collection
+      required: true
+      schema:
+        $ref: "#/components/schemas/CollectionName"
+      style: simple
+    DocumentIdParam:
+      description: Document id as path component
+      explode: false
+      in: path
+      name: documentId
+      required: true
+      schema:
+        $ref: "#/components/schemas/DocumentId"
+      style: simple
   schemas:
+    DocumentId:
+      description: Document identifier
+      example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
+      format: uuid
+      type: string
+    DocumentFields:
+      description: Field data
+      type: object
+    CollectionName:
+      description: Path name of the collection
+      example: shapes
+      maxLength: 32
+      minLength: 1
+      pattern: "^[a-z][-a-z0-9]*$"
+      type: string
     CollectionsList:
       example:
         total: 1
@@ -108,7 +230,7 @@ components:
           type: integer
         items:
           items:
-            $ref: "#/components/schemas/CollectionsListItem"
+            $ref: "#/components/schemas/Collection"
           type: array
       required:
         - items
@@ -116,7 +238,7 @@ components:
         - offset
         - total
       type: object
-    CollectionsListItem:
+    Collection:
       example:
         oao: true
         name: shapes
@@ -130,7 +252,7 @@ components:
           pattern: "^[a-z][-a-z0-9]*$"
           type: string
         title:
-          description: Human readable name of the counter
+          description: Human readable name of the collection
           example: Shapes
           maxLength: 150
           minLength: 1
@@ -145,4 +267,57 @@ components:
         - oao
         - name
         - title
+      type: object
+    CollectionItemsList:
+      example:
+        total: 1
+        offset: 0
+        limit: 20
+        items:
+          - id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+            f:
+              title: Rectangle
+              price: 14
+          - id: e109a39d-fb8b-4d15-9794-9f3b2eca9132
+            f:
+              title: Circle
+              price: 19
+      properties:
+        limit:
+          default: 50
+          maximum: 250
+          minimum: 1
+          type: integer
+        offset:
+          default: 0
+          minimum: 0
+          type: integer
+        total:
+          default: 0
+          minimum: 0
+          type: integer
+        items:
+          items:
+            $ref: "#/components/schemas/CollectionItem"
+          type: array
+      required:
+        - items
+        - limit
+        - offset
+        - total
+      type: object
+    CollectionItem:
+      example:
+        id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+        f:
+          title: Rectangle
+          price: 14
+      properties:
+        id:
+          $ref: "#/components/schemas/DocumentId"
+        f:
+          $ref: '#/components/schemas/DocumentFields'
+      required:
+        - id
+        - f
       type: object
