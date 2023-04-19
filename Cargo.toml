@@ -6,3 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.70"
+axum = "0.6.16"
+axum-macros = "0.3.7"
+openapi = { path = "./generated", default-features = false, features = [
+    "lazy_static",
+    "regex",
+] }
+sea-orm = { version = "0.11.2", features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+validator = { version = "0.16.0", features = ["derive"] }
