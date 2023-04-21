@@ -25,16 +25,16 @@ pub(crate) async fn api_create_collection(
         .exec(&ctx.db)
         .await
         .map_err(|err| match err {
-            DbErr::Query(RuntimeErr::SqlxError(error)) => match error {
+            DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
                 sqlx::error::Error::Database(e) => {
                     let code: String = e.code().unwrap_or_default().to_string();
                     // We check the error code thrown by the database (PostgreSQL in this case),
                     // `23505` means `value violates unique constraint`: we have a duplicate key in the table.
                     if code == "23505" {
-                        ApiErrors::BadRequest("Duplicate counter name".to_string())
+                        ApiErrors::BadRequest("Duplicate collection name".to_string())
                     } else {
                         error!("Database runtime error: {}", e);
-                        ApiErrors::BadRequest(format!("Cannot create counter (code {})", code))
+                        ApiErrors::BadRequest(format!("Cannot create collection (code {})", code))
                     }
                 }
                 _ => {

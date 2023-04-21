@@ -17,7 +17,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Collection::Name).string_len(32).not_null())
+                    .col(
+                        ColumnDef::new(Collection::Name)
+                            .string_len(32)
+                            .unique_key()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Collection::Title).string_len(150).not_null())
                     .col(ColumnDef::new(Collection::Oao).boolean().not_null())
                     .to_owned(),
