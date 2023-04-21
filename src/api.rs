@@ -1,3 +1,4 @@
+mod auth;
 mod create_collection;
 mod list_collections;
 mod types;
@@ -16,12 +17,15 @@ use axum::{
     routing::get,
     Router,
 };
+use jwt_authorizer::JwtAuthorizer;
 use sea_orm::{DatabaseConnection, DbErr};
 use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{error, Span};
 
-use self::{create_collection::api_create_collection, list_collections::api_list_collections};
+use self::{
+    auth::User, create_collection::api_create_collection, list_collections::api_list_collections,
+};
 
 #[derive(Clone)]
 pub(crate) struct ApiContext {
@@ -67,6 +71,7 @@ impl From<DbErr> for ApiErrors {
 pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
     // build our application with a route
     let app = api_routes(db)
+        .await
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
         //
@@ -107,7 +112,10 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
         .context("error running server")
 }
 
-pub fn api_routes(db: DatabaseConnection) -> Router {
+async fn api_routes(db: DatabaseConnection) -> Router {
+    let jwt_auth: JwtAuthorizer<User> =
+        JwtAuthorizer::from_jwks_url("http://localhost:3000/oidc/jwks");
+
     Router::new().nest(
         "/api",
         Router::new()
@@ -115,6 +123,7 @@ pub fn api_routes(db: DatabaseConnection) -> Router {
                 "/collections",
                 get(api_list_collections).post(api_create_collection),
             )
-            .with_state(ApiContext { db }),
+            .with_state(ApiContext { db })
+            .layer(jwt_auth.layer().await.unwrap()),
     )
 }
