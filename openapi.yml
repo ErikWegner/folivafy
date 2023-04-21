@@ -40,10 +40,9 @@ paths:
           application/json:
             schema:
               example:
-                kind: null
-                name: ipa-belege
-                active: true
-                title: IPA Belegnummer (fortlaufend)
+                name: shapes
+                title: Shapes
+                oao: false
               properties:
                 name:
                   description: Path name of the collection

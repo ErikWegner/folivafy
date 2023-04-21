@@ -5,14 +5,20 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [".", "entity", "migration"]
+
 [dependencies]
 anyhow = "1.0.70"
 axum = "0.6.16"
 axum-macros = "0.3.7"
+entity = { path = "entity" }
+migration = { path = "migration" } # depends on your needs
 openapi = { path = "./generated", default-features = false, features = [
     "lazy_static",
     "regex",
 ] }
+regex = { version = "1", features = ["unicode-case"] }
 sea-orm = { version = "0.11.2", features = [
     "macros",
     "runtime-tokio-rustls",
