@@ -1,10 +1,15 @@
 use axum::{
     extract::State,
+    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use axum_macros::debug_handler;
+use entity::collection::Entity as Collection;
 use openapi::models::CollectionsList;
+use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
+use serde_json::json;
+use tracing::error;
 
 use crate::axumext::extractors::ValidatedQueryParams;
 
@@ -15,10 +20,43 @@ pub(crate) async fn api_list_collections(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
 ) -> Result<Json<CollectionsList>, Response> {
+    let total = Collection::find()
+        .count(&ctx.db)
+        .await
+        .map_err(|err| {
+            error!("Count list_collections error {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Server cannot provide data" })),
+            )
+                .into_response()
+        })
+        .and_then(|t| Ok(u32::try_from(t).unwrap_or_default()))?;
+    let items = Collection::find()
+        .order_by_asc(entity::collection::Column::Name)
+        .limit(Some(pagination.limit().into()))
+        .offset(Some(pagination.offset().into()))
+        .all(&ctx.db)
+        .await
+        .map_err(|err| {
+            error!("Query list_collections error {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Server cannot provide data" })),
+            )
+                .into_response()
+        })?;
     Ok(Json(CollectionsList {
-        limit: 0,
-        offset: 0,
-        total: 0,
-        items: vec![],
+        limit: pagination.limit(),
+        offset: pagination.offset(),
+        total,
+        items: items
+            .iter()
+            .map(|dbitem| openapi::models::Collection {
+                name: dbitem.name.clone(),
+                title: dbitem.title.clone(),
+                oao: dbitem.oao,
+            })
+            .collect(),
     }))
 }
