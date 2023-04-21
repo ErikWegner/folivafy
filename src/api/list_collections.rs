@@ -1,36 +1,22 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
-};
+use axum::{extract::State, Json};
 use axum_macros::debug_handler;
 use entity::collection::Entity as Collection;
 use openapi::models::CollectionsList;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
-use serde_json::json;
-use tracing::error;
 
 use crate::axumext::extractors::ValidatedQueryParams;
 
-use super::{types::Pagination, ApiContext};
+use super::{types::Pagination, ApiContext, ApiErrors};
 
 #[debug_handler]
 pub(crate) async fn api_list_collections(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
-) -> Result<Json<CollectionsList>, Response> {
+) -> Result<Json<CollectionsList>, ApiErrors> {
     let total = Collection::find()
         .count(&ctx.db)
         .await
-        .map_err(|err| {
-            error!("Count list_collections error {:?}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "Server cannot provide data" })),
-            )
-                .into_response()
-        })
+        .map_err(ApiErrors::from)
         .and_then(|t| Ok(u32::try_from(t).unwrap_or_default()))?;
     let items = Collection::find()
         .order_by_asc(entity::collection::Column::Name)
@@ -38,14 +24,7 @@ pub(crate) async fn api_list_collections(
         .offset(Some(pagination.offset().into()))
         .all(&ctx.db)
         .await
-        .map_err(|err| {
-            error!("Query list_collections error {:?}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({ "error": "Server cannot provide data" })),
-            )
-                .into_response()
-        })?;
+        .map_err(ApiErrors::from)?;
     Ok(Json(CollectionsList {
         limit: pagination.limit(),
         offset: pagination.offset(),

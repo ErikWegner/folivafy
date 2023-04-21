@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 sea-orm = { version = "^0" }
 serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["v4"] }

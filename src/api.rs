@@ -1,3 +1,4 @@
+mod create_collection;
 mod list_collections;
 mod types;
 
@@ -10,20 +11,57 @@ use std::{
 use anyhow::Context;
 use axum::{
     body::Bytes,
-    http::{HeaderMap, Request},
-    response::Response,
+    http::{HeaderMap, Request, StatusCode},
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, DbErr};
+use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
-use tracing::Span;
+use tracing::{error, Span};
 
-use self::list_collections::api_list_collections;
+use self::{create_collection::api_create_collection, list_collections::api_list_collections};
 
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
+}
+
+#[derive(Error, Debug)]
+pub(crate) enum ApiErrors {
+    #[error("Internal server error")]
+    InternalServerError,
+    #[error("Bad request: {0}")]
+    BadRequest(String),
+    #[error("Not found: {0}")]
+    NotFound(String),
+}
+
+impl IntoResponse for ApiErrors {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            ApiErrors::InternalServerError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ),
+            ApiErrors::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            ApiErrors::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+        }
+        .into_response()
+    }
+}
+
+impl From<DbErr> for ApiErrors {
+    fn from(value: DbErr) -> Self {
+        match value {
+            DbErr::RecordNotFound(t) => ApiErrors::NotFound(t),
+            _ => {
+                error!("Database error: {:?}", value);
+                ApiErrors::InternalServerError
+            }
+        }
+    }
 }
 
 pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
@@ -73,7 +111,10 @@ pub fn api_routes(db: DatabaseConnection) -> Router {
     Router::new().nest(
         "/api",
         Router::new()
-            .route("/collections", get(api_list_collections))
+            .route(
+                "/collections",
+                get(api_list_collections).post(api_create_collection),
+            )
             .with_state(ApiContext { db }),
     )
 }
