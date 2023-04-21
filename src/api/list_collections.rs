@@ -17,7 +17,7 @@ pub(crate) async fn api_list_collections(
         .count(&ctx.db)
         .await
         .map_err(ApiErrors::from)
-        .and_then(|t| Ok(u32::try_from(t).unwrap_or_default()))?;
+        .map(|t| u32::try_from(t).unwrap_or_default())?;
     let items = Collection::find()
         .order_by_asc(entity::collection::Column::Name)
         .limit(Some(pagination.limit().into()))

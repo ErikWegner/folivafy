@@ -1,8 +1,8 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
-use entity::collection::{self, Entity};
+use entity::collection;
 use openapi::models::CreateCollectionRequest;
-use sea_orm::{ActiveModelTrait, DbErr, EntityTrait, RuntimeErr, Set};
+use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::error;
 use tracing::info;
 
