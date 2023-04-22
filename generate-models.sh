@@ -7,7 +7,7 @@ docker run --rm \
     -v "${PWD}/openapi.yml:/openapi.yml:ro" \
     -v "${PWD}/rust-server:/templates:ro" \
     --user $(id -u):$(id -g) \
-    erikwegner/openapi-generator-cli:v6.4.0-rust-1 generate \
+    erikwegner/openapi-generator-cli:v6.5.0-rust-1 generate \
     -i /openapi.yml \
     -g rust-server \
     --template-dir /templates \

@@ -1,24 +1,38 @@
 #![allow(unused_qualifications)]
 
+use regex::Regex;
+use validator::Validate;
+
 use crate::models;
 #[cfg(any(feature = "client", feature = "server"))]
 use crate::header;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
+    #[validate(
+            length(min = 1, max = 32),
+            regex = "RE_COLLECTION_NAME",
+        )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
+    #[validate(
+            length(min = 1, max = 150),
+        )]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`). 
     #[serde(rename = "oao")]
     pub oao: bool,
 
+}
+
+lazy_static::lazy_static! {
+    static ref RE_COLLECTION_NAME: Regex = Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl Collection {
@@ -149,7 +163,7 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItem {
     /// Document identifier
@@ -161,6 +175,7 @@ pub struct CollectionItem {
     pub f: serde_json::Value,
 
 }
+
 
 impl CollectionItem {
     #[allow(clippy::new_without_default)]
@@ -277,22 +292,32 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
+    #[validate(
+            range(min = 1, max = 250),
+        )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
+    #[validate(
+            range(min = 0),
+        )]
     pub offset: u32,
 
     #[serde(rename = "total")]
+    #[validate(
+            range(min = 0),
+        )]
     pub total: u32,
 
     #[serde(rename = "items")]
     pub items: Vec<models::CollectionItem>,
 
 }
+
 
 impl CollectionItemsList {
     #[allow(clippy::new_without_default)]
@@ -472,22 +497,32 @@ impl std::ops::DerefMut for CollectionName {
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
+    #[validate(
+            range(min = 1, max = 250),
+        )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
+    #[validate(
+            range(min = 0),
+        )]
     pub offset: u32,
 
     #[serde(rename = "total")]
+    #[validate(
+            range(min = 0),
+        )]
     pub total: u32,
 
     #[serde(rename = "items")]
     pub items: Vec<models::Collection>,
 
 }
+
 
 impl CollectionsList {
     #[allow(clippy::new_without_default)]
@@ -623,21 +658,32 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
+    #[validate(
+            length(min = 1, max = 32),
+            regex = "RE_CREATECOLLECTIONREQUEST_NAME",
+        )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
+    #[validate(
+            length(min = 1, max = 150),
+        )]
     pub title: String,
 
     /// Owner access only?
     #[serde(rename = "oao")]
     pub oao: bool,
 
+}
+
+lazy_static::lazy_static! {
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: Regex = Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl CreateCollectionRequest {
