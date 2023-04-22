@@ -4,6 +4,7 @@ mod list_collections;
 mod types;
 
 use std::{
+    env,
     net::{IpAddr, SocketAddr},
     str::FromStr,
     time::Duration,
@@ -115,9 +116,9 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
 }
 
 async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
-    let issuer: &str = "http://localhost:8101/realms/folivafy";
+    let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
 
-    let pem_text = cert_loader(issuer).await?;
+    let pem_text = cert_loader(&issuer).await?;
     let validation = Validation::new().iss(&[issuer]).leeway(5);
     let jwt_auth: JwtAuthorizer<User> =
         JwtAuthorizer::from_rsa_pem_text(pem_text.as_str()).validation(validation);
