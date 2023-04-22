@@ -1,0 +1,778 @@
+{
+	"info": {
+		"_postman_id": "d533bb0b-5473-4333-a7f6-3d3d908df6ef",
+		"name": "Folivafy",
+		"description": "Collection handling for validated forms",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "collections",
+			"item": [
+				{
+					"name": "{collection}",
+					"item": [
+						{
+							"name": "{documentId}",
+							"item": [
+								{
+									"name": "Get item",
+									"request": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Accept",
+												"value": "application/json"
+											}
+										],
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection/:documentId",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection",
+												":documentId"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												},
+												{
+													"key": "documentId",
+													"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+													"description": "(Required) Document id as path component"
+												}
+											]
+										},
+										"description": "Get item data"
+									},
+									"response": [
+										{
+											"name": "successful operation",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/collections/:collection/:documentId",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"collections",
+														":collection",
+														":documentId"
+													],
+													"variable": [
+														{
+															"key": "collection",
+															"value": "shapes",
+															"description": "(Required) Path name of the collection"
+														},
+														{
+															"key": "documentId",
+															"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+															"description": "(Required) Document id as path component"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}"
+										},
+										{
+											"name": "Item not found",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/collections/:collection/:documentId",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"collections",
+														":collection",
+														":documentId"
+													],
+													"variable": [
+														{
+															"key": "collection",
+															"value": "shapes",
+															"description": "(Required) Path name of the collection"
+														},
+														{
+															"key": "documentId",
+															"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+															"description": "(Required) Document id as path component"
+														}
+													]
+												}
+											},
+											"status": "Not Found",
+											"code": 404,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								},
+								{
+									"name": "Replace item",
+									"request": {
+										"method": "PUT",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											},
+											{
+												"key": "Accept",
+												"value": "text/plain"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection/:documentId",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection",
+												":documentId"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												},
+												{
+													"key": "documentId",
+													"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+													"description": "(Required) Document id as path component"
+												}
+											]
+										},
+										"description": "Replace the item data"
+									},
+									"response": [
+										{
+											"name": "successful operation",
+											"originalRequest": {
+												"method": "PUT",
+												"header": [],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+													"options": {
+														"raw": {
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/collections/:collection/:documentId",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"collections",
+														":collection",
+														":documentId"
+													],
+													"variable": [
+														{
+															"key": "collection",
+															"value": "shapes",
+															"description": "(Required) Path name of the collection"
+														},
+														{
+															"key": "documentId",
+															"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+															"description": "(Required) Document id as path component"
+														}
+													]
+												}
+											},
+											"status": "Created",
+											"code": 201,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": "201 Created"
+										},
+										{
+											"name": "Updating failed",
+											"originalRequest": {
+												"method": "PUT",
+												"header": [],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+													"options": {
+														"raw": {
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "{{baseUrl}}/collections/:collection/:documentId",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"collections",
+														":collection",
+														":documentId"
+													],
+													"variable": [
+														{
+															"key": "collection",
+															"value": "shapes",
+															"description": "(Required) Path name of the collection"
+														},
+														{
+															"key": "documentId",
+															"value": "503a11c7-0a2a-48c3-bf0a-e5296c3f26db",
+															"description": "(Required) Document id as path component"
+														}
+													]
+												}
+											},
+											"status": "Bad Request",
+											"code": 400,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								}
+							]
+						},
+						{
+							"name": "List collection items",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/collections/:collection",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"collections",
+										":collection"
+									],
+									"variable": [
+										{
+											"key": "collection",
+											"value": "shapes",
+											"description": "(Required) Path name of the collection"
+										}
+									]
+								},
+								"description": "Get a list of items within the collection"
+							},
+							"response": [
+								{
+									"name": "successful operation",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												}
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"items\": [\n    {\n      \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n      \"f\": {}\n    },\n    {\n      \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n      \"f\": {}\n    }\n  ],\n  \"limit\": 50,\n  \"offset\": 0,\n  \"total\": 0\n}"
+								},
+								{
+									"name": "Collection not found",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												}
+											]
+										}
+									},
+									"status": "Not Found",
+									"code": 404,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						},
+						{
+							"name": "Create new item",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "Accept",
+										"value": "text/plain"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/collections/:collection",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"collections",
+										":collection"
+									],
+									"variable": [
+										{
+											"key": "collection",
+											"value": "shapes",
+											"description": "(Required) Path name of the collection"
+										}
+									]
+								},
+								"description": "Create a new item in this collection"
+							},
+							"response": [
+								{
+									"name": "successful operation",
+									"originalRequest": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												}
+											]
+										}
+									},
+									"status": "Created",
+									"code": 201,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": "201 Created"
+								},
+								{
+									"name": "Creating the collection failed",
+									"originalRequest": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"id\": \"503a11c7-0a2a-48c3-bf0a-e5296c3f26db\",\n  \"f\": {}\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "{{baseUrl}}/collections/:collection",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"collections",
+												":collection"
+											],
+											"variable": [
+												{
+													"key": "collection",
+													"value": "shapes",
+													"description": "(Required) Path name of the collection"
+												}
+											]
+										}
+									},
+									"status": "Bad Request",
+									"code": 400,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "List available collections",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/collections",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"collections"
+							]
+						},
+						"description": "List all available collections on this server"
+					},
+					"response": [
+						{
+							"name": "Successful operation",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/collections",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"collections"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"total\": 1,\n  \"offset\": 0,\n  \"limit\": 20,\n  \"items\": [\n    {\n      \"oao\": false,\n      \"name\": \"shapes\",\n      \"title\": \"Shapes\"\n    },\n    {\n      \"oao\": true,\n      \"name\": \"letters\",\n      \"title\": \"Letters\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create a collection",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "text/plain"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"shapes\",\n  \"title\": \"Shapes\",\n  \"oao\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/collections",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"collections"
+							]
+						},
+						"description": "Create a new collection on this server"
+					},
+					"response": [
+						{
+							"name": "successful operation",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"shapes\",\n  \"title\": \"Shapes\",\n  \"oao\": false\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/collections",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"collections"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": "201 Created"
+						},
+						{
+							"name": "Creating the collection failed",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"shapes\",\n  \"title\": \"Shapes\",\n  \"oao\": false\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/collections",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"collections"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "oauth2",
+		"oauth2": [
+			{
+				"key": "grant_type",
+				"value": "authorization_code",
+				"type": "string"
+			},
+			{
+				"key": "tokenName",
+				"value": "{{clientId}} {{$isoTimestamp}}",
+				"type": "string"
+			},
+			{
+				"key": "challengeAlgorithm",
+				"value": "S256",
+				"type": "string"
+			},
+			{
+				"key": "scope",
+				"value": "openid",
+				"type": "string"
+			},
+			{
+				"key": "redirect_uri",
+				"value": "{{callbackUrl}}",
+				"type": "string"
+			},
+			{
+				"key": "clientSecret",
+				"value": "{{clientSecret}}",
+				"type": "string"
+			},
+			{
+				"key": "clientId",
+				"value": "{{clientId}}",
+				"type": "string"
+			},
+			{
+				"key": "authUrl",
+				"value": "{{authUrl}}",
+				"type": "string"
+			},
+			{
+				"key": "addTokenTo",
+				"value": "header",
+				"type": "string"
+			},
+			{
+				"key": "client_authentication",
+				"value": "header",
+				"type": "string"
+			},
+			{
+				"key": "accessTokenUrl",
+				"value": "{{tokenUrl}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api",
+			"type": "string"
+		}
+	]
+}

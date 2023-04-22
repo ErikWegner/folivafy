@@ -8,7 +8,7 @@ info:
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
   version: 1.0.0
 servers:
-  - url: https://qwirl.de/
+  - url: http://localhost:3000/
 tags:
   - name: administration
     description: Administrative tasks
@@ -315,8 +315,15 @@ components:
         id:
           $ref: "#/components/schemas/DocumentId"
         f:
-          $ref: '#/components/schemas/DocumentFields'
+          $ref: "#/components/schemas/DocumentFields"
       required:
         - id
         - f
       type: object
+  securitySchemes:
+    openIdlocal:
+      type: openIdConnect
+      openIdConnectUrl: http://localhost:8101/realms/folivafy/.well-known/openid-configuration
+security:
+  - openIdlocal:
+      - openid

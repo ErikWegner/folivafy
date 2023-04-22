@@ -17,14 +17,16 @@ use axum::{
     routing::get,
     Router,
 };
-use jwt_authorizer::JwtAuthorizer;
+use jwt_authorizer::{JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DbErr};
 use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{error, Span};
 
 use self::{
-    auth::User, create_collection::api_create_collection, list_collections::api_list_collections,
+    auth::{cert_loader, User},
+    create_collection::api_create_collection,
+    list_collections::api_list_collections,
 };
 
 #[derive(Clone)]
@@ -71,7 +73,7 @@ impl From<DbErr> for ApiErrors {
 pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
     // build our application with a route
     let app = api_routes(db)
-        .await
+        .await?
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
         //
@@ -112,11 +114,15 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
         .context("error running server")
 }
 
-async fn api_routes(db: DatabaseConnection) -> Router {
-    let jwt_auth: JwtAuthorizer<User> =
-        JwtAuthorizer::from_jwks_url("http://localhost:3000/oidc/jwks");
+async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
+    let issuer: &str = "http://localhost:8101/realms/folivafy";
 
-    Router::new().nest(
+    let pem_text = cert_loader(issuer).await?;
+    let validation = Validation::new().iss(&[issuer]).leeway(5);
+    let jwt_auth: JwtAuthorizer<User> =
+        JwtAuthorizer::from_rsa_pem_text(pem_text.as_str()).validation(validation);
+
+    Ok(Router::new().nest(
         "/api",
         Router::new()
             .route(
@@ -125,5 +131,5 @@ async fn api_routes(db: DatabaseConnection) -> Router {
             )
             .with_state(ApiContext { db })
             .layer(jwt_auth.layer().await.unwrap()),
-    )
+    ))
 }
