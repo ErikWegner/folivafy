@@ -419,7 +419,14 @@
     "emailVerified" : false,
     "firstName" : "",
     "lastName" : "",
-    "credentials" : [ ],
+    "credentials" : [ {
+      "id" : "1f9742a4-01a4-42e5-a571-fa379d722674",
+      "type" : "password",
+      "userLabel" : "My password",
+      "createdDate" : 1682189556221,
+      "secretData" : "{\"value\":\"j90yxoYqcrX6Q3PUAoopcPCAF7hRdSbJYCFNZIQRdus=\",\"salt\":\"cJYB7C/FgFAMfLAEpH55PQ==\",\"additionalParameters\":{}}",
+      "credentialData" : "{\"hashIterations\":27500,\"algorithm\":\"pbkdf2-sha256\",\"additionalParameters\":{}}"
+    } ],
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-folivafy" ],
