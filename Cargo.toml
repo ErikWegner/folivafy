@@ -12,7 +12,9 @@ members = [".", "entity", "migration"]
 anyhow = "1.0.70"
 axum = "0.6.16"
 axum-macros = "0.3.7"
+dotenvy = "0.15.7"
 entity = { path = "entity" }
+garde = "0.11.2"
 jwt-authorizer = "0.9.0"
 migration = { path = "migration" } # depends on your needs
 openapi = { path = "./generated", default-features = false, features = [
@@ -34,4 +36,3 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 validator = { version = "0.16.0", features = ["derive"] }
 reqwest = { version = "0.11.16", features = ["rustls"] }
-dotenvy = "0.15.7"

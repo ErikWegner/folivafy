@@ -19,7 +19,7 @@ async fn main() {
             .help("Whether to use HTTPS or not"))
         .get_matches();
 
-    let addr = "127.0.0.1:8080";
+    let addr = "127.0.0.1:3000";
 
     server::create(addr, matches.is_present("https")).await;
 }

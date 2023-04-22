@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 1.0.0
-- Build date: 2023-04-22T06:44:25.461035042Z[GMT]
+- Build date: 2023-04-22T20:00:25.454962606Z[GMT]
 
 
 
@@ -93,7 +93,7 @@ See https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section
 
 ## Documentation for API Endpoints
 
-All URIs are relative to *https://qwirl.de*
+All URIs are relative to *http://localhost:3000*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------

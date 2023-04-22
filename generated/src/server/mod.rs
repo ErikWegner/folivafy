@@ -162,6 +162,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // CreateCollection - POST /collections
             hyper::Method::POST if path.matched(paths::ID_COLLECTIONS) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                 // Body parameters (note that non-required body parameters will ignore garbage
                 // values, rather than causing a 400 response). Produce warning header and logs for
                 // any unused fields.
@@ -246,6 +256,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // GetCollections - GET /collections
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                                 let result = api_impl.get_collections(
                                         &context
                                     ).await;
@@ -282,6 +302,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // GetItemById - GET /collections/{collection}/{documentId}
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                 // Path parameters
                 let path: &str = uri.path();
                 let path_params =
@@ -361,6 +391,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // ListCollection - GET /collections/{collection}
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS_COLLECTION) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                 // Path parameters
                 let path: &str = uri.path();
                 let path_params =
@@ -425,6 +465,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // StoreIntoCollection - POST /collections/{collection}
             hyper::Method::POST if path.matched(paths::ID_COLLECTIONS_COLLECTION) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                 // Path parameters
                 let path: &str = uri.path();
                 let path_params =
@@ -533,6 +583,16 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
             // UpdateItemById - PUT /collections/{collection}/{documentId}
             hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => {
+                {
+                    let authorization = match *(&context as &dyn Has<Option<Authorization>>).get() {
+                        Some(ref authorization) => authorization,
+                        None => return Ok(Response::builder()
+                                                .status(StatusCode::FORBIDDEN)
+                                                .body(Body::from("Unauthenticated"))
+                                                .expect("Unable to create Authentication Forbidden response")),
+                    };
+                }
+
                 // Path parameters
                 let path: &str = uri.path();
                 let path_params =

@@ -44,12 +44,12 @@ fn main() {
         .arg(Arg::with_name("host")
             .long("host")
             .takes_value(true)
-            .default_value("qwirl.de")
+            .default_value("localhost")
             .help("Hostname to contact"))
         .arg(Arg::with_name("port")
             .long("port")
             .takes_value(true)
-            .default_value("8080")
+            .default_value("3000")
             .help("Port to contact"))
         .get_matches();
 

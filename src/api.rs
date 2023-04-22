@@ -20,10 +20,10 @@ use axum::{
 };
 use jwt_authorizer::{JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DbErr};
+use serde::Serialize;
 use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{error, Span};
-use validator::ValidationErrors;
 
 use self::{
     auth::{cert_loader, User},
@@ -78,9 +78,34 @@ impl From<DbErr> for ApiErrors {
     }
 }
 
-impl From<ValidationErrors> for ApiErrors {
-    fn from(err: ValidationErrors) -> Self {
-        ApiErrors::BadRequest(serde_json::to_string(&err).unwrap_or("Validation error".to_owned()))
+#[derive(Serialize, Debug)]
+struct ValidationErrors {
+    errors: Vec<String>,
+}
+
+impl From<garde::Errors> for ApiErrors {
+    fn from(err: garde::Errors) -> Self {
+        let error = match err {
+            garde::Errors::Simple(simple_errors) => ValidationErrors {
+                errors: simple_errors.iter().map(|err| err.to_string()).collect(),
+            },
+            garde::Errors::Nested(list, _) => ValidationErrors {
+                errors: list.iter().map(|err| err.to_string()).collect(),
+            },
+            garde::Errors::List(list) => ValidationErrors {
+                errors: list.iter().map(|err| err.to_string()).collect(),
+            },
+            garde::Errors::Fields(map) => ValidationErrors {
+                errors: map
+                    .iter()
+                    .map(|(key, err)| format!("{}: {}", key, err))
+                    .collect(),
+            },
+        };
+
+        ApiErrors::BadRequest(
+            serde_json::to_string(&error).unwrap_or("Validation error".to_owned()),
+        )
     }
 }
 

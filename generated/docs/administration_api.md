@@ -1,6 +1,6 @@
 # administration_api
 
-All URIs are relative to *https://qwirl.de*
+All URIs are relative to *http://localhost:3000*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
