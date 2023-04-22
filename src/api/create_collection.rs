@@ -1,19 +1,27 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use entity::collection;
+use jwt_authorizer::JwtClaims;
 use openapi::models::CreateCollectionRequest;
 use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
-use tracing::error;
-use tracing::info;
+use tracing::{error, info, warn};
+use validator::Validate;
+
+use crate::api::auth::User;
 
 use super::{ApiContext, ApiErrors};
 
 #[debug_handler]
 pub(crate) async fn api_create_collection(
     State(ctx): State<ApiContext>,
+    JwtClaims(user): JwtClaims<User>,
     Json(payload): Json<CreateCollectionRequest>,
 ) -> Result<(StatusCode, String), ApiErrors> {
-    //payload.validate().map_err(ApiErrors::from)?;
+    if !user.is_collections_administrator() {
+        warn!("User {} is not a collections admin", user.name_and_sub());
+        return Err(ApiErrors::PermissionDenied);
+    }
+    payload.validate().map_err(ApiErrors::from)?;
     let mut collection = collection::ActiveModel {
         ..Default::default()
     };

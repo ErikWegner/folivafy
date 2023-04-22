@@ -19,15 +19,27 @@ struct CertsResponse {
     keys: Vec<CertsX5CResponse>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub(crate) struct RealmAccess {
+    roles: Vec<String>,
+}
+
 // struct representing the authorized caller, deserializable from JWT claims
 #[derive(Debug, Deserialize, Clone)]
 pub(crate) struct User {
     sub: String,
+    preferred_username: String,
+    realm_access: RealmAccess,
 }
 
 impl User {
-    pub(crate) fn is_collections_administrator() -> bool {
-        false
+    pub(crate) fn is_collections_administrator(&self) -> bool {
+        self.realm_access
+            .roles
+            .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
+    }
+    pub(crate) fn name_and_sub(&self) -> String {
+        format!("{} ({})", self.preferred_username, self.sub)
     }
 }
 

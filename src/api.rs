@@ -23,6 +23,7 @@ use sea_orm::{DatabaseConnection, DbErr};
 use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{error, Span};
+use validator::ValidationErrors;
 
 use self::{
     auth::{cert_loader, User},
@@ -43,11 +44,17 @@ pub(crate) enum ApiErrors {
     BadRequest(String),
     #[error("Not found: {0}")]
     NotFound(String),
+    #[error("Unauthorized")]
+    PermissionDenied,
 }
 
 impl IntoResponse for ApiErrors {
     fn into_response(self) -> axum::response::Response {
         match self {
+            ApiErrors::PermissionDenied => (
+                StatusCode::UNAUTHORIZED,
+                ApiErrors::PermissionDenied.to_string(),
+            ),
             ApiErrors::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error".to_string(),
@@ -68,6 +75,12 @@ impl From<DbErr> for ApiErrors {
                 ApiErrors::InternalServerError
             }
         }
+    }
+}
+
+impl From<ValidationErrors> for ApiErrors {
+    fn from(err: ValidationErrors) -> Self {
+        ApiErrors::BadRequest(serde_json::to_string(&err).unwrap_or("Validation error".to_owned()))
     }
 }
 
