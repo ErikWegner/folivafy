@@ -45,6 +45,11 @@ impl User {
         self.realm_access.roles.contains(&role_name)
     }
 
+    pub(crate) fn is_collection_reader(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_READER", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
     pub(crate) fn name_and_sub(&self) -> String {
         format!("{} ({})", self.preferred_username, self.sub)
     }

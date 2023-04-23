@@ -25,7 +25,7 @@ pub(crate) async fn api_create_document(
 ) -> Result<(StatusCode, String), ApiErrors> {
     // Check if user is allowed to create a document within the collection
     if !user.is_collection_editor(&collection_name) {
-        warn!("User {} is not a collections admin", user.name_and_sub());
+        warn!("User {} is not a collection editor", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);
     }
 

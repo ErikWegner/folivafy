@@ -13,7 +13,7 @@ tags:
   - name: administration
     description: Administrative tasks
   - name: collection
-    description: Collection handling
+    description: Handling documents within the collection
 paths:
   /collections:
     get:

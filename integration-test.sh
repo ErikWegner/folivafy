@@ -11,6 +11,9 @@ COLADMIN_SECRET=q3RRoqv6tQNP8PRVJq0WdQOU1WKmbU6X
 SHAPES_EDITOR_CLIENT=inttest_shapes_editor
 SHAPES_EDITOR_SECRET=Ha7hcGzlHHYQc0rMS9vtlaecDHunTG8I
 
+SHAPES_READER_CLIENT=inttest_shapes_reader
+SHAPES_READER_SECRET=hI523HzLvNmg8WDn4Dd7DY1NmAIV0KtK
+
 OIDCTOKEN=""
 API=http://localhost:3000/api
 
@@ -134,6 +137,38 @@ RESP=$(curl --silent \
 if [ "$RESP" != "Document saved" ]
 then
       echo "Failure: user is not allowed to save circle document!\n$RESP"
+fi
+
+
+echo "- Access denied for user $NO_ROLE without shapes reader role"
+authorize_client $NO_ROLE_CLIENT $NO_ROLE_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes)
+if [ "$RESP" != "Unauthorized" ]
+then
+      echo "Failure: user is allowed to list documents!\n$RESP"
+fi
+
+
+echo "- Access denied for user $SHAPES_EDITOR_CLIENT without shapes reader role"
+authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes)
+if [ "$RESP" != "Unauthorized" ]
+then
+      echo "Failure: user is allowed to list documents!\n$RESP"
+fi
+
+
+echo "- Can list shapes "
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "2" ]
+then
+      echo "Failure: list of documents incomplete!\n$RESP"
 fi
 
 
