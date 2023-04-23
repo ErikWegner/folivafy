@@ -47,5 +47,6 @@ docker cp folivafy_devcontainer-keycloak-1:/opt/keycloak/dev_realm.json dev_real
 
 ```bash
 cargo install sea-orm-cli
-sea-orm-cli generate entity -u $DATABASE_URL -o src/entities
+export DATABASE_URL=postgresql://postgres:postgres@db/postgres
+sea-orm-cli generate entity -o entity/src
 ```

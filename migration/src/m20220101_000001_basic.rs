@@ -45,6 +45,60 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                    .table(CollectionDocument::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(CollectionDocument::Id)
+                            .uuid()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionDocument::CollectionId)
+                            .uuid()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(CollectionDocument::Owner).uuid().not_null())
+                    .col(
+                        ColumnDef::new(CollectionDocument::F)
+                            .json_binary()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-doc-collection_id")
+                            .from(CollectionDocument::Table, CollectionDocument::CollectionId)
+                            .to(Collection::Table, Collection::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("idx-doc_col")
+                    .table(CollectionDocument::Table)
+                    .col(CollectionDocument::CollectionId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .if_not_exists()
+                    .name("idx-doc_col_owner")
+                    .table(CollectionDocument::Table)
+                    .col(CollectionDocument::CollectionId)
+                    .col(CollectionDocument::Owner)
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
@@ -68,4 +122,13 @@ enum Collection {
     Title,
     Oao,
     Locked,
+}
+
+#[derive(Iden)]
+enum CollectionDocument {
+    Table,
+    Id,
+    CollectionId,
+    Owner,
+    F,
 }

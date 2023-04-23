@@ -3,3 +3,4 @@
 pub mod prelude;
 
 pub mod collection;
+pub mod collection_document;
