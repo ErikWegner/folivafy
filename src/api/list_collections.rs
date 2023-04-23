@@ -39,9 +39,10 @@ pub(crate) async fn api_list_collections(
         items: items
             .iter()
             .map(|dbitem| openapi::models::Collection {
+                locked: dbitem.locked,
                 name: dbitem.name.clone(),
-                title: dbitem.title.clone(),
                 oao: dbitem.oao,
+                title: dbitem.title.clone(),
             })
             .collect(),
     }))
