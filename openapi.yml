@@ -285,11 +285,9 @@ components:
           - id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
             f:
               title: Rectangle
-              price: 14
           - id: e109a39d-fb8b-4d15-9794-9f3b2eca9132
             f:
               title: Circle
-              price: 19
       properties:
         limit:
           default: 50
