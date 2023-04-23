@@ -25,6 +25,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Collection::Title).string_len(150).not_null())
                     .col(ColumnDef::new(Collection::Oao).boolean().not_null())
+                    .col(
+                        ColumnDef::new(Collection::Locked)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -61,4 +67,5 @@ enum Collection {
     Name,
     Title,
     Oao,
+    Locked,
 }

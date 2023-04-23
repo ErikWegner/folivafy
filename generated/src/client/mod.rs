@@ -392,7 +392,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections",
+            "{}/api/collections",
             self.base_path
         );
 
@@ -490,7 +490,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections",
+            "{}/api/collections",
             self.base_path
         );
 
@@ -578,7 +578,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections/{collection}/{document_id}",
+            "{}/api/collections/{collection}/{document_id}",
             self.base_path
             ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
             ,document_id=utf8_percent_encode(&param_document_id.to_string(), ID_ENCODE_SET)
@@ -672,7 +672,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections/{collection}",
+            "{}/api/collections/{collection}",
             self.base_path
             ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
         );
@@ -766,7 +766,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections/{collection}",
+            "{}/api/collections/{collection}",
             self.base_path
             ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
         );
@@ -867,7 +867,7 @@ impl<S, C> Api<C> for Client<S, C> where
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/collections/{collection}/{document_id}",
+            "{}/api/collections/{collection}/{document_id}",
             self.base_path
             ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
             ,document_id=utf8_percent_encode(&param_document_id.to_string(), ID_ENCODE_SET)

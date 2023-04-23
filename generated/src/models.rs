@@ -27,15 +27,21 @@ pub struct Collection {
     #[garde(skip)]
     pub oao: bool,
 
+    /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`). 
+    #[serde(rename = "locked")]
+    #[garde(skip)]
+    pub locked: bool,
+
 }
 
 impl Collection {
     #[allow(clippy::new_without_default)]
-    pub fn new(name: String, title: String, oao: bool, ) -> Collection {
+    pub fn new(name: String, title: String, oao: bool, locked: bool, ) -> Collection {
         Collection {
             name,
             title,
             oao,
+            locked,
         }
     }
 }
@@ -58,6 +64,10 @@ impl std::string::ToString for Collection {
             Some("oao".to_string()),
             Some(self.oao.to_string()),
 
+
+            Some("locked".to_string()),
+            Some(self.locked.to_string()),
+
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -78,6 +88,7 @@ impl std::str::FromStr for Collection {
             pub name: Vec<String>,
             pub title: Vec<String>,
             pub oao: Vec<bool>,
+            pub locked: Vec<bool>,
         }
 
         let mut intermediate_rep = IntermediateRep::default();
@@ -101,6 +112,8 @@ impl std::str::FromStr for Collection {
                     "title" => intermediate_rep.title.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
                     "oao" => intermediate_rep.oao.push(<bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "locked" => intermediate_rep.locked.push(<bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     _ => return std::result::Result::Err("Unexpected key while parsing Collection".to_string())
                 }
             }
@@ -114,6 +127,7 @@ impl std::str::FromStr for Collection {
             name: intermediate_rep.name.into_iter().next().ok_or_else(|| "name missing in Collection".to_string())?,
             title: intermediate_rep.title.into_iter().next().ok_or_else(|| "title missing in Collection".to_string())?,
             oao: intermediate_rep.oao.into_iter().next().ok_or_else(|| "oao missing in Collection".to_string())?,
+            locked: intermediate_rep.locked.into_iter().next().ok_or_else(|| "locked missing in Collection".to_string())?,
         })
     }
 }

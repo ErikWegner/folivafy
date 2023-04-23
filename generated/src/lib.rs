@@ -11,7 +11,7 @@ use serde::{Serialize, Deserialize};
 
 type ServiceError = Box<dyn Error + Send + Sync + 'static>;
 
-pub const BASE_PATH: &str = "";
+pub const BASE_PATH: &str = "/api";
 pub const API_VERSION: &str = "1.0.0";
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]

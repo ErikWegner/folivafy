@@ -35,9 +35,9 @@ mod paths {
 
     lazy_static! {
         pub static ref GLOBAL_REGEX_SET: regex::RegexSet = regex::RegexSet::new(vec![
-            r"^/collections$",
-            r"^/collections/(?P<collection>[^/?#]*)$",
-            r"^/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$"
+            r"^/api/collections$",
+            r"^/api/collections/(?P<collection>[^/?#]*)$",
+            r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$"
         ])
         .expect("Unable to create global regex set");
     }
@@ -46,14 +46,14 @@ mod paths {
     lazy_static! {
         pub static ref REGEX_COLLECTIONS_COLLECTION: regex::Regex =
             #[allow(clippy::invalid_regex)]
-            regex::Regex::new(r"^/collections/(?P<collection>[^/?#]*)$")
+            regex::Regex::new(r"^/api/collections/(?P<collection>[^/?#]*)$")
                 .expect("Unable to create regex for COLLECTIONS_COLLECTION");
     }
     pub(crate) static ID_COLLECTIONS_COLLECTION_DOCUMENTID: usize = 2;
     lazy_static! {
         pub static ref REGEX_COLLECTIONS_COLLECTION_DOCUMENTID: regex::Regex =
             #[allow(clippy::invalid_regex)]
-            regex::Regex::new(r"^/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$")
+            regex::Regex::new(r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$")
                 .expect("Unable to create regex for COLLECTIONS_COLLECTION_DOCUMENTID");
     }
 }

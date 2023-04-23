@@ -8,7 +8,7 @@ info:
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
   version: 1.0.0
 servers:
-  - url: http://localhost:3000/
+  - url: http://localhost:3000/api
 tags:
   - name: administration
     description: Administrative tasks
@@ -207,11 +207,13 @@ components:
         offset: 0
         limit: 20
         items:
-          - oao: false
+          - locked: true
             name: shapes
+            oao: false
             title: Shapes
-          - oao: true
+          - locked: false
             name: letters
+            oao: true
             title: Letters
       properties:
         limit:
@@ -239,8 +241,9 @@ components:
       type: object
     Collection:
       example:
-        oao: true
+        locked: false
         name: shapes
+        oao: true
         title: Shapes
       properties:
         name:
@@ -262,9 +265,15 @@ components:
             are _owner access only_ (value `true`) or all documents in the
             collection can be read by all users (`false`).
           type: boolean
+        locked:
+          description: |
+            Indicates if new documents within the collection can be created
+            (value `false`) or the collection is set to read only (`true`).
+          type: boolean
       required:
-        - oao
+        - locked
         - name
+        - oao
         - title
       type: object
     CollectionItemsList:
