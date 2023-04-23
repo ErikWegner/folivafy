@@ -20,6 +20,10 @@ SHAPES_EDITOR_SECRET=Ha7hcGzlHHYQc0rMS9vtlaecDHunTG8I
 SHAPES_READER_CLIENT=inttest_shapes_reader
 SHAPES_READER_SECRET=hI523HzLvNmg8WDn4Dd7DY1NmAIV0KtK
 
+# Account with role Reader for Shapes collection
+SHAPES_READER_OTHER_CLIENT=inttest_shapes_reader_other
+SHAPES_READER_OTHER_SECRET=ZcSYrGhXVpRRtLUmGn7CQpcMw3sVw2PT
+
 # Account with roles for Letters collection
 LETTERS_ALPACA_USER_CLIENT=inttest_letters_alpaca
 LETTERS_ALPACA_USER_SECRET=xcZrWkLvJo0wcfjzWIefnYn8yNNRu7Dj
@@ -305,6 +309,64 @@ TOTAL=$(echo $RESP | jq -r '.total')
 if [ "$TOTAL" != "1" ]
 then
       echo "Failure: list of documents incomplete!\n$RESP"
+fi
+
+
+#####################################################
+##
+##  Document access
+##
+#####################################################
+
+
+echo "- User can read rectangle"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/ea25fa9d-4650-41ae-a1fa-00bd226b648f)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read rectangle!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.f.price')
+if [ "$CONTENT" != "14" ]
+then
+      echo "Failure: alpaca letter 1 content!\n$RESP"
+fi
+
+
+echo "- Other user can read rectangle"
+authorize_client $SHAPES_READER_OTHER_CLIENT $SHAPES_READER_OTHER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/ea25fa9d-4650-41ae-a1fa-00bd226b648f)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: other user is not allowed to read rectangle!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.f.price')
+if [ "$CONTENT" != "14" ]
+then
+      echo "Failure: alpaca letter 1 content!\n$RESP"
+fi
+
+
+echo "- User 1 can retrieve its letter"
+authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read alpaca letter 1!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.f.content')
+if [ "$CONTENT" != "foo" ]
+then
+      echo "Failure: alpaca letter 1 content!\n$RESP"
+fi
+
+
+echo "- User 2 cannot retrieve other users letter"
+authorize_client $LETTERS_BEAR_USER_CLIENT $LETTERS_BEAR_USER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
+if [ "$RESP" != "Document ff901d16-a533-4ad7-9e75-d69407440804 not found" ]
+then
+      echo "Failure: user is allowed to read alpaca letter 1!\n$RESP"
 fi
 
 

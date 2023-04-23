@@ -2,6 +2,7 @@ mod auth;
 mod create_collection;
 mod create_document;
 mod db;
+mod get_document;
 mod list_collections;
 mod list_documents;
 mod types;
@@ -32,6 +33,7 @@ use self::{
     auth::{cert_loader, User},
     create_collection::api_create_collection,
     create_document::api_create_document,
+    get_document::api_read_document,
     list_collections::api_list_collections,
     list_documents::api_list_document,
 };
@@ -176,6 +178,10 @@ async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
             .route(
                 "/collections/:collection_name",
                 get(api_list_document).post(api_create_document),
+            )
+            .route(
+                "/collections/:collection_name/:document_id",
+                get(api_read_document),
             )
             .with_state(ApiContext { db })
             .layer(jwt_auth.layer().await.unwrap()),
