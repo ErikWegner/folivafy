@@ -314,7 +314,7 @@ fi
 
 #####################################################
 ##
-##  Document access
+##  Document read access
 ##
 #####################################################
 
@@ -367,6 +367,82 @@ RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collection
 if [ "$RESP" != "Document ff901d16-a533-4ad7-9e75-d69407440804 not found" ]
 then
       echo "Failure: user is allowed to read alpaca letter 1!\n$RESP"
+fi
+
+
+#####################################################
+##
+##  Document update access
+##
+#####################################################
+
+
+echo "- User can update rectangle"
+authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
+RESP=$(curl --silent \
+  --request PUT \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "ea25fa9d-4650-41ae-a1fa-00bd226b648f","f": {"title": "Square", "area": 3}}' \
+  $API/collections/shapes)
+if [ "$RESP" != "Document updated" ]
+then
+      echo "Failure: user is not allowed to save rectangle document!\n$RESP"
+fi
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/ea25fa9d-4650-41ae-a1fa-00bd226b648f)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read square!\n$RESP"
+fi
+CONTENT=$(echo $RESP)
+if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"}}' ]
+then
+      echo "Failure: square content!\n$RESP\n$CONTENT"
+fi
+
+
+echo "- Alpaca can update letter"
+authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
+RESP=$(curl --silent \
+  --request PUT \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "ff901d16-a533-4ad7-9e75-d69407440804","f": {"title": "Alpaca letter 1/b", "content": "FooFoo"}}' \
+  $API/collections/letters)
+if [ "$RESP" != "Document updated" ]
+then
+      echo "Failure: user is not allowed to update Alpaca letter 1!\n$RESP"
+fi
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read Alpaca letter 1!\n$RESP"
+fi
+CONTENT=$(echo $RESP)
+if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"}}' ]
+then
+      echo "Failure: Alpaca letter 1 content!\n$RESP\n$CONTENT"
+fi
+
+
+echo "- Bear cannot update Alpaca letter"
+authorize_client $LETTERS_BEAR_USER_CLIENT $LETTERS_BEAR_USER_SECRET
+RESP=$(curl --silent \
+  --request PUT \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "ff901d16-a533-4ad7-9e75-d69407440804","f": {"title": "Alpaca letter 1/b", "content": "FooFoo"}}' \
+  $API/collections/letters)
+if [ "$RESP" == "Document updated" ]
+then
+      echo "Failure: bear is allowed to update Alpaca letter 1!\n$RESP"
+fi
+authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
+if [ "$RESP" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"}}' ]
+then
+      echo "Failure: Alpaca letter 1 content!\n$RESP"
 fi
 
 

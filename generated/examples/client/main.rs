@@ -117,7 +117,6 @@ fn main() {
         Some("UpdateItemById") => {
             let result = rt.block_on(client.update_item_by_id(
                   "collection_example".to_string(),
-                  serde_json::from_str::<uuid::Uuid>(r#"38400000-8cf0-11bd-b23e-10b96e4ef00d"#).expect("Failed to parse JSON example"),
                   ???
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());

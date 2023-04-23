@@ -168,12 +168,11 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     async fn update_item_by_id(
         &self,
         collection: String,
-        document_id: uuid::Uuid,
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>
     {
         let context = context.clone();
-        info!("update_item_by_id(\"{}\", {:?}, {:?}) - X-Span-ID: {:?}", collection, document_id, collection_item, context.get().0.clone());
+        info!("update_item_by_id(\"{}\", {:?}) - X-Span-ID: {:?}", collection, collection_item, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 

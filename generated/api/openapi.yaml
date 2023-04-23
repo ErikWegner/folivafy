@@ -11,7 +11,7 @@ servers:
 tags:
 - description: Administrative tasks
   name: administration
-- description: Collection handling
+- description: Handling documents within the collection
   name: collection
 paths:
   /collections:
@@ -108,6 +108,38 @@ paths:
       summary: Create new item
       tags:
       - collection
+    put:
+      description: Replace the item data
+      operationId: updateItemById
+      parameters:
+      - description: Path name of the collection
+        explode: false
+        in: path
+        name: collection
+        required: true
+        schema:
+          $ref: '#/components/schemas/CollectionName'
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionItem'
+        description: Item payload
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                example: 201 Created
+                type: string
+          description: successful operation
+        "400":
+          description: Updating failed
+      summary: Replace item
+      tags:
+      - collection
   /collections/{collection}/{documentId}:
     get:
       description: Get item data
@@ -139,46 +171,6 @@ paths:
         "404":
           description: Item not found
       summary: Get item
-      tags:
-      - collection
-    put:
-      description: Replace the item data
-      operationId: updateItemById
-      parameters:
-      - description: Path name of the collection
-        explode: false
-        in: path
-        name: collection
-        required: true
-        schema:
-          $ref: '#/components/schemas/CollectionName'
-        style: simple
-      - description: Document id as path component
-        explode: false
-        in: path
-        name: documentId
-        required: true
-        schema:
-          $ref: '#/components/schemas/DocumentId'
-        style: simple
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CollectionItem'
-        description: Item payload
-        required: true
-      responses:
-        "201":
-          content:
-            text/plain:
-              schema:
-                example: 201 Created
-                type: string
-          description: successful operation
-        "400":
-          description: Updating failed
-      summary: Replace item
       tags:
       - collection
 components:
@@ -301,11 +293,9 @@ components:
         - id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
           f:
             title: Rectangle
-            price: 14
         - id: e109a39d-fb8b-4d15-9794-9f3b2eca9132
           f:
             title: Circle
-            price: 19
       properties:
         limit:
           default: 50

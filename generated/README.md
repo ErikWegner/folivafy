@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 1.0.0
-- Build date: 2023-04-23T15:28:15.671647524Z[GMT]
+- Build date: 2023-04-23T18:29:10.732393603Z[GMT]
 
 
 
@@ -102,7 +102,7 @@ Method | HTTP request | Description
 [**getItemById**](docs/collection_api.md#getItemById) | **GET** /collections/{collection}/{documentId} | Get item
 [**listCollection**](docs/collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
 [**storeIntoCollection**](docs/collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
-[**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection}/{documentId} | Replace item
+[**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
 
 
 ## Documentation For Models

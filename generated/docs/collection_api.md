@@ -7,7 +7,7 @@ Method | HTTP request | Description
 **getItemById**](collection_api.md#getItemById) | **GET** /collections/{collection}/{documentId} | Get item
 **listCollection**](collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
 **storeIntoCollection**](collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
-**updateItemById**](collection_api.md#updateItemById) | **PUT** /collections/{collection}/{documentId} | Replace item
+**updateItemById**](collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
 
 
 # **getItemById**
@@ -94,7 +94,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **updateItemById**
-> String updateItemById(collection, document_id, collection_item)
+> String updateItemById(collection, collection_item)
 Replace item
 
 Replace the item data
@@ -104,7 +104,6 @@ Replace the item data
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
   **collection** | **String**| Path name of the collection | 
-  **document_id** | [****](.md)| Document id as path component | 
   **collection_item** | [**CollectionItem**](CollectionItem.md)| Item payload | 
 
 ### Return type

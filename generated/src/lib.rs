@@ -119,7 +119,6 @@ pub trait Api<C: Send + Sync> {
     async fn update_item_by_id(
         &self,
         collection: String,
-        document_id: uuid::Uuid,
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>;
 
@@ -169,7 +168,6 @@ pub trait ApiNoContext<C: Send + Sync> {
     async fn update_item_by_id(
         &self,
         collection: String,
-        document_id: uuid::Uuid,
         collection_item: models::CollectionItem,
         ) -> Result<UpdateItemByIdResponse, ApiError>;
 
@@ -253,12 +251,11 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     async fn update_item_by_id(
         &self,
         collection: String,
-        document_id: uuid::Uuid,
         collection_item: models::CollectionItem,
         ) -> Result<UpdateItemByIdResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().update_item_by_id(collection, document_id, collection_item, &context).await
+        self.api().update_item_by_id(collection, collection_item, &context).await
     }
 
 }

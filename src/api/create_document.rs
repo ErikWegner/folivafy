@@ -7,9 +7,8 @@ use axum_macros::debug_handler;
 use entity::collection_document;
 use garde::Validate;
 use jwt_authorizer::JwtClaims;
-use migration::DbErr;
 use openapi::models::CollectionItem;
-use sea_orm::{EntityTrait, RuntimeErr, Set};
+use sea_orm::{error::DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::{debug, error, warn};
 
 use crate::api::{auth::User, ApiErrors};

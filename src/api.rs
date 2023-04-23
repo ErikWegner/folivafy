@@ -6,6 +6,7 @@ mod get_document;
 mod list_collections;
 mod list_documents;
 mod types;
+mod update_document;
 
 use std::{
     env,
@@ -36,6 +37,7 @@ use self::{
     get_document::api_read_document,
     list_collections::api_list_collections,
     list_documents::api_list_document,
+    update_document::api_update_document,
 };
 
 #[derive(Clone)]
@@ -177,7 +179,9 @@ async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
             )
             .route(
                 "/collections/:collection_name",
-                get(api_list_document).post(api_create_document),
+                get(api_list_document)
+                    .post(api_create_document)
+                    .put(api_update_document),
             )
             .route(
                 "/collections/:collection_name/:document_id",

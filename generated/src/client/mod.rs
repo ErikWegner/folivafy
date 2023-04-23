@@ -816,16 +816,14 @@ impl<S, C> Api<C> for Client<S, C> where
     async fn update_item_by_id(
         &self,
         param_collection: String,
-        param_document_id: uuid::Uuid,
         param_collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>
     {
         let mut client_service = self.client_service.clone();
         let mut uri = format!(
-            "{}/api/collections/{collection}/{document_id}",
+            "{}/api/collections/{collection}",
             self.base_path
             ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
-            ,document_id=utf8_percent_encode(&param_document_id.to_string(), ID_ENCODE_SET)
         );
 
         // Query parameters

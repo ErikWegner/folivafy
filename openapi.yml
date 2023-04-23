@@ -120,6 +120,31 @@ paths:
           description: successful operation
         "400":
           description: Creating the collection failed
+    put:
+      tags:
+        - collection
+      summary: Replace item
+      description: Replace the item data
+      operationId: updateItemById
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectionItem"
+        description: Item payload
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 Created
+          description: successful operation
+        "400":
+          description: Updating failed
   /collections/{collection}/{documentId}:
     get:
       description: Get item data
@@ -139,32 +164,6 @@ paths:
       summary: Get item
       tags:
         - collection
-    put:
-      tags:
-        - collection
-      summary: Replace item
-      description: Replace the item data
-      operationId: updateItemById
-      parameters:
-        - $ref: "#/components/parameters/CollectionNameParam"
-        - $ref: "#/components/parameters/DocumentIdParam"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CollectionItem"
-        description: Item payload
-        required: true
-      responses:
-        "201":
-          content:
-            text/plain:
-              schema:
-                type: string
-                example: 201 Created
-          description: successful operation
-        "400":
-          description: Updating failed
 components:
   parameters:
     CollectionNameParam:

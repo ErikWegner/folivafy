@@ -531,15 +531,15 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                         }
             },
 
-            // UpdateItemById - PUT /collections/{collection}/{documentId}
-            hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => {
+            // UpdateItemById - PUT /collections/{collection}
+            hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION) => {
                 // Path parameters
                 let path: &str = uri.path();
                 let path_params =
-                    paths::REGEX_COLLECTIONS_COLLECTION_DOCUMENTID
+                    paths::REGEX_COLLECTIONS_COLLECTION
                     .captures(path)
                     .unwrap_or_else(||
-                        panic!("Path {} matched RE COLLECTIONS_COLLECTION_DOCUMENTID in set but failed match against \"{}\"", path, paths::REGEX_COLLECTIONS_COLLECTION_DOCUMENTID.as_str())
+                        panic!("Path {} matched RE COLLECTIONS_COLLECTION in set but failed match against \"{}\"", path, paths::REGEX_COLLECTIONS_COLLECTION.as_str())
                     );
 
                 let param_collection = match percent_encoding::percent_decode(path_params["collection"].as_bytes()).decode_utf8() {
@@ -553,20 +553,6 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     Err(_) => return Ok(Response::builder()
                                         .status(StatusCode::BAD_REQUEST)
                                         .body(Body::from(format!("Couldn't percent-decode path parameter as UTF-8: {}", &path_params["collection"])))
-                                        .expect("Unable to create Bad Request response for invalid percent decode"))
-                };
-
-                let param_document_id = match percent_encoding::percent_decode(path_params["documentId"].as_bytes()).decode_utf8() {
-                    Ok(param_document_id) => match param_document_id.parse::<uuid::Uuid>() {
-                        Ok(param_document_id) => param_document_id,
-                        Err(e) => return Ok(Response::builder()
-                                        .status(StatusCode::BAD_REQUEST)
-                                        .body(Body::from(format!("Couldn't parse path parameter documentId: {}", e)))
-                                        .expect("Unable to create Bad Request response for invalid path parameter")),
-                    },
-                    Err(_) => return Ok(Response::builder()
-                                        .status(StatusCode::BAD_REQUEST)
-                                        .body(Body::from(format!("Couldn't percent-decode path parameter as UTF-8: {}", &path_params["documentId"])))
                                         .expect("Unable to create Bad Request response for invalid percent decode"))
                 };
 
@@ -602,7 +588,6 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
                                 let result = api_impl.update_item_by_id(
                                             param_collection,
-                                            param_document_id,
                                             param_collection_item,
                                         &context
                                     ).await;
@@ -680,8 +665,8 @@ impl<T> RequestParser<T> for ApiRequestParser {
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("ListCollection"),
             // StoreIntoCollection - POST /collections/{collection}
             hyper::Method::POST if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("StoreIntoCollection"),
-            // UpdateItemById - PUT /collections/{collection}/{documentId}
-            hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => Some("UpdateItemById"),
+            // UpdateItemById - PUT /collections/{collection}
+            hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("UpdateItemById"),
             _ => None,
         }
     }
