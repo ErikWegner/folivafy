@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use reqwest::Url;
+use sea_orm::prelude::Uuid;
 use serde::Deserialize;
 use tracing::debug;
 
@@ -38,8 +39,18 @@ impl User {
             .roles
             .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
     }
+
+    pub(crate) fn is_collection_editor(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_EDITOR", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
     pub(crate) fn name_and_sub(&self) -> String {
         format!("{} ({})", self.preferred_username, self.sub)
+    }
+
+    pub(crate) fn subuuid(&self) -> Uuid {
+        Uuid::parse_str(self.sub.as_ref()).unwrap_or_default()
     }
 }
 

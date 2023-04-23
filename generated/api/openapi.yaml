@@ -8,9 +8,6 @@ info:
   version: 1.0.0
 servers:
 - url: http://localhost:3000/api
-security:
-- openIdlocal:
-  - openid
 tags:
 - description: Administrative tasks
   name: administration
@@ -379,8 +376,4 @@ components:
       - oao
       - title
       type: object
-  securitySchemes:
-    openIdlocal:
-      openIdConnectUrl: http://localhost:8101/realms/folivafy/.well-known/openid-configuration
-      type: openIdConnect
 

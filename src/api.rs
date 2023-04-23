@@ -1,5 +1,7 @@
 mod auth;
 mod create_collection;
+mod create_document;
+mod db;
 mod list_collections;
 mod types;
 
@@ -15,7 +17,7 @@ use axum::{
     body::Bytes,
     http::{HeaderMap, Request, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use jwt_authorizer::{JwtAuthorizer, Validation};
@@ -28,6 +30,7 @@ use tracing::{error, Span};
 use self::{
     auth::{cert_loader, User},
     create_collection::api_create_collection,
+    create_document::api_create_document,
     list_collections::api_list_collections,
 };
 
@@ -168,6 +171,7 @@ async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
                 "/collections",
                 get(api_list_collections).post(api_create_collection),
             )
+            .route("/collections/:collection_name", post(api_create_document))
             .with_state(ApiContext { db })
             .layer(jwt_auth.layer().await.unwrap()),
     ))

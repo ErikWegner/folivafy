@@ -14,3 +14,4 @@ docker run --rm \
     --package-name openapi \
     --additional-properties=preferUnsignedInt=true \
     -o /generated
+echo "disable_all_formatting = true" > generated/rustfmt.toml

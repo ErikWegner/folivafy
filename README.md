@@ -50,3 +50,10 @@ cargo install sea-orm-cli
 export DATABASE_URL=postgresql://postgres:postgres@db/postgres
 sea-orm-cli generate entity -o entity/src
 ```
+
+## Integration tests
+
+```bash
+cat integration-test.sql | docker exec -i folivafy_devcontainer-db-1 psql -U postgres postgres
+docker exec -it --user $(id -u):$(id -g) folivafy_devcontainer-app-1 /bin/bash -c "cd /workspaces/folivafy ; ./integration-test.sh"
+```

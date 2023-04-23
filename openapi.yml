@@ -329,10 +329,3 @@ components:
         - id
         - f
       type: object
-  securitySchemes:
-    openIdlocal:
-      type: openIdConnect
-      openIdConnectUrl: http://localhost:8101/realms/folivafy/.well-known/openid-configuration
-security:
-  - openIdlocal:
-      - openid
