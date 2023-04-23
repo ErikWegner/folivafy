@@ -42,3 +42,10 @@ To update the file from a running keycloak instance, use these commands:
 docker exec -it folivafy_devcontainer-keycloak-1 /bin/bash -c "/opt/keycloak/bin/kc.sh export --file /opt/keycloak/dev_realm.json --realm folivafy --users same_file"
 docker cp folivafy_devcontainer-keycloak-1:/opt/keycloak/dev_realm.json dev_realm.json
 ```
+
+## SEA ORM Entity Generation
+
+```bash
+cargo install sea-orm-cli
+sea-orm-cli generate entity -u $DATABASE_URL -o src/entities
+```
