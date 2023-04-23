@@ -50,9 +50,9 @@ pub(crate) async fn api_create_document(
     }
 
     let document = collection_document::ActiveModel {
-        id: Set(payload.id.clone()),
+        id: Set(payload.id),
         f: Set(payload.f.clone()),
-        collection_id: Set(collection.id.clone()),
+        collection_id: Set(collection.id),
         owner: Set(user.subuuid()),
     };
 
