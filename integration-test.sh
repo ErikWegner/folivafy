@@ -302,7 +302,7 @@ then
       echo "Failure: user is not allowed to list letters!\n$RESP"
 fi
 TOTAL=$(echo $RESP | jq -r '.total')
-if [ "$TOTAL" != "2" ]
+if [ "$TOTAL" != "1" ]
 then
       echo "Failure: list of documents incomplete!\n$RESP"
 fi
