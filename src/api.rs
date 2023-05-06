@@ -155,7 +155,7 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
 
     // run it
     let addr = SocketAddr::new(IpAddr::from_str("::")?, 3000);
-    tracing::debug!("listening on {}", addr);
+    tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
