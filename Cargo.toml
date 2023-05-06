@@ -15,13 +15,16 @@ axum-macros = "0.3.7"
 dotenvy = "0.15.7"
 entity = { path = "entity" }
 garde = "0.11.2"
-jwt-authorizer = "0.9.0"
+jwt-authorizer = { git = "https://github.com/cduvray/jwt-authorizer", rev = "7fc800d", default-features = false, features = [
+"rustls-tls",
+] }
+#jwt-authorizer = "0.9.0"
 migration = { path = "migration" } # depends on your needs
 openapi = { path = "./generated", default-features = false, features = [
     "lazy_static",
     "regex",
 ] }
-reqwest = { version = "0.11.16", features = ["rustls"] }
+reqwest = { version = "0.11.16", default-features = false, features = ["rustls", "rustls-tls"] }
 sea-orm = { version = "0.11.2", features = [
     "macros",
     "runtime-tokio-rustls",
