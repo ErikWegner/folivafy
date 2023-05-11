@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use axum_macros::debug_handler;
@@ -11,6 +11,7 @@ use sea_orm::{
     QueryOrder, QuerySelect,
 };
 use sea_query::Expr;
+use serde::Deserialize;
 use serde_json::json;
 use tracing::warn;
 
@@ -24,10 +25,26 @@ struct DocumentIdAndTitleQueryResult {
     title: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub(crate) struct ListDocumentParams {
+    #[serde(rename = "extraFields")]
+    extra_fields: Vec<String>,
+}
+
+impl Default for ListDocumentParams {
+    fn default() -> Self {
+        ListDocumentParams {
+            extra_fields: vec![],
+        }
+    }
+}
+
 #[debug_handler]
 pub(crate) async fn api_list_document(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
+    Query(list_params): Query<ListDocumentParams>,
     Path(collection_name): Path<String>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
@@ -55,10 +72,16 @@ pub(crate) async fn api_list_document(
         .await
         .map_err(ApiErrors::from)
         .map(|t| u32::try_from(t).unwrap_or_default())?;
-    let items: Vec<DocumentIdAndTitleQueryResult> = basefind
+    let mut basefind = basefind
         .select_only()
         .columns([entity::collection_document::Column::Id])
-        .column_as(Expr::cust("f->>'title'"), "title")
+        .column_as(Expr::cust("f->>'title'"), "title");
+    for extra_field in list_params.extra_fields {
+        let select_field = format!("f->>'{}'", extra_field);
+        basefind = basefind.column_as(Expr::cust(select_field.as_str()), extra_field);
+        //TODO: prevent SQL injection: regex [a-zA-Z0-9]
+    }
+    let items: Vec<DocumentIdAndTitleQueryResult> = basefind
         .order_by_asc(entity::collection_document::Column::Id)
         .limit(Some(pagination.limit().into()))
         .offset(Some(pagination.offset().into()))
