@@ -94,11 +94,15 @@ pub(crate) async fn api_list_document(
                   ) as "t"
                 WHERE "collection_id" = $1
                 ORDER BY "id"
-                LIMIT 50
-                OFFSET 0"#
+                LIMIT $2
+                OFFSET $3"#
         )
         .as_str(),
-        [collection.id.into()],
+        [
+            collection.id.into(),
+            pagination.limit().into(),
+            pagination.offset().into(),
+        ],
     ))
     .all(&ctx.db)
     .await
