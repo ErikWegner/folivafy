@@ -24,6 +24,7 @@ openapi = { path = "./generated", default-features = false, features = [
     "lazy_static",
     "regex",
 ] }
+regex = "1"
 reqwest = { version = "0.11.16", default-features = false, features = ["rustls", "rustls-tls"] }
 sea-orm = { version = "0.11.2", features = [
     "macros",

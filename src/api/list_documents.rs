@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use axum::{
     extract::{Path, Query, State},
     Json,
@@ -5,39 +7,24 @@ use axum::{
 use axum_macros::debug_handler;
 use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionItemsList;
+use openapi::models::{CollectionItem, CollectionItemsList};
+use regex::Regex;
 use sea_orm::{
-    prelude::Uuid, ColumnTrait, EntityTrait, FromQueryResult, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect,
+    prelude::Uuid, ColumnTrait, DbBackend, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait,
+    QueryFilter, Statement,
 };
-use sea_query::Expr;
 use serde::Deserialize;
-use serde_json::json;
 use tracing::warn;
 
 use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
 
 use super::{db::get_collection_by_name, types::Pagination, ApiContext, ApiErrors};
 
-#[derive(FromQueryResult)]
-struct DocumentIdAndTitleQueryResult {
-    id: Uuid,
-    title: String,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub(crate) struct ListDocumentParams {
     #[serde(rename = "extraFields")]
-    extra_fields: Vec<String>,
-}
-
-impl Default for ListDocumentParams {
-    fn default() -> Self {
-        ListDocumentParams {
-            extra_fields: vec![],
-        }
-    }
+    extra_fields: Option<String>,
 }
 
 #[debug_handler]
@@ -48,6 +35,13 @@ pub(crate) async fn api_list_document(
     Path(collection_name): Path<String>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
+    let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
+    let re = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
+    if !re.is_match(&extra_fields) {
+        return Err(ApiErrors::BadRequest(
+            "Invalid extraFields value".to_string(),
+        ));
+    }
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
     if collection.is_none() {
         return Err(ApiErrors::NotFound(collection_name));
@@ -72,33 +66,56 @@ pub(crate) async fn api_list_document(
         .await
         .map_err(ApiErrors::from)
         .map(|t| u32::try_from(t).unwrap_or_default())?;
-    let mut basefind = basefind
-        .select_only()
-        .columns([entity::collection_document::Column::Id])
-        .column_as(Expr::cust("f->>'title'"), "title");
-    for extra_field in list_params.extra_fields {
-        let select_field = format!("f->>'{}'", extra_field);
-        basefind = basefind.column_as(Expr::cust(select_field.as_str()), extra_field);
-        //TODO: prevent SQL injection: regex [a-zA-Z0-9]
+
+    let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
+    let title = "title".to_string();
+    if !extra_fields.contains(&title) {
+        extra_fields.push(title);
     }
-    let items: Vec<DocumentIdAndTitleQueryResult> = basefind
-        .order_by_asc(entity::collection_document::Column::Id)
-        .limit(Some(pagination.limit().into()))
-        .offset(Some(pagination.offset().into()))
-        .into_model::<DocumentIdAndTitleQueryResult>()
-        .all(&ctx.db)
-        .await
-        .map_err(ApiErrors::from)?;
+    let extra_fields = extra_fields
+        .into_iter()
+        .map(|f| format!("'{f}'"))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let items: Vec<JsonValue> = JsonValue::find_by_statement(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        format!(
+            "{}{}{}",
+            r#"SELECT "id", "t"."new_f" as "f"
+                FROM "collection_document"
+                cross join lateral (
+                 select jsonb_object_agg("key", "value") as "new_f"
+                 from jsonb_each("f") as x("key", "value")
+                 WHERE
+                    "key" in ("#,
+            extra_fields,
+            r#")
+                  ) as "t"
+                WHERE "collection_id" = $1
+                ORDER BY "id"
+                LIMIT 50
+                OFFSET 0"#
+        )
+        .as_str(),
+        [collection.id.into()],
+    ))
+    .all(&ctx.db)
+    .await
+    .map_err(ApiErrors::from)?;
+
+    let items = items
+        .into_iter()
+        .map(|i| CollectionItem {
+            id: Uuid::from_str(i["id"].as_str().unwrap()).unwrap(),
+            f: i["f"].clone(),
+        })
+        .collect();
+
     Ok(Json(CollectionItemsList {
         limit: pagination.limit(),
         offset: pagination.offset(),
         total,
-        items: items
-            .iter()
-            .map(|dbitem| openapi::models::CollectionItem {
-                id: dbitem.id,
-                f: json!({"title": dbitem.title}),
-            })
-            .collect(),
+        items,
     }))
 }
