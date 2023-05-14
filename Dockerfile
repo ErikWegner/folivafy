@@ -26,7 +26,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN strip -s /usr/src/folivafy/target/x86_64-unknown-linux-musl/release/folivafy
 
 ## Put together final image
-FROM alpine:3.17 AS runtime
+FROM alpine:3.18 AS runtime
 COPY --from=mimallocbuilder /mimalloc/build/*.so.* /lib/
 RUN ln -s /lib/libmimalloc.so.2.1 /lib/libmimalloc.so
 ENV LD_PRELOAD=/lib/libmimalloc.so
