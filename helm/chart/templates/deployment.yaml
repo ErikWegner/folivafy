@@ -34,10 +34,10 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: FOLIVAFY_DATABASE
-              value: {{ .Values.folivafy.FOLIVAFY_DATABASE }}
-            - name: FOLIVAFY_JWT_ISSUER
-              value: {{.Values.folivafy.FOLIVAFY_JWT_ISSUER }}
+            {{- range $key, $value := .Values.folivafy }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
             - name: RUST_LOG
               value: {{.Values.folivafy.LOGLEVEL }}
           ports:
