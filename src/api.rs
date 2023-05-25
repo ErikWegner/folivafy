@@ -3,10 +3,13 @@ mod create_collection;
 mod create_document;
 mod db;
 mod get_document;
+pub mod hooks;
 mod list_collections;
 mod list_documents;
 mod types;
 mod update_document;
+pub use entity::collection::Model as Collection;
+pub use openapi::models::CollectionItem;
 
 use std::{
     env,
@@ -35,6 +38,7 @@ use self::{
     create_collection::api_create_collection,
     create_document::api_create_document,
     get_document::api_read_document,
+    hooks::Hooks,
     list_collections::api_list_collections,
     list_documents::api_list_document,
     update_document::api_update_document,
@@ -43,10 +47,11 @@ use self::{
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
+    hooks: Hooks,
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ApiErrors {
+pub enum ApiErrors {
     #[error("Internal server error")]
     InternalServerError,
     #[error("Bad request: {0}")]
@@ -118,9 +123,9 @@ impl From<garde::Errors> for ApiErrors {
     }
 }
 
-pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
+pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
     // build our application with a route
-    let app = api_routes(db)
+    let app = api_routes(db, hooks)
         .await?
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
@@ -154,7 +159,14 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
         );
 
     // run it
-    let addr = SocketAddr::new(IpAddr::from_str("::")?, 3000);
+    let addr = SocketAddr::new(
+        IpAddr::from_str("::")?,
+        std::env::var("PORT")
+            .unwrap_or_else(|_| "3000".to_string())
+            .parse::<u16>()
+            .context("Cannot parse PORT")?,
+    );
+
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -162,7 +174,7 @@ pub async fn serve(db: DatabaseConnection) -> anyhow::Result<()> {
         .context("error running server")
 }
 
-async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
+async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
 
     let pem_text = cert_loader(&issuer).await?;
@@ -187,7 +199,7 @@ async fn api_routes(db: DatabaseConnection) -> anyhow::Result<Router> {
                 "/collections/:collection_name/:document_id",
                 get(api_read_document),
             )
-            .with_state(ApiContext { db })
+            .with_state(ApiContext { db, hooks })
             .layer(jwt_auth.layer().await.unwrap()),
     ))
 }

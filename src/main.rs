@@ -3,10 +3,9 @@ use std::env;
 use anyhow::Context;
 
 use dotenvy::dotenv;
+use folivafy::{api::hooks::Hooks, migrate};
 use sea_orm::{ConnectOptions, Database};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use migration::{Migrator, MigratorTrait};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,9 +26,9 @@ async fn main() -> anyhow::Result<()> {
     .await
     .context("could not connect to database_url")?;
 
-    Migrator::up(&db, None).await?;
+    migrate(&db).await?;
 
-    folivafy::api::serve(db).await?;
+    folivafy::api::serve(db, Hooks::new()).await?;
 
     Ok(())
 }

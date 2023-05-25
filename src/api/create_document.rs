@@ -9,9 +9,14 @@ use garde::Validate;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{error::DbErr, EntityTrait, RuntimeErr, Set};
+use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 
-use crate::api::{auth::User, ApiErrors};
+use crate::api::{
+    auth::User,
+    hooks::{HookContext, HookContextData, ItemActionStage, ItemActionType, RequestContext},
+    ApiErrors,
+};
 
 use super::{db::get_collection_by_name, ApiContext};
 
@@ -48,10 +53,34 @@ pub(crate) async fn api_create_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
+    let collection_id = collection.id;
+    let sender = ctx.hooks.execute_hook(
+        collection_name.as_ref(),
+        ItemActionType::Create,
+        ItemActionStage::Before,
+    );
+    let modified_payload = if let Some(sender) = sender {
+        let (tx, rx) = oneshot::channel::<Result<CollectionItem, ApiErrors>>();
+        let cdctx = HookContext::new(
+            HookContextData::DocumentAdding { document: payload },
+            RequestContext::new(collection),
+            tx,
+        );
+
+        sender
+            .send(cdctx)
+            .await
+            .map_err(|_e| ApiErrors::InternalServerError)?;
+
+        rx.await.map_err(|_e| ApiErrors::InternalServerError)??
+    } else {
+        payload
+    };
+
     let document = collection_document::ActiveModel {
-        id: Set(payload.id),
-        f: Set(payload.f.clone()),
-        collection_id: Set(collection.id),
+        id: Set(modified_payload.id),
+        f: Set(modified_payload.f),
+        collection_id: Set(collection_id),
         owner: Set(user.subuuid()),
     };
 
