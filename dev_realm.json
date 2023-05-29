@@ -300,6 +300,7 @@
       "postman" : [ ],
       "inttest_shapes_reader" : [ ],
       "admin-cli" : [ ],
+      "inttest_shapes_reader_other" : [ ],
       "inttest_letters_bear" : [ ],
       "inttest_letters_alpaca" : [ ],
       "account" : [ {
@@ -388,6 +389,14 @@
     "realmRoles" : [ "A_FOLIVAFY_COLLECTION_EDITOR" ],
     "clientRoles" : { },
     "subGroups" : [ ]
+  }, {
+    "id" : "978bc600-8b57-4b06-8482-a5370c329762",
+    "name" : "Shapes_All",
+    "path" : "/Shapes_All",
+    "attributes" : { },
+    "realmRoles" : [ "C_SHAPES_READER", "C_SHAPES_EDITOR" ],
+    "clientRoles" : { },
+    "subGroups" : [ ]
   } ],
   "defaultRole" : {
     "id" : "e277aa44-cc34-49c6-8035-493461a6d89b",
@@ -405,7 +414,7 @@
   "otpPolicyLookAheadWindow" : 1,
   "otpPolicyPeriod" : 30,
   "otpPolicyCodeReusable" : false,
-  "otpSupportedApplications" : [ "totpAppMicrosoftAuthenticatorName", "totpAppFreeOTPName", "totpAppGoogleName" ],
+  "otpSupportedApplications" : [ "totpAppFreeOTPName", "totpAppGoogleName", "totpAppMicrosoftAuthenticatorName" ],
   "webAuthnPolicyRpEntityName" : "keycloak",
   "webAuthnPolicySignatureAlgorithms" : [ "ES256" ],
   "webAuthnPolicyRpId" : "",
@@ -447,7 +456,7 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-folivafy" ],
     "notBefore" : 0,
-    "groups" : [ "/A_FOLIVAFY_COLLECTION_EDITORS" ]
+    "groups" : [ "/A_FOLIVAFY_COLLECTION_EDITORS", "/Shapes_All" ]
   }, {
     "id" : "827f82bb-6296-4b0e-b072-83ad14279838",
     "createdTimestamp" : 1682260106938,
@@ -533,6 +542,20 @@
     "notBefore" : 0,
     "groups" : [ ]
   }, {
+    "id" : "e138792b-17d8-4743-a5fb-9dcbe1884aed",
+    "createdTimestamp" : 1682272280936,
+    "username" : "service-account-inttest_shapes_reader_other",
+    "enabled" : true,
+    "totp" : false,
+    "emailVerified" : false,
+    "serviceAccountClientId" : "inttest_shapes_reader_other",
+    "credentials" : [ ],
+    "disableableCredentialTypes" : [ ],
+    "requiredActions" : [ ],
+    "realmRoles" : [ "C_SHAPES_READER", "default-roles-folivafy" ],
+    "notBefore" : 0,
+    "groups" : [ ]
+  }, {
     "id" : "03ca980d-ad88-4016-86d0-e745b8162e51",
     "createdTimestamp" : 1682146239747,
     "username" : "user1",
@@ -553,7 +576,7 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-folivafy" ],
     "notBefore" : 0,
-    "groups" : [ ]
+    "groups" : [ "/Shapes_All" ]
   } ],
   "scopeMappings" : [ {
     "clientScope" : "offline_access",
@@ -1160,6 +1183,84 @@
         "id.token.claim" : "true",
         "access.token.claim" : "true",
         "claim.name" : "clientAddress",
+        "jsonType.label" : "String"
+      }
+    } ],
+    "defaultClientScopes" : [ "web-origins", "acr", "roles", "profile", "email" ],
+    "optionalClientScopes" : [ "address", "phone", "offline_access", "microprofile-jwt" ]
+  }, {
+    "id" : "ddcbe802-cb67-4c97-bffd-c629f7a1bc01",
+    "clientId" : "inttest_shapes_reader_other",
+    "name" : "Another Shapes reader",
+    "description" : "",
+    "rootUrl" : "",
+    "adminUrl" : "",
+    "baseUrl" : "",
+    "surrogateAuthRequired" : false,
+    "enabled" : true,
+    "alwaysDisplayInConsole" : false,
+    "clientAuthenticatorType" : "client-secret",
+    "secret" : "ZcSYrGhXVpRRtLUmGn7CQpcMw3sVw2PT",
+    "redirectUris" : [ "/*" ],
+    "webOrigins" : [ "/*" ],
+    "notBefore" : 0,
+    "bearerOnly" : false,
+    "consentRequired" : false,
+    "standardFlowEnabled" : false,
+    "implicitFlowEnabled" : false,
+    "directAccessGrantsEnabled" : false,
+    "serviceAccountsEnabled" : true,
+    "publicClient" : false,
+    "frontchannelLogout" : true,
+    "protocol" : "openid-connect",
+    "attributes" : {
+      "oidc.ciba.grant.enabled" : "false",
+      "client.secret.creation.time" : "1682272280",
+      "backchannel.logout.session.required" : "true",
+      "oauth2.device.authorization.grant.enabled" : "false",
+      "display.on.consent.screen" : "false",
+      "backchannel.logout.revoke.offline.tokens" : "false"
+    },
+    "authenticationFlowBindingOverrides" : { },
+    "fullScopeAllowed" : true,
+    "nodeReRegistrationTimeout" : -1,
+    "protocolMappers" : [ {
+      "id" : "14431051-4622-4f9e-9fb5-46b12c0d1595",
+      "name" : "Client IP Address",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usersessionmodel-note-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "user.session.note" : "clientAddress",
+        "id.token.claim" : "true",
+        "access.token.claim" : "true",
+        "claim.name" : "clientAddress",
+        "jsonType.label" : "String"
+      }
+    }, {
+      "id" : "fb7c40d2-0672-4cd8-a0c0-3139a1ca1902",
+      "name" : "Client Host",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usersessionmodel-note-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "user.session.note" : "clientHost",
+        "id.token.claim" : "true",
+        "access.token.claim" : "true",
+        "claim.name" : "clientHost",
+        "jsonType.label" : "String"
+      }
+    }, {
+      "id" : "1f21a49d-6ed1-4789-bc96-7ecfcae7f0c9",
+      "name" : "Client ID",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usersessionmodel-note-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "user.session.note" : "clientId",
+        "id.token.claim" : "true",
+        "access.token.claim" : "true",
+        "claim.name" : "clientId",
         "jsonType.label" : "String"
       }
     } ],
