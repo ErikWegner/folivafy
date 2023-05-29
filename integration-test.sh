@@ -33,7 +33,7 @@ LETTERS_BEAR_USER_CLIENT=inttest_letters_bear
 LETTERS_BEAR_USER_SECRET=pwRV5k0IzscIJ34WKMndamsyefWBV0pD
 
 OIDCTOKEN=""
-API=http://localhost:3000/api
+API=http://localhost:3002/api
 
 function authorize_client {
   OIDCTOKEN=$(curl --silent --location --request POST 'http://localhost:8101/realms/folivafy/protocol/openid-connect/token' \
@@ -45,7 +45,7 @@ function authorize_client {
 }
 
 
-cargo build
+cargo build --package folivafy --package migration
 export DATABASE_URL=postgresql://inttest_role:inttest_pwd@db/inttest
 ./target/debug/migration
 

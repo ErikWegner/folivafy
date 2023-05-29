@@ -83,6 +83,23 @@ paths:
       operationId: listCollection
       parameters:
         - $ref: "#/components/parameters/CollectionNameParam"
+        - in: query
+          name: extraFields
+          schema:
+            type: string
+            pattern: ^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$
+          description: |
+            A comma separated list of document fields that should
+            be contained in the response
+          example: price,length
+        - in: query
+          name: exactTitle
+          schema:
+            type: string
+          description: |
+            Search for documents with this exact title
+            (upper and lower case are respected)
+          example: Rectangle
       responses:
         "200":
           content:
