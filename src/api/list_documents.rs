@@ -13,10 +13,8 @@ use sea_orm::{
     prelude::Uuid, ColumnTrait, DbBackend, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait,
     QueryFilter, Statement,
 };
-use sea_query::{extension::postgres::PgExpr, Expr, Order, PostgresQueryBuilder};
-use sea_query_postgres::PostgresBinder;
+use sea_query::Expr;
 use serde::Deserialize;
-use serde_json::json;
 use tracing::warn;
 
 use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
@@ -58,29 +56,16 @@ pub(crate) async fn api_list_document(
         return Err(ApiErrors::PermissionDenied);
     }
 
-    let mut basefind = sea_query::Query::select()
-        .column(entity::collection_document::Column::Id)
-        .from(migration::CollectionDocument::Table)
-        .order_by(entity::collection_document::Column::Id, Order::Asc)
-        .limit(pagination.limit().into())
-        .offset(pagination.offset().into());
-
-    let mut basefind_ent = Documents::find()
+    let mut basefind = Documents::find()
         .filter(entity::collection_document::Column::CollectionId.eq(collection.id));
 
+    if let Some(ref title) = list_params.exact_title {
+        basefind = basefind.filter(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
+    }
+
     if collection.oao {
-        basefind = basefind
-            .and_where(Expr::col(entity::collection_document::Column::Owner).eq(user.subuuid()));
+        basefind = basefind.filter(entity::collection_document::Column::Owner.eq(user.subuuid()));
     }
-
-    if let Some(exact_title) = list_params.exact_title {
-        basefind = basefind.and_where(
-            Expr::col(entity::collection_document::Column::F)
-                .contains(&json!({ "title": exact_title }).to_string()),
-        );
-    }
-
-    let (sql, values) = basefind.clone().build_postgres(PostgresQueryBuilder);
 
     let total = basefind
         .clone()
@@ -94,6 +79,7 @@ pub(crate) async fn api_list_document(
     if !extra_fields.contains(&title) {
         extra_fields.push(title);
     }
+
     let extra_fields = extra_fields
         .into_iter()
         .map(|f| format!("'{f}'"))
@@ -103,7 +89,7 @@ pub(crate) async fn api_list_document(
     let items: Vec<JsonValue> = JsonValue::find_by_statement(Statement::from_sql_and_values(
         DbBackend::Postgres,
         format!(
-            "{}{}{}",
+            "{}{}{}{}{}{}",
             r#"SELECT "id", "t"."new_f" as "f"
                 FROM "collection_document"
                 cross join lateral (
@@ -114,8 +100,18 @@ pub(crate) async fn api_list_document(
             extra_fields,
             r#")
                   ) as "t"
-                WHERE "collection_id" = $1
-                ORDER BY "id"
+                WHERE "collection_id" = $1"#,
+            if collection.oao {
+                r#"AND "owner" = $4 "#
+            } else {
+                ""
+            },
+            if list_params.exact_title.is_some() {
+                r#"AND "f"->>'title' = $5 "#
+            } else {
+                ""
+            },
+            r#"ORDER BY "id"
                 LIMIT $2
                 OFFSET $3"#
         )
@@ -124,6 +120,8 @@ pub(crate) async fn api_list_document(
             collection.id.into(),
             pagination.limit().into(),
             pagination.offset().into(),
+            user.subuuid().into(),
+            list_params.exact_title.unwrap_or_default().into(),
         ],
     ))
     .all(&ctx.db)

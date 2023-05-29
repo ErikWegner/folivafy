@@ -234,7 +234,7 @@ then
       echo "Failure: user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Circle Square 9 " ]
+if [ "$FIELDS" != "Circle Rectangle 9 14" ]
 then
       echo "Failure: list of documents is missing fields!\n$RESP"
 fi
@@ -242,7 +242,7 @@ fi
 
 echo "- Can list shapes with exact title match"
 authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
-RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?exactTitle=Square)
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?exactTitle=Rectangle)
 if [ "$RESP" == "Unauthorized" ]
 then
       echo "Failure: user is not allowed to list documents!\n$RESP"
@@ -253,7 +253,7 @@ then
       echo "Failure: list of filtered documents does not match!\n$RESP"
 fi
 TITLE=$(echo $RESP | jq -r '.items[0].f.title')
-if [ "$TITLE" != "Square" ]
+if [ "$TITLE" != "Rectangle" ]
 then
       echo "Failure: document title does not match!\n$RESP"
 fi
@@ -364,7 +364,7 @@ fi
 CONTENT=$(echo $RESP | jq -r '.f.price')
 if [ "$CONTENT" != "14" ]
 then
-      echo "Failure: alpaca letter 1 content!\n$RESP"
+      echo "Failure: cannot read document!\n$RESP"
 fi
 
 
@@ -378,7 +378,7 @@ fi
 CONTENT=$(echo $RESP | jq -r '.f.price')
 if [ "$CONTENT" != "14" ]
 then
-      echo "Failure: alpaca letter 1 content!\n$RESP"
+      echo "Failure: cannot read document!\n$RESP"
 fi
 
 

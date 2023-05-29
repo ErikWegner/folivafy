@@ -26,13 +26,12 @@ openapi = { path = "./generated", default-features = false, features = [
 ] }
 regex = "1"
 reqwest = { version = "0.11.16", default-features = false, features = ["rustls", "rustls-tls"] }
-sea-orm = { version = "0.11.2", features = [
+sea-orm = { version = "0", features = [
     "macros",
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ] }
-sea-query = "0.28.4"
-sea-query-postgres = { version = "0.2.1", features = ["with-uuid", "with-json", "with-chrono", "with-time", "postgres-array", "with-rust_decimal", "with-bigdecimal"] }
+sea-query = "0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = "0.6.3"
