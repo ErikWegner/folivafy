@@ -226,6 +226,39 @@ then
 fi
 
 
+echo "- Can list shapes with additional fields"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?extraFields=price)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Circle Square 9 " ]
+then
+      echo "Failure: list of documents is missing fields!\n$RESP"
+fi
+
+
+echo "- Can list shapes with exact title match"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?exactTitle=Square)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "1" ]
+then
+      echo "Failure: list of filtered documents does not match!\n$RESP"
+fi
+TITLE=$(echo $RESP | jq -r '.items[0].f.title')
+if [ "$TITLE" != "Square" ]
+then
+      echo "Failure: document title does not match!\n$RESP"
+fi
+
+
 #####################################################
 ##
 ##  Owner access only collection
@@ -292,7 +325,8 @@ then
       echo "Failure: user is not allowed to list letters!\n$RESP"
 fi
 TOTAL=$(echo $RESP | jq -r '.total')
-if [ "$TOTAL" != "2" ]
+LENGTH=$(echo $RESP | jq -r '.items | length')
+if [ "$TOTAL" != "2" ] || [ "$LENGTH" != "2" ]
 then
       echo "Failure: list of documents incomplete!\n$RESP"
 fi
@@ -306,7 +340,8 @@ then
       echo "Failure: user is not allowed to list letters!\n$RESP"
 fi
 TOTAL=$(echo $RESP | jq -r '.total')
-if [ "$TOTAL" != "1" ]
+LENGTH=$(echo $RESP | jq -r '.items | length')
+if [ "$TOTAL" != "1" ] || [ "$LENGTH" != "1" ]
 then
       echo "Failure: list of documents incomplete!\n$RESP"
 fi

@@ -13,7 +13,10 @@ use sea_orm::{
     prelude::Uuid, ColumnTrait, DbBackend, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait,
     QueryFilter, Statement,
 };
+use sea_query::{extension::postgres::PgExpr, Expr, Order, PostgresQueryBuilder};
+use sea_query_postgres::PostgresBinder;
 use serde::Deserialize;
+use serde_json::json;
 use tracing::warn;
 
 use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
@@ -23,6 +26,8 @@ use super::{db::get_collection_by_name, types::Pagination, ApiContext, ApiErrors
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 pub(crate) struct ListDocumentParams {
+    #[serde(rename = "exactTitle")]
+    exact_title: Option<String>,
     #[serde(rename = "extraFields")]
     extra_fields: Option<String>,
 }
@@ -53,12 +58,29 @@ pub(crate) async fn api_list_document(
         return Err(ApiErrors::PermissionDenied);
     }
 
-    let mut basefind = Documents::find()
+    let mut basefind = sea_query::Query::select()
+        .column(entity::collection_document::Column::Id)
+        .from(migration::CollectionDocument::Table)
+        .order_by(entity::collection_document::Column::Id, Order::Asc)
+        .limit(pagination.limit().into())
+        .offset(pagination.offset().into());
+
+    let mut basefind_ent = Documents::find()
         .filter(entity::collection_document::Column::CollectionId.eq(collection.id));
 
     if collection.oao {
-        basefind = basefind.filter(entity::collection_document::Column::Owner.eq(user.subuuid()));
+        basefind = basefind
+            .and_where(Expr::col(entity::collection_document::Column::Owner).eq(user.subuuid()));
     }
+
+    if let Some(exact_title) = list_params.exact_title {
+        basefind = basefind.and_where(
+            Expr::col(entity::collection_document::Column::F)
+                .contains(&json!({ "title": exact_title }).to_string()),
+        );
+    }
+
+    let (sql, values) = basefind.clone().build_postgres(PostgresQueryBuilder);
 
     let total = basefind
         .clone()

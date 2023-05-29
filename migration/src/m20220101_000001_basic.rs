@@ -125,7 +125,7 @@ enum Collection {
 }
 
 #[derive(Iden)]
-enum CollectionDocument {
+pub enum CollectionDocument {
     Table,
     Id,
     CollectionId,
