@@ -100,7 +100,7 @@ pub(crate) async fn api_list_document(
             extra_fields,
             r#")
                   ) as "t"
-                WHERE "collection_id" = $1"#,
+                WHERE "collection_id" = $1 "#,
             if collection.oao {
                 r#"AND "owner" = $4 "#
             } else {
@@ -111,7 +111,7 @@ pub(crate) async fn api_list_document(
             } else {
                 ""
             },
-            r#"ORDER BY "id"
+            r#" ORDER BY "id"
                 LIMIT $2
                 OFFSET $3"#
         )
