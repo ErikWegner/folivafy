@@ -176,8 +176,11 @@ pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
 
 async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
+    let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
+        .unwrap_or_default()
+        .eq_ignore_ascii_case("true");
 
-    let pem_text = cert_loader(&issuer).await?;
+    let pem_text = cert_loader(&issuer, danger_accept_invalid_certs).await?;
     let validation = Validation::new().iss(&[issuer]).leeway(5);
     let jwt_auth: JwtAuthorizer<User> =
         JwtAuthorizer::from_rsa_pem_text(pem_text.as_str()).validation(validation);

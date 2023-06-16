@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use reqwest::Url;
 use sea_orm::prelude::Uuid;
 use serde::Deserialize;
-use tracing::debug;
+use tracing::{debug, warn};
 
 #[derive(Deserialize)]
 struct OpenIdConfiguration {
@@ -60,8 +60,14 @@ impl User {
 }
 
 /// Workaround for  https://github.com/Keats/jsonwebtoken/issues/252 not handling RSA-OAEP
-pub async fn cert_loader(issuer: &str) -> Result<String> {
+pub async fn cert_loader(issuer: &str, danger_accept_invalid_certs: bool) -> Result<String> {
     debug!("Loading certificates from {}", issuer);
+    if danger_accept_invalid_certs {
+        warn!("Accepting any certificate for {}", issuer);
+    }
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(danger_accept_invalid_certs)
+        .build()?;
 
     let mut url = Url::parse(issuer).map_err(|e| anyhow!("Invalid issuer {}", e.to_string()))?;
 
@@ -72,7 +78,9 @@ pub async fn cert_loader(issuer: &str) -> Result<String> {
 
     let discovery_endpoint = url.to_string();
 
-    let openid_configuration = reqwest::get(&discovery_endpoint)
+    let openid_configuration = client
+        .get(&discovery_endpoint)
+        .send()
         .await
         .map_err(|e| {
             anyhow!(
@@ -91,7 +99,9 @@ pub async fn cert_loader(issuer: &str) -> Result<String> {
             )
         })?;
     let certs_uri = openid_configuration.jwks_uri;
-    let certs_response = reqwest::get(&certs_uri)
+    let certs_response = client
+        .get(&certs_uri)
+        .send()
         .await
         .map_err(|e| {
             anyhow!(
