@@ -14,7 +14,6 @@ axum = "0.6.16"
 axum-macros = "0.3.7"
 dotenvy = "0.15.7"
 entity = { path = "entity" }
-garde = "0.11.2"
 jwt-authorizer = { git = "https://github.com/cduvray/jwt-authorizer", rev = "7fc800d", default-features = false, features = [
 "rustls-tls",
 ] }

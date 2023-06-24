@@ -1,11 +1,11 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use entity::collection;
-use garde::Validate;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateCollectionRequest;
 use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::{error, info, warn};
+use validator::Validate;
 
 use crate::api::auth::User;
 
@@ -21,7 +21,7 @@ pub(crate) async fn api_create_collection(
         warn!("User {} is not a collections admin", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);
     }
-    payload.validate(&()).map_err(ApiErrors::from)?;
+    payload.validate().map_err(ApiErrors::from)?;
     let mut collection = collection::ActiveModel {
         ..Default::default()
     };

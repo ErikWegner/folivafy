@@ -39,7 +39,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listCollection**
-> models::CollectionItemsList listCollection(collection)
+> models::CollectionItemsList listCollection(collection, optional)
 List collection items
 
 Get a list of items within the collection
@@ -49,6 +49,16 @@ Get a list of items within the collection
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
   **collection** | **String**| Path name of the collection | 
+ **optional** | **map[string]interface{}** | optional parameters | nil if no parameters
+
+### Optional Parameters
+Optional parameters are passed through a map[string]interface{}.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **collection** | **String**| Path name of the collection | 
+ **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
+ **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
 
 ### Return type
 

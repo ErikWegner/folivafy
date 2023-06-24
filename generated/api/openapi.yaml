@@ -13,6 +13,8 @@ tags:
   name: administration
 - description: Handling documents within the collection
   name: collection
+- description: Events for documents
+  name: event
 paths:
   /collections:
     get:
@@ -64,6 +66,29 @@ paths:
         schema:
           $ref: '#/components/schemas/CollectionName'
         style: simple
+      - description: |
+          A comma separated list of document fields that should
+          be contained in the response
+        example: "price,length"
+        explode: true
+        in: query
+        name: extraFields
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$"
+          type: string
+        style: form
+      - description: |
+          Search for documents with this exact title
+          (upper and lower case are respected)
+        example: Rectangle
+        explode: true
+        in: query
+        name: exactTitle
+        required: false
+        schema:
+          type: string
+        style: form
       responses:
         "200":
           content:
@@ -173,6 +198,29 @@ paths:
       summary: Get item
       tags:
       - collection
+  /events:
+    post:
+      description: Create event
+      operationId: createEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+        description: Event data
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                example: 201 Created
+                type: string
+          description: successful operation
+        "400":
+          description: Creating the collection failed
+      tags:
+      - event
 components:
   parameters:
     CollectionNameParam:
@@ -194,12 +242,21 @@ components:
         $ref: '#/components/schemas/DocumentId'
       style: simple
   schemas:
+    CategoryId:
+      description: Arbitrary event category
+      example: 10
+      format: int32
+      minimum: 0
+      type: integer
     DocumentId:
       description: Document identifier
       example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
       format: uuid
       type: string
     DocumentFields:
+      description: Field data
+      type: object
+    EventFields:
       description: Field data
       type: object
     CollectionName:
@@ -338,6 +395,33 @@ components:
       required:
       - f
       - id
+      type: object
+    CreateEventBody:
+      example:
+        category: 1020
+        document: 0a804901-a425-4f85-bb37-56827bf5f083
+        e:
+          title: Approved
+          mail: false
+      properties:
+        category:
+          description: Arbitrary event category
+          example: 10
+          format: int32
+          minimum: 0
+          type: integer
+        document:
+          description: Document identifier
+          example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
+          format: uuid
+          type: string
+        e:
+          description: Field data
+          type: object
+      required:
+      - category
+      - document
+      - e
       type: object
     createCollection_request:
       example:

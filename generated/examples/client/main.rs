@@ -11,6 +11,7 @@ use openapi::{Api, ApiNoContext, Client, ContextWrapperExt, models,
                       ListCollectionResponse,
                       StoreIntoCollectionResponse,
                       UpdateItemByIdResponse,
+                      CreateEventResponse,
                      };
 use clap::{App, Arg};
 
@@ -100,7 +101,9 @@ fn main() {
         },
         Some("ListCollection") => {
             let result = rt.block_on(client.list_collection(
-                  "collection_example".to_string()
+                  "collection_example".to_string(),
+                  Some("price,length".to_string()),
+                  Some("Rectangle".to_string())
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
         },
@@ -117,6 +120,14 @@ fn main() {
         Some("UpdateItemById") => {
             let result = rt.block_on(client.update_item_by_id(
                   "collection_example".to_string(),
+                  ???
+            ));
+            info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
+        },
+        */
+        /* Disabled because there's no example.
+        Some("CreateEvent") => {
+            let result = rt.block_on(client.create_event(
                   ???
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());

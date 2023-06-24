@@ -97,29 +97,9 @@ struct ValidationErrors {
     errors: Vec<String>,
 }
 
-impl From<garde::Errors> for ApiErrors {
-    fn from(err: garde::Errors) -> Self {
-        let error = match err {
-            garde::Errors::Simple(simple_errors) => ValidationErrors {
-                errors: simple_errors.iter().map(|err| err.to_string()).collect(),
-            },
-            garde::Errors::Nested(list, _) => ValidationErrors {
-                errors: list.iter().map(|err| err.to_string()).collect(),
-            },
-            garde::Errors::List(list) => ValidationErrors {
-                errors: list.iter().map(|err| err.to_string()).collect(),
-            },
-            garde::Errors::Fields(map) => ValidationErrors {
-                errors: map
-                    .iter()
-                    .map(|(key, err)| format!("{}: {}", key, err))
-                    .collect(),
-            },
-        };
-
-        ApiErrors::BadRequest(
-            serde_json::to_string(&error).unwrap_or("Validation error".to_owned()),
-        )
+impl From<validator::ValidationErrors> for ApiErrors {
+    fn from(err: validator::ValidationErrors) -> Self {
+        ApiErrors::BadRequest(serde_json::to_string(&err).unwrap_or("Validation error".to_owned()))
     }
 }
 

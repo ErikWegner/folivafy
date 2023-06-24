@@ -100,6 +100,7 @@ use openapi::{
     ListCollectionResponse,
     StoreIntoCollectionResponse,
     UpdateItemByIdResponse,
+    CreateEventResponse,
 };
 use openapi::server::MakeService;
 use std::error::Error;
@@ -145,10 +146,12 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     async fn list_collection(
         &self,
         collection: String,
+        extra_fields: Option<String>,
+        exact_title: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
         let context = context.clone();
-        info!("list_collection(\"{}\") - X-Span-ID: {:?}", collection, context.get().0.clone());
+        info!("list_collection(\"{}\", {:?}, {:?}) - X-Span-ID: {:?}", collection, extra_fields, exact_title, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 
@@ -173,6 +176,16 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     {
         let context = context.clone();
         info!("update_item_by_id(\"{}\", {:?}) - X-Span-ID: {:?}", collection, collection_item, context.get().0.clone());
+        Err(ApiError("Generic failure".into()))
+    }
+
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        context: &C) -> Result<CreateEventResponse, ApiError>
+    {
+        let context = context.clone();
+        info!("create_event({:?}) - X-Span-ID: {:?}", create_event_body, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 

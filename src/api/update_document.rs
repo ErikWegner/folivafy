@@ -5,11 +5,11 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use entity::collection_document::{self, Entity as Documents};
-use garde::Validate;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{error::DbErr, prelude::Uuid, ActiveModelTrait, EntityTrait, RuntimeErr, Set};
 use tracing::{debug, error, warn};
+use validator::Validate;
 
 use crate::api::auth::User;
 
@@ -23,7 +23,7 @@ pub(crate) async fn api_update_document(
     Json(payload): Json<CollectionItem>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     // Validate the payload
-    payload.validate(&()).map_err(ApiErrors::from)?;
+    payload.validate().map_err(ApiErrors::from)?;
 
     let document_id = payload.id.to_string();
     let uuid = Uuid::parse_str(&document_id)

@@ -76,6 +76,17 @@ pub enum UpdateItemByIdResponse {
     UpdatingFailed
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[must_use]
+pub enum CreateEventResponse {
+    /// successful operation
+    SuccessfulOperation
+    (String)
+    ,
+    /// Creating the collection failed
+    CreatingTheCollectionFailed
+}
+
 /// API
 #[async_trait]
 #[allow(clippy::too_many_arguments, clippy::ptr_arg)]
@@ -106,6 +117,8 @@ pub trait Api<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        extra_fields: Option<String>,
+        exact_title: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>;
 
     /// Create new item
@@ -121,6 +134,11 @@ pub trait Api<C: Send + Sync> {
         collection: String,
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>;
+
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        context: &C) -> Result<CreateEventResponse, ApiError>;
 
 }
 
@@ -155,6 +173,8 @@ pub trait ApiNoContext<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        extra_fields: Option<String>,
+        exact_title: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>;
 
     /// Create new item
@@ -170,6 +190,11 @@ pub trait ApiNoContext<C: Send + Sync> {
         collection: String,
         collection_item: models::CollectionItem,
         ) -> Result<UpdateItemByIdResponse, ApiError>;
+
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        ) -> Result<CreateEventResponse, ApiError>;
 
 }
 
@@ -230,10 +255,12 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     async fn list_collection(
         &self,
         collection: String,
+        extra_fields: Option<String>,
+        exact_title: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().list_collection(collection, &context).await
+        self.api().list_collection(collection, extra_fields, exact_title, &context).await
     }
 
     /// Create new item
@@ -256,6 +283,15 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     {
         let context = self.context().clone();
         self.api().update_item_by_id(collection, collection_item, &context).await
+    }
+
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        ) -> Result<CreateEventResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().create_event(create_event_body, &context).await
     }
 
 }

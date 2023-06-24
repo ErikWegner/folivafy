@@ -5,12 +5,12 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use entity::collection_document;
-use garde::Validate;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{error::DbErr, EntityTrait, RuntimeErr, Set};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
+use validator::Validate;
 
 use crate::api::{
     auth::User,
@@ -34,7 +34,7 @@ pub(crate) async fn api_create_document(
     }
 
     // Validate the payload
-    payload.validate(&()).map_err(ApiErrors::from)?;
+    payload.validate().map_err(ApiErrors::from)?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
 

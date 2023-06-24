@@ -27,11 +27,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Event::DocumentId).uuid().not_null())
                     .col(ColumnDef::new(Event::User).uuid().not_null())
-                    .col(
-                        ColumnDef::new(Event::CategoryId)
-                            .small_unsigned()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Event::CategoryId).integer().not_null())
                     .col(ColumnDef::new(Event::Payload).json_binary().not_null())
                     .foreign_key(
                         ForeignKey::create()

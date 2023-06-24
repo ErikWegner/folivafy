@@ -14,6 +14,8 @@ tags:
     description: Administrative tasks
   - name: collection
     description: Handling documents within the collection
+  - name: event
+    description: Events for documents
 paths:
   /collections:
     get:
@@ -181,6 +183,29 @@ paths:
       summary: Get item
       tags:
         - collection
+  /events:
+    post:
+      description: Create event
+      operationId: createEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventBody"
+        description: Event data
+        required: true
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 Created
+          description: successful operation
+        "400":
+          description: Creating the collection failed
+      tags:
+        - event
 components:
   parameters:
     CollectionNameParam:
@@ -202,12 +227,21 @@ components:
         $ref: "#/components/schemas/DocumentId"
       style: simple
   schemas:
+    CategoryId:
+      description: Arbitrary event category
+      example: 10
+      type: integer
+      format: int32
+      minimum: 0
     DocumentId:
       description: Document identifier
       example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
       format: uuid
       type: string
     DocumentFields:
+      description: Field data
+      type: object
+    EventFields:
       description: Field data
       type: object
     CollectionName:
@@ -342,4 +376,23 @@ components:
       required:
         - id
         - f
+      type: object
+    CreateEventBody:
+      example:
+        category: 1020
+        document: 0a804901-a425-4f85-bb37-56827bf5f083
+        e:
+          title: Approved
+          mail: false
+      properties:
+        category:
+          $ref: "#/components/schemas/CategoryId"
+        document:
+          $ref: "#/components/schemas/DocumentId"
+        e:
+          $ref: "#/components/schemas/EventFields"
+      required:
+        - category
+        - document
+        - e
       type: object

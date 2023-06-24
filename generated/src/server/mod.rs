@@ -27,7 +27,8 @@ use crate::{Api,
      GetItemByIdResponse,
      ListCollectionResponse,
      StoreIntoCollectionResponse,
-     UpdateItemByIdResponse
+     UpdateItemByIdResponse,
+     CreateEventResponse
 };
 
 mod paths {
@@ -37,7 +38,8 @@ mod paths {
         pub static ref GLOBAL_REGEX_SET: regex::RegexSet = regex::RegexSet::new(vec![
             r"^/api/collections$",
             r"^/api/collections/(?P<collection>[^/?#]*)$",
-            r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$"
+            r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$",
+            r"^/api/events$"
         ])
         .expect("Unable to create global regex set");
     }
@@ -56,6 +58,7 @@ mod paths {
             regex::Regex::new(r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$")
                 .expect("Unable to create regex for COLLECTIONS_COLLECTION_DOCUMENTID");
     }
+    pub(crate) static ID_EVENTS: usize = 3;
 }
 
 pub struct MakeService<T, C> where
@@ -384,8 +387,47 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                         .expect("Unable to create Bad Request response for invalid percent decode"))
                 };
 
+                // Query parameters (note that non-required or collection query parameters will ignore garbage values, rather than causing a 400 response)
+                let query_params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes()).collect::<Vec<_>>();
+                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                    .next();
+                let param_extra_fields = match param_extra_fields {
+                    Some(param_extra_fields) => {
+                        let param_extra_fields =
+                            <String as std::str::FromStr>::from_str
+                                (&param_extra_fields);
+                        match param_extra_fields {
+                            Ok(param_extra_fields) => Some(param_extra_fields),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
+                    .next();
+                let param_exact_title = match param_exact_title {
+                    Some(param_exact_title) => {
+                        let param_exact_title =
+                            <String as std::str::FromStr>::from_str
+                                (&param_exact_title);
+                        match param_exact_title {
+                            Ok(param_exact_title) => Some(param_exact_title),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
+                        }
+                    },
+                    None => None,
+                };
+
                                 let result = api_impl.list_collection(
                                             param_collection,
+                                            param_extra_fields,
+                                            param_exact_title,
                                         &context
                                     ).await;
                                 let mut response = Response::new(Body::empty());
@@ -639,9 +681,94 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                         }
             },
 
+            // CreateEvent - POST /events
+            hyper::Method::POST if path.matched(paths::ID_EVENTS) => {
+                // Body parameters (note that non-required body parameters will ignore garbage
+                // values, rather than causing a 400 response). Produce warning header and logs for
+                // any unused fields.
+                let result = body.into_raw().await;
+                match result {
+                            Ok(body) => {
+                                let mut unused_elements = Vec::new();
+                                let param_create_event_body: Option<models::CreateEventBody> = if !body.is_empty() {
+                                    let deserializer = &mut serde_json::Deserializer::from_slice(&body);
+                                    match serde_ignored::deserialize(deserializer, |path| {
+                                            warn!("Ignoring unknown field in body: {}", path);
+                                            unused_elements.push(path.to_string());
+                                    }) {
+                                        Ok(param_create_event_body) => param_create_event_body,
+                                        Err(e) => return Ok(Response::builder()
+                                                        .status(StatusCode::BAD_REQUEST)
+                                                        .body(Body::from(format!("Couldn't parse body parameter CreateEventBody - doesn't match schema: {}", e)))
+                                                        .expect("Unable to create Bad Request response for invalid body parameter CreateEventBody due to schema")),
+                                    }
+                                } else {
+                                    None
+                                };
+                                let param_create_event_body = match param_create_event_body {
+                                    Some(param_create_event_body) => param_create_event_body,
+                                    None => return Ok(Response::builder()
+                                                        .status(StatusCode::BAD_REQUEST)
+                                                        .body(Body::from("Missing required body parameter CreateEventBody"))
+                                                        .expect("Unable to create Bad Request response for missing body parameter CreateEventBody")),
+                                };
+
+                                let result = api_impl.create_event(
+                                            param_create_event_body,
+                                        &context
+                                    ).await;
+                                let mut response = Response::new(Body::empty());
+                                response.headers_mut().insert(
+                                            HeaderName::from_static("x-span-id"),
+                                            HeaderValue::from_str((&context as &dyn Has<XSpanIdString>).get().0.clone().as_str())
+                                                .expect("Unable to create X-Span-ID header value"));
+
+                                        if !unused_elements.is_empty() {
+                                            response.headers_mut().insert(
+                                                HeaderName::from_static("warning"),
+                                                HeaderValue::from_str(format!("Ignoring unknown fields in body: {:?}", unused_elements).as_str())
+                                                    .expect("Unable to create Warning header value"));
+                                        }
+
+                                        match result {
+                                            Ok(rsp) => match rsp {
+                                                CreateEventResponse::SuccessfulOperation
+                                                    (body)
+                                                => {
+                                                    *response.status_mut() = StatusCode::from_u16(201).expect("Unable to turn 201 into a StatusCode");
+                                                    response.headers_mut().insert(
+                                                        CONTENT_TYPE,
+                                                        HeaderValue::from_str("text/plain")
+                                                            .expect("Unable to create Content-Type header for CREATE_EVENT_SUCCESSFUL_OPERATION"));
+                                                    let body = body;
+                                                    *response.body_mut() = Body::from(body);
+                                                },
+                                                CreateEventResponse::CreatingTheCollectionFailed
+                                                => {
+                                                    *response.status_mut() = StatusCode::from_u16(400).expect("Unable to turn 400 into a StatusCode");
+                                                },
+                                            },
+                                            Err(_) => {
+                                                // Application code returned an error. This should not happen, as the implementation should
+                                                // return a valid response.
+                                                *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                                                *response.body_mut() = Body::from("An internal error occurred");
+                                            },
+                                        }
+
+                                        Ok(response)
+                            },
+                            Err(e) => Ok(Response::builder()
+                                                .status(StatusCode::BAD_REQUEST)
+                                                .body(Body::from(format!("Couldn't read body parameter CreateEventBody: {}", e)))
+                                                .expect("Unable to create Bad Request response due to unable to read body parameter CreateEventBody")),
+                        }
+            },
+
             _ if path.matched(paths::ID_COLLECTIONS) => method_not_allowed(),
             _ if path.matched(paths::ID_COLLECTIONS_COLLECTION) => method_not_allowed(),
             _ if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => method_not_allowed(),
+            _ if path.matched(paths::ID_EVENTS) => method_not_allowed(),
             _ => Ok(Response::builder().status(StatusCode::NOT_FOUND)
                     .body(Body::empty())
                     .expect("Unable to create Not Found response"))
@@ -667,6 +794,8 @@ impl<T> RequestParser<T> for ApiRequestParser {
             hyper::Method::POST if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("StoreIntoCollection"),
             // UpdateItemById - PUT /collections/{collection}
             hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("UpdateItemById"),
+            // CreateEvent - POST /events
+            hyper::Method::POST if path.matched(paths::ID_EVENTS) => Some("CreateEvent"),
             _ => None,
         }
     }

@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 1.0.0
-- Build date: 2023-04-23T18:29:10.732393603Z[GMT]
+- Build date: 2023-06-24T19:47:00.788720Z[Etc/UTC]
 
 
 
@@ -103,21 +103,24 @@ Method | HTTP request | Description
 [**listCollection**](docs/collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
 [**storeIntoCollection**](docs/collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
 [**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
+[**createEvent**](docs/event_api.md#createEvent) | **POST** /events | 
 
 
 ## Documentation For Models
 
+ - [CategoryId](docs/CategoryId.md)
  - [Collection](docs/Collection.md)
  - [CollectionItem](docs/CollectionItem.md)
  - [CollectionItemsList](docs/CollectionItemsList.md)
  - [CollectionName](docs/CollectionName.md)
  - [CollectionsList](docs/CollectionsList.md)
  - [CreateCollectionRequest](docs/CreateCollectionRequest.md)
+ - [CreateEventBody](docs/CreateEventBody.md)
  - [DocumentId](docs/DocumentId.md)
 
 
 ## Documentation For Authorization
- Endpoints do not require authorization.
+Endpoints do not require authorization.
 
 
 ## Author

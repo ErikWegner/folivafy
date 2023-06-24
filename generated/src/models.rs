@@ -1,37 +1,72 @@
 #![allow(unused_qualifications)]
 
+use validator::Validate;
+
 use crate::models;
 #[cfg(any(feature = "client", feature = "server"))]
 use crate::header;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+/// Arbitrary event category
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CategoryId(i32);
+
+impl std::convert::From<i32> for CategoryId {
+    fn from(x: i32) -> Self {
+        CategoryId(x)
+    }
+}
+
+impl std::convert::From<CategoryId> for i32 {
+    fn from(x: CategoryId) -> Self {
+        x.0
+    }
+}
+
+impl std::ops::Deref for CategoryId {
+    type Target = i32;
+    fn deref(&self) -> &i32 {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for CategoryId {
+    fn deref_mut(&mut self) -> &mut i32 {
+        &mut self.0
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 32),
-            pattern(r"^[a-z][-a-z0-9]*$"),
+           regex = "RE_COLLECTION_NAME",
         )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 150),
         )]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`). 
     #[serde(rename = "oao")]
-    #[garde(skip)]
     pub oao: bool,
 
     /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`). 
     #[serde(rename = "locked")]
-    #[garde(skip)]
     pub locked: bool,
 
+}
+
+lazy_static::lazy_static! {
+    static ref RE_COLLECTION_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl Collection {
@@ -171,20 +206,19 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItem {
     /// Document identifier
     #[serde(rename = "id")]
-    #[garde(skip)]
     pub id: uuid::Uuid,
 
     /// Field data
     #[serde(rename = "f")]
-    #[garde(skip)]
     pub f: serde_json::Value,
 
 }
+
 
 impl CollectionItem {
     #[allow(clippy::new_without_default)]
@@ -301,32 +335,32 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
-    #[garde(
+    #[validate(
             range(min = 1, max = 250),
         )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub total: u32,
 
     #[serde(rename = "items")]
-    #[garde(skip)]
     pub items: Vec<models::CollectionItem>,
 
 }
+
 
 impl CollectionItemsList {
     #[allow(clippy::new_without_default)]
@@ -506,32 +540,32 @@ impl std::ops::DerefMut for CollectionName {
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
-    #[garde(
+    #[validate(
             range(min = 1, max = 250),
         )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub total: u32,
 
     #[serde(rename = "items")]
-    #[garde(skip)]
     pub items: Vec<models::Collection>,
 
 }
+
 
 impl CollectionsList {
     #[allow(clippy::new_without_default)]
@@ -667,29 +701,32 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 32),
-            pattern(r"^[a-z][-a-z0-9]*$"),
+           regex = "RE_CREATECOLLECTIONREQUEST_NAME",
         )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 150),
         )]
     pub title: String,
 
     /// Owner access only?
     #[serde(rename = "oao")]
-    #[garde(skip)]
     pub oao: bool,
 
+}
+
+lazy_static::lazy_static! {
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl CreateCollectionRequest {
@@ -809,6 +846,151 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
                         std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
                         std::result::Result::Err(err) => std::result::Result::Err(
                             format!("Unable to convert header value '{}' into CreateCollectionRequest - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CreateEventBody {
+    /// Arbitrary event category
+    #[serde(rename = "category")]
+    #[validate(
+            range(min = 0),
+        )]
+    pub category: u32,
+
+    /// Document identifier
+    #[serde(rename = "document")]
+    pub document: uuid::Uuid,
+
+    /// Field data
+    #[serde(rename = "e")]
+    pub e: serde_json::Value,
+
+}
+
+
+impl CreateEventBody {
+    #[allow(clippy::new_without_default)]
+    pub fn new(category: u32, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
+        CreateEventBody {
+            category,
+            document,
+            e,
+        }
+    }
+}
+
+/// Converts the CreateEventBody value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CreateEventBody {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("category".to_string()),
+            Some(self.category.to_string()),
+
+            // Skipping document in query parameter serialization
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CreateEventBody value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CreateEventBody {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub category: Vec<u32>,
+            pub document: Vec<uuid::Uuid>,
+            pub e: Vec<serde_json::Value>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CreateEventBody".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "category" => intermediate_rep.category.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "document" => intermediate_rep.document.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CreateEventBody".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CreateEventBody {
+            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CreateEventBody".to_string())?,
+            document: intermediate_rep.document.into_iter().next().ok_or_else(|| "document missing in CreateEventBody".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CreateEventBody".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CreateEventBody> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CreateEventBody>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CreateEventBody>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CreateEventBody - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CreateEventBody> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CreateEventBody as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CreateEventBody - {}",
                                 value, err))
                     }
              },
