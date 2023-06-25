@@ -4,6 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **category** | **u32** | Arbitrary event category | 
+**collection** | **String** | Path name of the collection | 
 **document** | [***uuid::Uuid**](UUID.md) | Document identifier | 
 **e** | [***serde_json::Value**](.md) | Field data | 
 

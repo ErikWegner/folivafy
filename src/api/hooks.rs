@@ -7,12 +7,16 @@ use std::{
 use openapi::models::CollectionItem;
 use tokio::sync::mpsc::Sender;
 
-use super::ApiErrors;
+use super::{dto, ApiErrors};
 
 type CollectionItemActionResult = Result<CollectionItem, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub enum ItemActionType {
+    AppendEvent {
+        item: dto::CollectionItem,
+        event: dto::Event,
+    },
     Create,
     Update,
 }
@@ -100,32 +104,29 @@ impl RequestContext {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum HookContextData {
-    DocumentAdding { document: CollectionItem },
+    DocumentAdding {
+        document: CollectionItem,
+        tx: tokio::sync::oneshot::Sender<CollectionItemActionResult>,
+    },
+    EventAdding {
+        event: dto::Event,
+        tx: tokio::sync::oneshot::Sender<dto::Event>,
+    },
 }
 
 pub struct HookContext {
     data: Arc<HookContextData>,
     context: RequestContext,
-    tx: tokio::sync::oneshot::Sender<CollectionItemActionResult>,
 }
 
 impl HookContext {
-    pub fn new(
-        data: HookContextData,
-        context: RequestContext,
-        tx: tokio::sync::oneshot::Sender<CollectionItemActionResult>,
-    ) -> Self {
+    pub fn new(data: HookContextData, context: RequestContext) -> Self {
         Self {
             data: Arc::new(data),
             context,
-            tx,
         }
-    }
-
-    pub fn complete(self, result: CollectionItemActionResult) {
-        let _ = self.tx.send(result);
     }
 
     pub fn context(&self) -> &RequestContext {

@@ -867,6 +867,14 @@ pub struct CreateEventBody {
         )]
     pub category: u32,
 
+    /// Path name of the collection
+    #[serde(rename = "collection")]
+    #[validate(
+            length(min = 1, max = 32),
+           regex = "RE_CREATEEVENTBODY_COLLECTION",
+        )]
+    pub collection: String,
+
     /// Document identifier
     #[serde(rename = "document")]
     pub document: uuid::Uuid,
@@ -877,12 +885,16 @@ pub struct CreateEventBody {
 
 }
 
+lazy_static::lazy_static! {
+    static ref RE_CREATEEVENTBODY_COLLECTION: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+}
 
 impl CreateEventBody {
     #[allow(clippy::new_without_default)]
-    pub fn new(category: u32, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
+    pub fn new(category: u32, collection: String, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
         CreateEventBody {
             category,
+            collection,
             document,
             e,
         }
@@ -898,6 +910,10 @@ impl std::string::ToString for CreateEventBody {
 
             Some("category".to_string()),
             Some(self.category.to_string()),
+
+
+            Some("collection".to_string()),
+            Some(self.collection.to_string()),
 
             // Skipping document in query parameter serialization
 
@@ -921,6 +937,7 @@ impl std::str::FromStr for CreateEventBody {
         #[allow(dead_code)]
         struct IntermediateRep {
             pub category: Vec<u32>,
+            pub collection: Vec<String>,
             pub document: Vec<uuid::Uuid>,
             pub e: Vec<serde_json::Value>,
         }
@@ -943,6 +960,8 @@ impl std::str::FromStr for CreateEventBody {
                     #[allow(clippy::redundant_clone)]
                     "category" => intermediate_rep.category.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
+                    "collection" => intermediate_rep.collection.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
                     "document" => intermediate_rep.document.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
                     "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
@@ -957,6 +976,7 @@ impl std::str::FromStr for CreateEventBody {
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CreateEventBody {
             category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CreateEventBody".to_string())?,
+            collection: intermediate_rep.collection.into_iter().next().ok_or_else(|| "collection missing in CreateEventBody".to_string())?,
             document: intermediate_rep.document.into_iter().next().ok_or_else(|| "document missing in CreateEventBody".to_string())?,
             e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CreateEventBody".to_string())?,
         })

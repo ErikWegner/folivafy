@@ -399,6 +399,7 @@ components:
     CreateEventBody:
       example:
         category: 1020
+        collection: shapes
         document: 0a804901-a425-4f85-bb37-56827bf5f083
         e:
           title: Approved
@@ -410,6 +411,13 @@ components:
           format: int32
           minimum: 0
           type: integer
+        collection:
+          description: Path name of the collection
+          example: shapes
+          maxLength: 32
+          minLength: 1
+          pattern: "^[a-z][-a-z0-9]*$"
+          type: string
         document:
           description: Document identifier
           example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
@@ -420,6 +428,7 @@ components:
           type: object
       required:
       - category
+      - collection
       - document
       - e
       type: object

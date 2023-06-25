@@ -62,9 +62,11 @@ pub(crate) async fn api_create_document(
     let modified_payload = if let Some(sender) = sender {
         let (tx, rx) = oneshot::channel::<Result<CollectionItem, ApiErrors>>();
         let cdctx = HookContext::new(
-            HookContextData::DocumentAdding { document: payload },
+            HookContextData::DocumentAdding {
+                document: payload,
+                tx,
+            },
             RequestContext::new(collection),
-            tx,
         );
 
         sender

@@ -380,6 +380,7 @@ components:
     CreateEventBody:
       example:
         category: 1020
+        collection: shapes
         document: 0a804901-a425-4f85-bb37-56827bf5f083
         e:
           title: Approved
@@ -387,12 +388,15 @@ components:
       properties:
         category:
           $ref: "#/components/schemas/CategoryId"
+        collection:
+          $ref: "#/components/schemas/CollectionName"
         document:
           $ref: "#/components/schemas/DocumentId"
         e:
           $ref: "#/components/schemas/EventFields"
       required:
         - category
+        - collection
         - document
         - e
       type: object
