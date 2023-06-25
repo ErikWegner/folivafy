@@ -1,8 +1,4 @@
-use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
@@ -17,7 +13,7 @@ use crate::api::{
     hooks::{HookContext, HookContextData, ItemActionStage, ItemActionType, RequestContext},
 };
 
-use super::{auth::User, dto::Event, ApiContext, ApiErrors};
+use super::{auth::User, dto::Event, hooks::HookSuccessResult, ApiContext, ApiErrors};
 
 #[debug_handler]
 pub(crate) async fn api_create_event(
@@ -67,9 +63,13 @@ pub(crate) async fn api_create_event(
     );
 
     if let Some(sender) = sender {
-        let (tx, rx) = oneshot::channel::<Result<Event, ApiErrors>>();
+        let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
         let cdctx = HookContext::new(
-            HookContextData::DocumentAdding { document: payload },
+            HookContextData::EventAdding {
+                document: (&document).into(),
+                collection: (&collection).into(),
+                event: Event::new(payload.category, payload.e),
+            },
             RequestContext::new(collection),
             tx,
         );
@@ -79,7 +79,21 @@ pub(crate) async fn api_create_event(
             .await
             .map_err(|_e| ApiErrors::InternalServerError)?;
 
-        rx.await.map_err(|_e| ApiErrors::InternalServerError)??
+        let events = rx
+            .await
+            .map_err(|_e| ApiErrors::InternalServerError)??
+            .events;
+        if events.is_empty() {
+            debug!("No events were permitted");
+            return Err(ApiErrors::PermissionDenied);
+        } else {
+            for _event in events {
+                // Create the event in the database
+                todo!("Create the event in the database");
+            }
+        }
     }
-    return Err(ApiErrors::BadRequest("Event not accepted".to_string()));
+
+    debug!("No hook was executed");
+    Err(ApiErrors::BadRequest("Event not accepted".to_string()))
 }

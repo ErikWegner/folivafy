@@ -9,14 +9,16 @@ use tokio::sync::mpsc::Sender;
 
 use super::{dto, ApiErrors};
 
-type CollectionItemActionResult = Result<CollectionItem, ApiErrors>;
+pub struct HookSuccessResult {
+    pub document: dto::CollectionDocument,
+    pub events: Vec<dto::Event>,
+}
+
+type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub enum ItemActionType {
-    AppendEvent {
-        item: dto::CollectionItem,
-        event: dto::Event,
-    },
+    AppendEvent,
     Create,
     Update,
 }
@@ -104,29 +106,39 @@ impl RequestContext {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum HookContextData {
     DocumentAdding {
-        document: CollectionItem,
-        tx: tokio::sync::oneshot::Sender<CollectionItemActionResult>,
+        document: CollectionItem, // TODO: use dto::CollectionDocument
     },
     EventAdding {
+        document: dto::CollectionDocument,
+        collection: dto::Collection,
         event: dto::Event,
-        tx: tokio::sync::oneshot::Sender<dto::Event>,
     },
 }
 
 pub struct HookContext {
     data: Arc<HookContextData>,
     context: RequestContext,
+    tx: tokio::sync::oneshot::Sender<HookResult>,
 }
 
 impl HookContext {
-    pub fn new(data: HookContextData, context: RequestContext) -> Self {
+    pub fn new(
+        data: HookContextData,
+        context: RequestContext,
+        tx: tokio::sync::oneshot::Sender<HookResult>,
+    ) -> Self {
         Self {
             data: Arc::new(data),
             context,
+            tx,
         }
+    }
+
+    pub fn complete(self, result: HookResult) {
+        let _ = self.tx.send(result);
     }
 
     pub fn context(&self) -> &RequestContext {

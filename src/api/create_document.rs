@@ -14,7 +14,10 @@ use validator::Validate;
 
 use crate::api::{
     auth::User,
-    hooks::{HookContext, HookContextData, ItemActionStage, ItemActionType, RequestContext},
+    hooks::{
+        HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
+        RequestContext,
+    },
     ApiErrors,
 };
 
@@ -60,13 +63,11 @@ pub(crate) async fn api_create_document(
         ItemActionStage::Before,
     );
     let modified_payload = if let Some(sender) = sender {
-        let (tx, rx) = oneshot::channel::<Result<CollectionItem, ApiErrors>>();
+        let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
         let cdctx = HookContext::new(
-            HookContextData::DocumentAdding {
-                document: payload,
-                tx,
-            },
+            HookContextData::DocumentAdding { document: payload },
             RequestContext::new(collection),
+            tx,
         );
 
         sender
@@ -74,14 +75,16 @@ pub(crate) async fn api_create_document(
             .await
             .map_err(|_e| ApiErrors::InternalServerError)?;
 
-        rx.await.map_err(|_e| ApiErrors::InternalServerError)??
+        rx.await
+            .map_err(|_e| ApiErrors::InternalServerError)??
+            .document
     } else {
-        payload
+        payload.into()
     };
 
     let document = collection_document::ActiveModel {
-        id: Set(modified_payload.id),
-        f: Set(modified_payload.f),
+        id: Set(*modified_payload.id()),
+        f: Set(modified_payload.fields().clone()),
         collection_id: Set(collection_id),
         owner: Set(user.subuuid()),
     };
