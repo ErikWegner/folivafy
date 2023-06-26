@@ -862,10 +862,7 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 pub struct CreateEventBody {
     /// Arbitrary event category
     #[serde(rename = "category")]
-    #[validate(
-            range(min = 0),
-        )]
-    pub category: u32,
+    pub category: i32,
 
     /// Path name of the collection
     #[serde(rename = "collection")]
@@ -891,7 +888,7 @@ lazy_static::lazy_static! {
 
 impl CreateEventBody {
     #[allow(clippy::new_without_default)]
-    pub fn new(category: u32, collection: String, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
+    pub fn new(category: i32, collection: String, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
         CreateEventBody {
             category,
             collection,
@@ -936,7 +933,7 @@ impl std::str::FromStr for CreateEventBody {
         #[derive(Default)]
         #[allow(dead_code)]
         struct IntermediateRep {
-            pub category: Vec<u32>,
+            pub category: Vec<i32>,
             pub collection: Vec<String>,
             pub document: Vec<uuid::Uuid>,
             pub e: Vec<serde_json::Value>,
@@ -958,7 +955,7 @@ impl std::str::FromStr for CreateEventBody {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "category" => intermediate_rep.category.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
                     "collection" => intermediate_rep.collection.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]

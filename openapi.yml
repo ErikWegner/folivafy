@@ -232,7 +232,6 @@ components:
       example: 10
       type: integer
       format: int32
-      minimum: 0
     DocumentId:
       description: Document identifier
       example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db

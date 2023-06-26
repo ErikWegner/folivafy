@@ -68,8 +68,14 @@ impl From<openapi::models::CollectionItem> for CollectionDocument {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
-    category: u32,
+    category: i32,
     payload: serde_json::Value,
+}
+
+impl Event {
+    pub fn category(&self) -> i32 {
+        self.category
+    }
 }
 
 impl std::hash::Hash for Event {
@@ -79,7 +85,7 @@ impl std::hash::Hash for Event {
 }
 
 impl Event {
-    pub fn new(category: u32, payload: serde_json::Value) -> Self {
+    pub fn new(category: i32, payload: serde_json::Value) -> Self {
         Self { category, payload }
     }
 

@@ -3,9 +3,12 @@ use axum_macros::debug_handler;
 use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateEventBody;
-use sea_orm::EntityTrait;
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::NotSet, DbErr, EntityTrait, RuntimeErr, Set, TransactionError,
+    TransactionTrait,
+};
 use tokio::sync::oneshot;
-use tracing::debug;
+use tracing::{debug, error};
 use validator::Validate;
 
 use crate::api::{
@@ -68,7 +71,7 @@ pub(crate) async fn api_create_event(
             HookContextData::EventAdding {
                 document: (&document).into(),
                 collection: (&collection).into(),
-                event: Event::new(payload.category, payload.e),
+                event: Event::new(payload.category, payload.e.clone()),
             },
             RequestContext::new(collection),
             tx,
@@ -87,10 +90,49 @@ pub(crate) async fn api_create_event(
             debug!("No events were permitted");
             return Err(ApiErrors::PermissionDenied);
         } else {
-            for _event in events {
-                // Create the event in the database
-                todo!("Create the event in the database");
-            }
+            ctx.db
+                .transaction::<_, (), DbErr>(|txn| {
+                    Box::pin(async move {
+                        for event in events {
+                            // Create the event in the database
+                            let dbevent = entity::event::ActiveModel {
+                                id: NotSet,
+                                category_id: Set(event.category()),
+                                timestamp: NotSet,
+                                document_id: Set(document.id),
+                                user: Set(user.subuuid()),
+                                payload: Set(payload.e.clone()),
+                            };
+                            // let res = entity::event::Entity::insert(dbevent).exec(&db).await;
+                            let res = dbevent.save(txn).await?;
+
+                            debug!("Event {:?} saved", res.id);
+                        }
+                        Ok(())
+                    })
+                })
+                .await
+                .map_err(|err| match err {
+                    
+                    // DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
+                    //     sqlx::error::Error::Database(e) => {
+                    //         let code: String = e.code().unwrap_or_default().to_string();
+                    //
+                    //         error!("Database runtime error: {}", e);
+                    //         ApiErrors::BadRequest(format!("Cannot append event, code {})", code))
+                    //     }
+                    //     _ => {
+                    //         error!("Database runtime error: {}", error);
+                    //         ApiErrors::InternalServerError
+                    //     }
+                    // },
+                    // _ => {
+                    //     println!("{:?}", err);
+                    //     error!("Database error: {}", err);
+                    //     ApiErrors::InternalServerError
+                    // }
+                })?;
+            return Ok((StatusCode::CREATED, "Done".to_string()));
         }
     }
 

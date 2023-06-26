@@ -246,7 +246,6 @@ components:
       description: Arbitrary event category
       example: 10
       format: int32
-      minimum: 0
       type: integer
     DocumentId:
       description: Document identifier
@@ -409,7 +408,6 @@ components:
           description: Arbitrary event category
           example: 10
           format: int32
-          minimum: 0
           type: integer
         collection:
           description: Path name of the collection
