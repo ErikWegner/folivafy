@@ -86,6 +86,21 @@ impl IntoResponse for ApiErrors {
 impl From<DbErr> for ApiErrors {
     fn from(value: DbErr) -> Self {
         match value {
+            DbErr::Exec(sea_orm::RuntimeErr::SqlxError(error)) => match error {
+                sqlx::error::Error::Database(e) => {
+                    let code: String = e.code().unwrap_or_default().to_string();
+
+                    error!("Database runtime error: {}", e);
+                    ApiErrors::BadRequest(format!(
+                        "Cannot append event, code {})",
+                        code
+                    ))
+                }
+                _ => {
+                    error!("Database runtime error: {}", error);
+                    ApiErrors::InternalServerError
+                }
+            },
             DbErr::RecordNotFound(t) => ApiErrors::NotFound(t),
             _ => {
                 error!("Database error: {:?}", value);

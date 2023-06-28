@@ -4,11 +4,11 @@ use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateEventBody;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, DbErr, EntityTrait, RuntimeErr, Set, TransactionError,
-    TransactionTrait,
+    ActiveModelTrait, ActiveValue::NotSet, DatabaseTransaction, DbErr, EntityTrait, Set,
+    TransactionError, TransactionTrait,
 };
 use tokio::sync::oneshot;
-use tracing::{debug, error};
+use tracing::debug;
 use validator::Validate;
 
 use crate::api::{
@@ -42,100 +42,90 @@ pub(crate) async fn api_create_event(
     }
 
     let collection = collection.unwrap();
-    let document = Documents::find_by_id(unchecked_document_id)
-        .one(&ctx.db)
-        .await?
-        .and_then(|doc| {
-            if collection.oao && doc.owner != user.subuuid() {
-                None
-            } else {
-                Some(doc)
-            }
-        });
-
-    if document.is_none() {
-        debug!("Document {} not found", unchecked_document_id);
-        return Err(ApiErrors::PermissionDenied);
-    }
-    let document = document.unwrap();
-
-    let sender = ctx.hooks.execute_hook(
+    let hook_transmitter = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
         ItemActionType::AppendEvent,
         ItemActionStage::Before,
     );
 
-    if let Some(sender) = sender {
-        let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-        let cdctx = HookContext::new(
-            HookContextData::EventAdding {
-                document: (&document).into(),
-                collection: (&collection).into(),
-                event: Event::new(payload.category, payload.e.clone()),
-            },
-            RequestContext::new(collection),
-            tx,
-        );
+    ctx.db
+        .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
+            Box::pin(async move {
+                let document = select_document_for_update(unchecked_document_id, &txn).await?;
+                if document.is_none() {
+                    debug!("Document {} not found", unchecked_document_id);
+                    return Err(ApiErrors::PermissionDenied);
+                }
+                let document = document.unwrap();
 
-        sender
-            .send(cdctx)
-            .await
-            .map_err(|_e| ApiErrors::InternalServerError)?;
+                if hook_transmitter.is_none() {
+                    debug!("No hook was executed");
+                    return Err(ApiErrors::BadRequest("Event not accepted".to_string()));
+                }
+                let hook_transmitter = hook_transmitter.unwrap();
 
-        let events = rx
-            .await
-            .map_err(|_e| ApiErrors::InternalServerError)??
-            .events;
-        if events.is_empty() {
-            debug!("No events were permitted");
-            return Err(ApiErrors::PermissionDenied);
-        } else {
-            ctx.db
-                .transaction::<_, (), DbErr>(|txn| {
-                    Box::pin(async move {
-                        for event in events {
-                            // Create the event in the database
-                            let dbevent = entity::event::ActiveModel {
-                                id: NotSet,
-                                category_id: Set(event.category()),
-                                timestamp: NotSet,
-                                document_id: Set(document.id),
-                                user: Set(user.subuuid()),
-                                payload: Set(payload.e.clone()),
-                            };
-                            // let res = entity::event::Entity::insert(dbevent).exec(&db).await;
-                            let res = dbevent.save(txn).await?;
+                let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
+                let cdctx = HookContext::new(
+                    HookContextData::EventAdding {
+                        document: (&document).into(),
+                        collection: (&collection).into(),
+                        event: Event::new(payload.category, payload.e.clone()),
+                    },
+                    RequestContext::new(collection),
+                    tx,
+                );
 
-                            debug!("Event {:?} saved", res.id);
-                        }
-                        Ok(())
-                    })
-                })
-                .await
-                .map_err(|err| match err {
-                    
-                    // DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
-                    //     sqlx::error::Error::Database(e) => {
-                    //         let code: String = e.code().unwrap_or_default().to_string();
-                    //
-                    //         error!("Database runtime error: {}", e);
-                    //         ApiErrors::BadRequest(format!("Cannot append event, code {})", code))
-                    //     }
-                    //     _ => {
-                    //         error!("Database runtime error: {}", error);
-                    //         ApiErrors::InternalServerError
-                    //     }
-                    // },
-                    // _ => {
-                    //     println!("{:?}", err);
-                    //     error!("Database error: {}", err);
-                    //     ApiErrors::InternalServerError
-                    // }
-                })?;
-            return Ok((StatusCode::CREATED, "Done".to_string()));
-        }
-    }
+                hook_transmitter
+                    .send(cdctx)
+                    .await
+                    .map_err(|_e| ApiErrors::InternalServerError)?;
 
-    debug!("No hook was executed");
-    Err(ApiErrors::BadRequest("Event not accepted".to_string()))
+                let events = rx
+                    .await
+                    .map_err(|_e| ApiErrors::InternalServerError)??
+                    .events;
+                if events.is_empty() {
+                    debug!("No events were permitted");
+                    return Err(ApiErrors::PermissionDenied);
+                }
+
+                debug!("Try to create {} event(s)", events.len());
+                for event in events {
+                    // Create the event in the database
+                    let dbevent = entity::event::ActiveModel {
+                        id: NotSet,
+                        category_id: Set(event.category()),
+                        timestamp: NotSet,
+                        document_id: Set(document.id),
+                        user: Set(user.subuuid()),
+                        payload: Set(payload.e.clone()),
+                    };
+                    let res = dbevent.save(txn).await?;
+
+                    debug!("Event {:?} saved", res.id);
+                }
+
+                return Ok((StatusCode::CREATED, "Done".to_string()));
+            })
+        })
+        .await
+        .map_err(|err| match err {
+            TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
+            TransactionError::Transaction(t) => t.into(),
+        })
+}
+
+async fn select_document_for_update(
+    unchecked_document_id: uuid::Uuid,
+    txn: &DatabaseTransaction,
+) -> Result<Option<entity::collection_document::Model>, DbErr> {
+    let d = Documents::find()
+        .from_raw_sql(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            r#"SELECT * FROM "collection_document" WHERE "id" = $1 FOR UPDATE"#,
+            [unchecked_document_id.into()],
+        ))
+        .one(txn)
+        .await;
+    d
 }

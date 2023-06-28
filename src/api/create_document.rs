@@ -57,7 +57,7 @@ pub(crate) async fn api_create_document(
     }
 
     let collection_id = collection.id;
-    let sender = ctx.hooks.execute_hook(
+    let sender = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
         ItemActionType::Create,
         ItemActionStage::Before,
@@ -75,9 +75,17 @@ pub(crate) async fn api_create_document(
             .await
             .map_err(|_e| ApiErrors::InternalServerError)?;
 
-        rx.await
+        let document_result = rx
+            .await
             .map_err(|_e| ApiErrors::InternalServerError)??
-            .document
+            .document;
+        match document_result {
+            crate::api::hooks::DocumentResult::Store(document) => document,
+            crate::api::hooks::DocumentResult::NoUpdate => {
+                return Err(ApiErrors::BadRequest("Not accepted for storage".into()))
+            }
+            crate::api::hooks::DocumentResult::Err(err) => return Err(err),
+        }
     } else {
         payload.into()
     };

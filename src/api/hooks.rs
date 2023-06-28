@@ -9,8 +9,17 @@ use tokio::sync::mpsc::Sender;
 
 use super::{dto, ApiErrors};
 
+pub enum DocumentResult {
+    /// Indicates that the document was modified and should be inserted/updated.
+    Store(dto::CollectionDocument),
+    /// Indicates that the document was not modified or no document can be created.
+    NoUpdate,
+    /// Indicates the error that occurred.
+    Err(ApiErrors),
+}
+
 pub struct HookSuccessResult {
-    pub document: dto::CollectionDocument,
+    pub document: DocumentResult,
     pub events: Vec<dto::Event>,
 }
 
@@ -70,7 +79,7 @@ impl Hooks {
         m.insert(hook_data, tx);
     }
 
-    pub fn execute_hook(
+    pub fn get_registered_hook(
         &self,
         collection_name: &str,
         action: ItemActionType,
