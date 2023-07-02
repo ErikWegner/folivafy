@@ -5,9 +5,8 @@ RUN apk add git build-base cmake linux-headers
 RUN cd /; git clone --depth 1 https://github.com/microsoft/mimalloc; cd mimalloc; mkdir build; cd build; cmake ..; make -j$(nproc); make install
 
 ## Build folivafy binary
-FROM rust:1.69.0-alpine AS builder
+FROM rust:1.70-alpine3.18 AS builder
 
-ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 WORKDIR /usr/src
 RUN USER=root cargo new folivafy && cd folivafy && cargo new entity --lib && cargo new migration --lib
 COPY Cargo.toml Cargo.lock /usr/src/folivafy/
