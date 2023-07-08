@@ -234,9 +234,9 @@ then
       echo "Failure: user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Circle Rectangle 9 14" ]
+if [ "$FIELDS" != "Rectangle Circle 14 9" ]
 then
-      echo "Failure: list of documents is missing fields!\n$RESP"
+      echo -e "Failure: list of documents is missing fields!\n$FIELDS\n$RESP"
 fi
 
 
@@ -344,6 +344,20 @@ LENGTH=$(echo $RESP | jq -r '.items | length')
 if [ "$TOTAL" != "1" ] || [ "$LENGTH" != "1" ]
 then
       echo "Failure: list of documents incomplete!\n$RESP"
+fi
+
+
+echo "- User 1 can list its letters with sorting"
+authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API'/collections/letters?sort=content-,title-&extraFields=content')
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to list letters!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.items | map(.f.content) | join(",")')
+if [ "$CONTENT" != "foo,bar" ]
+then
+      echo -e "GOT $CONTENT!\n$RESP"
 fi
 
 

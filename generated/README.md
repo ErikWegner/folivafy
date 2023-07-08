@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 1.0.0
-- Build date: 2023-06-26T21:03:03.480984Z[Etc/UTC]
+- Build date: 2023-07-08T19:00:09.746200811Z[GMT]
 
 
 
@@ -120,7 +120,7 @@ Method | HTTP request | Description
 
 
 ## Documentation For Authorization
-Endpoints do not require authorization.
+ Endpoints do not require authorization.
 
 
 ## Author

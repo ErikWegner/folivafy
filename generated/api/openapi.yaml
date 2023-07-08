@@ -79,6 +79,19 @@ paths:
           type: string
         style: form
       - description: |
+          A comma separated list of document fields that should
+          be used to sort the collection. Append a `+` to sort ascending,
+          append a `-` to sort descending.
+        example: "price+,length-"
+        explode: true
+        in: query
+        name: sort
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9]+[\\+-](,[a-zA-Z0-9]+[\\+-])*$"
+          type: string
+        style: form
+      - description: |
           Search for documents with this exact title
           (upper and lower case are respected)
         example: Rectangle

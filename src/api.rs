@@ -91,10 +91,7 @@ impl From<DbErr> for ApiErrors {
                     let code: String = e.code().unwrap_or_default().to_string();
 
                     error!("Database runtime error: {}", e);
-                    ApiErrors::BadRequest(format!(
-                        "Cannot append event, code {})",
-                        code
-                    ))
+                    ApiErrors::BadRequest(format!("Cannot append event, code {})", code))
                 }
                 _ => {
                     error!("Database runtime error: {}", error);

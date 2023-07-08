@@ -406,6 +406,23 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
+                let param_sort = query_params.iter().filter(|e| e.0 == "sort").map(|e| e.1.clone())
+                    .next();
+                let param_sort = match param_sort {
+                    Some(param_sort) => {
+                        let param_sort =
+                            <String as std::str::FromStr>::from_str
+                                (&param_sort);
+                        match param_sort {
+                            Ok(param_sort) => Some(param_sort),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter sort - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter sort")),
+                        }
+                    },
+                    None => None,
+                };
                 let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
                     .next();
                 let param_exact_title = match param_exact_title {
@@ -427,6 +444,7 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                 let result = api_impl.list_collection(
                                             param_collection,
                                             param_extra_fields,
+                                            param_sort,
                                             param_exact_title,
                                         &context
                                     ).await;

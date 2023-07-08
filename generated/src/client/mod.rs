@@ -643,6 +643,7 @@ impl<S, C> Api<C> for Client<S, C> where
         &self,
         param_collection: String,
         param_extra_fields: Option<String>,
+        param_sort: Option<String>,
         param_exact_title: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
@@ -659,6 +660,10 @@ impl<S, C> Api<C> for Client<S, C> where
             if let Some(param_extra_fields) = param_extra_fields {
                 query_string.append_pair("extraFields",
                     &param_extra_fields);
+            }
+            if let Some(param_sort) = param_sort {
+                query_string.append_pair("sort",
+                    &param_sort);
             }
             if let Some(param_exact_title) = param_exact_title {
                 query_string.append_pair("exactTitle",

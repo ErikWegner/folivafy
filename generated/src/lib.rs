@@ -118,6 +118,7 @@ pub trait Api<C: Send + Sync> {
         &self,
         collection: String,
         extra_fields: Option<String>,
+        sort: Option<String>,
         exact_title: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>;
 
@@ -174,6 +175,7 @@ pub trait ApiNoContext<C: Send + Sync> {
         &self,
         collection: String,
         extra_fields: Option<String>,
+        sort: Option<String>,
         exact_title: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>;
 
@@ -256,11 +258,12 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
         &self,
         collection: String,
         extra_fields: Option<String>,
+        sort: Option<String>,
         exact_title: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().list_collection(collection, extra_fields, exact_title, &context).await
+        self.api().list_collection(collection, extra_fields, sort, exact_title, &context).await
     }
 
     /// Create new item

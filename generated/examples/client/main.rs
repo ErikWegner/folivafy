@@ -103,6 +103,7 @@ fn main() {
             let result = rt.block_on(client.list_collection(
                   "collection_example".to_string(),
                   Some("price,length".to_string()),
+                  Some("price+,length-".to_string()),
                   Some("Rectangle".to_string())
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());

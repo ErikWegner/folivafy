@@ -7,6 +7,7 @@ use axum::{
 use axum_macros::debug_handler;
 use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
+use lazy_static::lazy_static;
 use openapi::models::{CollectionItem, CollectionItemsList};
 use regex::Regex;
 use sea_orm::{
@@ -16,18 +17,31 @@ use sea_orm::{
 use sea_query::Expr;
 use serde::Deserialize;
 use tracing::warn;
+use validator::Validate;
 
 use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
 
 use super::{db::get_collection_by_name, types::Pagination, ApiContext, ApiErrors};
 
-#[derive(Debug, Default, Deserialize)]
+lazy_static! {
+    static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
+    static ref RE_SORT_FIELDS: Regex =
+        Regex::new(r"^[a-zA-Z0-9]+[\+-](,[a-zA-Z0-9]+[\+-])*$").unwrap();
+}
+
+#[derive(Debug, Default, Deserialize, Validate)]
 #[serde(default)]
 pub(crate) struct ListDocumentParams {
     #[serde(rename = "exactTitle")]
     exact_title: Option<String>,
+
+    #[validate(regex = "RE_EXTRA_FIELDS")]
     #[serde(rename = "extraFields")]
     extra_fields: Option<String>,
+
+    #[validate(regex = "RE_SORT_FIELDS")]
+    #[serde(rename = "sort")]
+    sort_fields: Option<String>,
 }
 
 #[debug_handler]
@@ -39,12 +53,6 @@ pub(crate) async fn api_list_document(
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
     let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
-    let re = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
-    if !re.is_match(&extra_fields) {
-        return Err(ApiErrors::BadRequest(
-            "Invalid extraFields value".to_string(),
-        ));
-    }
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
     if collection.is_none() {
         return Err(ApiErrors::NotFound(collection_name));
@@ -80,6 +88,24 @@ pub(crate) async fn api_list_document(
         extra_fields.push(title);
     }
 
+    let sort_fields = list_params
+        .sort_fields
+        .unwrap_or_else(|| "created+".to_string())
+        .split(',')
+        .map(|s| {
+            let mut char_vec_from_s = s.chars().collect::<Vec<char>>();
+            let last_character = char_vec_from_s.pop().unwrap();
+            let field_name = char_vec_from_s.into_iter().collect::<String>();
+
+            let sort_direction = match last_character == '+' {
+                true => "ASC",
+                false => "DESC",
+            };
+            format!(r#""f"->>'{field_name}' {sort_direction}"#)
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
     let extra_fields = extra_fields
         .into_iter()
         .map(|f| format!("'{f}'"))
@@ -89,7 +115,7 @@ pub(crate) async fn api_list_document(
     let items: Vec<JsonValue> = JsonValue::find_by_statement(Statement::from_sql_and_values(
         DbBackend::Postgres,
         format!(
-            "{}{}{}{}{}{}",
+            "{}{extra_fields}{}{}{} ORDER BY {sort_fields} {}",
             r#"SELECT "id", "t"."new_f" as "f"
                 FROM "collection_document"
                 cross join lateral (
@@ -97,7 +123,6 @@ pub(crate) async fn api_list_document(
                  from jsonb_each("f") as x("key", "value")
                  WHERE
                     "key" in ("#,
-            extra_fields,
             r#")
                   ) as "t"
                 WHERE "collection_id" = $1 "#,
@@ -111,8 +136,7 @@ pub(crate) async fn api_list_document(
             } else {
                 ""
             },
-            r#" ORDER BY "id"
-                LIMIT $2
+            r#"LIMIT $2
                 OFFSET $3"#
         )
         .as_str(),
@@ -142,4 +166,41 @@ pub(crate) async fn api_list_document(
         total,
         items,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn param_validation_test() {
+        let all_fields_empty = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: None,
+        };
+
+        assert!(all_fields_empty.validate().is_ok());
+
+        let valid_sort_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: Some("title+,price-,length-".to_string()),
+        };
+        assert!(valid_sort_fields.validate().is_ok());
+
+        let invalid_sort_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: Some("title,price-".to_string()),
+        };
+        assert!(invalid_sort_fields.validate().is_err());
+
+        let invalid_extra_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: Some("title📣".to_string()),
+            sort_fields: None,
+        };
+        assert!(invalid_extra_fields.validate().is_err());
+    }
 }

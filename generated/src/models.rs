@@ -1,5 +1,6 @@
 #![allow(unused_qualifications)]
 
+use regex::Regex;
 use validator::Validate;
 
 use crate::models;
@@ -44,7 +45,7 @@ pub struct Collection {
     #[serde(rename = "name")]
     #[validate(
             length(min = 1, max = 32),
-           regex = "RE_COLLECTION_NAME",
+            regex = "RE_COLLECTION_NAME",
         )]
     pub name: String,
 
@@ -66,7 +67,7 @@ pub struct Collection {
 }
 
 lazy_static::lazy_static! {
-    static ref RE_COLLECTION_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+    static ref RE_COLLECTION_NAME: Regex = Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl Collection {
@@ -708,7 +709,7 @@ pub struct CreateCollectionRequest {
     #[serde(rename = "name")]
     #[validate(
             length(min = 1, max = 32),
-           regex = "RE_CREATECOLLECTIONREQUEST_NAME",
+            regex = "RE_CREATECOLLECTIONREQUEST_NAME",
         )]
     pub name: String,
 
@@ -726,7 +727,7 @@ pub struct CreateCollectionRequest {
 }
 
 lazy_static::lazy_static! {
-    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: Regex = Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl CreateCollectionRequest {
@@ -868,7 +869,7 @@ pub struct CreateEventBody {
     #[serde(rename = "collection")]
     #[validate(
             length(min = 1, max = 32),
-           regex = "RE_CREATEEVENTBODY_COLLECTION",
+            regex = "RE_CREATEEVENTBODY_COLLECTION",
         )]
     pub collection: String,
 
@@ -883,7 +884,7 @@ pub struct CreateEventBody {
 }
 
 lazy_static::lazy_static! {
-    static ref RE_CREATEEVENTBODY_COLLECTION: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+    static ref RE_CREATEEVENTBODY_COLLECTION: Regex = Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
 }
 
 impl CreateEventBody {

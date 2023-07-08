@@ -95,6 +95,16 @@ paths:
             be contained in the response
           example: price,length
         - in: query
+          name: sort
+          schema:
+            type: string
+            pattern: ^[a-zA-Z0-9]+[\+-](,[a-zA-Z0-9]+[\+-])*$
+          description: |
+            A comma separated list of document fields that should
+            be used to sort the collection. Append a `+` to sort ascending,
+            append a `-` to sort descending.
+          example: price+,length-
+        - in: query
           name: exactTitle
           schema:
             type: string

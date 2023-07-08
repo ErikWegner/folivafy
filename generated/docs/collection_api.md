@@ -58,6 +58,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **collection** | **String**| Path name of the collection | 
  **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
+ **sort** | **String**| A comma separated list of document fields that should be used to sort the collection. Append a `+` to sort ascending, append a `-` to sort descending.  | 
  **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
 
 ### Return type
