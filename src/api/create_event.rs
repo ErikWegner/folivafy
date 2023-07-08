@@ -119,7 +119,6 @@ async fn select_document_for_update(
     unchecked_document_id: uuid::Uuid,
     txn: &DatabaseTransaction,
 ) -> Result<Option<entity::collection_document::Model>, DbErr> {
-    
     Documents::find()
         .from_raw_sql(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
