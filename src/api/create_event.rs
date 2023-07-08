@@ -51,7 +51,7 @@ pub(crate) async fn api_create_event(
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
-                let document = select_document_for_update(unchecked_document_id, &txn).await?;
+                let document = select_document_for_update(unchecked_document_id, txn).await?;
                 if document.is_none() {
                     debug!("Document {} not found", unchecked_document_id);
                     return Err(ApiErrors::PermissionDenied);
@@ -105,13 +105,13 @@ pub(crate) async fn api_create_event(
                     debug!("Event {:?} saved", res.id);
                 }
 
-                return Ok((StatusCode::CREATED, "Done".to_string()));
+                Ok((StatusCode::CREATED, "Done".to_string()))
             })
         })
         .await
         .map_err(|err| match err {
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
-            TransactionError::Transaction(t) => t.into(),
+            TransactionError::Transaction(t) => t,
         })
 }
 
@@ -119,13 +119,13 @@ async fn select_document_for_update(
     unchecked_document_id: uuid::Uuid,
     txn: &DatabaseTransaction,
 ) -> Result<Option<entity::collection_document::Model>, DbErr> {
-    let d = Documents::find()
+    
+    Documents::find()
         .from_raw_sql(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
             r#"SELECT * FROM "collection_document" WHERE "id" = $1 FOR UPDATE"#,
             [unchecked_document_id.into()],
         ))
         .one(txn)
-        .await;
-    d
+        .await
 }
