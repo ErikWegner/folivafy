@@ -4,16 +4,17 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::collection_document;
+
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
-use sea_orm::{error::DbErr, EntityTrait, RuntimeErr, Set};
+use sea_orm::{DbErr, RuntimeErr, TransactionError, TransactionTrait};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
     auth::User,
+    db::save_document_and_events,
     hooks::{
         HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
         RequestContext,
@@ -21,7 +22,7 @@ use crate::api::{
     ApiErrors,
 };
 
-use super::{db::get_collection_by_name, ApiContext};
+use super::{db::get_collection_by_name, dto, ApiContext};
 
 #[debug_handler]
 pub(crate) async fn api_create_document(
@@ -62,7 +63,9 @@ pub(crate) async fn api_create_document(
         ItemActionType::Create,
         ItemActionStage::Before,
     );
-    let modified_payload = if let Some(sender) = sender {
+    let mut after_document: dto::CollectionDocument = (payload.clone()).into();
+    let mut events: Vec<dto::Event> = vec![];
+    if let Some(sender) = sender {
         let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
         let cdctx = HookContext::new(
             HookContextData::DocumentAdding { document: payload },
@@ -75,59 +78,65 @@ pub(crate) async fn api_create_document(
             .await
             .map_err(|_e| ApiErrors::InternalServerError)?;
 
-        let document_result = rx
-            .await
-            .map_err(|_e| ApiErrors::InternalServerError)??
-            .document;
-        match document_result {
-            crate::api::hooks::DocumentResult::Store(document) => document,
+        let hook_result = rx.await.map_err(|_e| ApiErrors::InternalServerError)??;
+        match hook_result.document {
+            crate::api::hooks::DocumentResult::Store(document) => {
+                after_document = document;
+            }
             crate::api::hooks::DocumentResult::NoUpdate => {
                 return Err(ApiErrors::BadRequest("Not accepted for storage".into()))
             }
             crate::api::hooks::DocumentResult::Err(err) => return Err(err),
         }
-    } else {
-        payload.into()
+        events.extend(hook_result.events);
     };
 
-    let document = collection_document::ActiveModel {
-        id: Set(*modified_payload.id()),
-        f: Set(modified_payload.fields().clone()),
-        collection_id: Set(collection_id),
-        owner: Set(user.subuuid()),
-    };
+    ctx.db
+        .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
+            Box::pin(async move {
+                let document_id = *after_document.id();
+                save_document_and_events(
+                    txn,
+                    &user,
+                    Some(after_document),
+                    Some(crate::api::db::InsertDocumentData {
+                        collection_id,
+                        owner: user.subuuid(),
+                    }),
+                    events,
+                )
+                .await
+                .map_err(|e| {
+                    error!("Create document error: {:?}", e);
+                    // Check if anyhow contains a DbErr
+                    let d = e.downcast_ref::<DbErr>().unwrap();
+                    debug!("DB error: {:?}", d);
+                    // match d {
+                    //     DbErr::Query(d) => match d {
+                    //         RuntimeErr::SqlxError(d) => match d {
+                    //             Databasqlx::Error::Databasese
+                    //         }
+                    //     }
+                    // }
+                    if let Some(DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(e)))) =
+                        e.downcast_ref::<DbErr>()
+                    {
+                        let code = e.code().unwrap_or_default().to_string();
+                        debug!("DB error code: {}", code);
+                        if code == "23505" {
+                            return ApiErrors::BadRequest("Duplicate document".to_string());
+                        }
+                    }
 
-    let res = entity::collection_document::Entity::insert(document)
-        .exec(&ctx.db)
+                    ApiErrors::InternalServerError
+                })?;
+                debug!("Document {:?} saved to {collection_name}", document_id,);
+                Ok((StatusCode::CREATED, "Document saved".to_string()))
+            })
+        })
         .await
         .map_err(|err| match err {
-            DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
-                sqlx::error::Error::Database(e) => {
-                    let code: String = e.code().unwrap_or_default().to_string();
-                    // We check the error code thrown by the database (PostgreSQL in this case),
-                    // `23505` means `value violates unique constraint`: we have a duplicate key in the table.
-                    if code == "23505" {
-                        ApiErrors::BadRequest("Duplicate document".to_string())
-                    } else {
-                        error!("Database runtime error: {}", e);
-                        ApiErrors::BadRequest(format!("Cannot create document (code {})", code))
-                    }
-                }
-                _ => {
-                    error!("Database runtime error: {}", error);
-                    ApiErrors::InternalServerError
-                }
-            },
-            _ => {
-                println!("{:?}", err);
-                error!("Database error: {}", err);
-                ApiErrors::InternalServerError
-            }
-        })?;
-
-    debug!(
-        "Document {:?} saved to {}",
-        res.last_insert_id, collection_name
-    );
-    Ok((StatusCode::CREATED, "Document saved".to_string()))
+            TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
+            TransactionError::Transaction(t) => t,
+        })
 }

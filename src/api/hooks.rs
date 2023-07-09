@@ -126,6 +126,8 @@ pub enum HookContextData {
     },
     EventAdding {
         document: dto::CollectionDocument,
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
         collection: dto::Collection,
         event: dto::Event,
     },

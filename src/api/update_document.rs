@@ -7,16 +7,14 @@ use axum_macros::debug_handler;
 use entity::collection_document;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
-use sea_orm::{
-    error::DbErr, prelude::Uuid, ActiveModelTrait, RuntimeErr, Set, TransactionError,
-    TransactionTrait,
-};
+use sea_orm::{prelude::Uuid, TransactionError, TransactionTrait};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
     auth::User,
+    db::save_document_and_events,
     dto,
     hooks::{
         HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
@@ -87,8 +85,9 @@ pub(crate) async fn api_update_document(
                 let document = document.unwrap();
 
                 let before_document: dto::CollectionDocument = (&document).into();
-                let mut document: collection_document::ActiveModel = document.into();
+                let _document: collection_document::ActiveModel = document.into();
                 let mut after_document: dto::CollectionDocument = (payload).into();
+                let mut events: Vec<dto::Event> = vec![];
                 if let Some(sender) = hook_processor {
                     let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
                     let cdctx = HookContext::new(
@@ -105,11 +104,8 @@ pub(crate) async fn api_update_document(
                         .await
                         .map_err(|_| ApiErrors::InternalServerError)?;
 
-                    let hook_result = rx
-                        .await
-                        .map_err(|_| ApiErrors::InternalServerError)??
-                        .document;
-                    match hook_result {
+                    let hook_result = rx.await.map_err(|_| ApiErrors::InternalServerError)??;
+                    match hook_result.document {
                         crate::api::hooks::DocumentResult::Store(document) => {
                             after_document = document;
                         }
@@ -118,37 +114,15 @@ pub(crate) async fn api_update_document(
                         }
                         crate::api::hooks::DocumentResult::Err(err) => return Err(err),
                     }
+                    events.extend(hook_result.events);
                 }
 
-                document.f = Set(after_document.fields().clone());
-                let _ = document.save(txn).await.map_err(|err| match err {
-                    DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
-                        sqlx::error::Error::Database(e) => {
-                            let code: String = e.code().unwrap_or_default().to_string();
-                            // We check the error code thrown by the database (PostgreSQL in this case),
-                            // `23505` means `value violates unique constraint`: we have a duplicate key in the table.
-                            if code == "23505" {
-                                ApiErrors::BadRequest("Duplicate document".to_string())
-                            } else {
-                                error!("Database runtime error: {}", e);
-                                ApiErrors::BadRequest(format!(
-                                    "Cannot create document (code {})",
-                                    code
-                                ))
-                            }
-                        }
-                        _ => {
-                            error!("Database runtime error: {}", error);
-                            ApiErrors::InternalServerError
-                        }
-                    },
-                    _ => {
-                        println!("{:?}", err);
-                        error!("Database error: {}", err);
+                save_document_and_events(txn, &user, Some(after_document), None, events)
+                    .await
+                    .map_err(|e| {
+                        error!("Update document error: {:?}", e);
                         ApiErrors::InternalServerError
-                    }
-                })?;
-
+                    })?;
                 debug!(
                     "Document {:?} updated in collection {}",
                     document_id, collection_name

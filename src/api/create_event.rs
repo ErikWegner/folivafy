@@ -3,14 +3,18 @@ use axum_macros::debug_handler;
 
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateEventBody;
-use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, Set, TransactionError, TransactionTrait};
+use sea_orm::{TransactionError, TransactionTrait};
 use tokio::sync::oneshot;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
-    db::get_collection_by_name,
-    hooks::{HookContext, HookContextData, ItemActionStage, ItemActionType, RequestContext},
+    db::{get_collection_by_name, save_document_and_events},
+    dto,
+    hooks::{
+        DocumentResult, HookContext, HookContextData, ItemActionStage, ItemActionType,
+        RequestContext,
+    },
     select_document_for_update,
 };
 
@@ -64,6 +68,8 @@ pub(crate) async fn api_create_event(
                     return Err(ApiErrors::PermissionDenied);
                 }
                 let document = document.unwrap();
+                let before_document: dto::CollectionDocument = (&document).into();
+                let after_document: dto::CollectionDocument = (&document).into();
 
                 if hook_transmitter.is_none() {
                     debug!("No hook was executed");
@@ -75,8 +81,10 @@ pub(crate) async fn api_create_event(
                 let cdctx = HookContext::new(
                     HookContextData::EventAdding {
                         document: (&document).into(),
+                        after_document,
+                        before_document,
                         collection: (&collection).into(),
-                        event: Event::new(payload.category, payload.e.clone()),
+                        event: Event::new(document.id, payload.category, payload.e.clone()),
                     },
                     RequestContext::new(collection),
                     tx,
@@ -87,30 +95,28 @@ pub(crate) async fn api_create_event(
                     .await
                     .map_err(|_e| ApiErrors::InternalServerError)?;
 
-                let events = rx
-                    .await
-                    .map_err(|_e| ApiErrors::InternalServerError)??
-                    .events;
+                let result = rx.await.map_err(|_e| ApiErrors::InternalServerError)??;
+                let events = result.events;
                 if events.is_empty() {
                     debug!("No events were permitted");
                     return Err(ApiErrors::PermissionDenied);
                 }
 
-                debug!("Try to create {} event(s)", events.len());
-                for event in events {
-                    // Create the event in the database
-                    let dbevent = entity::event::ActiveModel {
-                        id: NotSet,
-                        category_id: Set(event.category()),
-                        timestamp: NotSet,
-                        document_id: Set(document.id),
-                        user: Set(user.subuuid()),
-                        payload: Set(payload.e.clone()),
-                    };
-                    let res = dbevent.save(txn).await?;
+                let document = match result.document {
+                    DocumentResult::Store(d) => Some(d),
+                    DocumentResult::NoUpdate => None,
+                    DocumentResult::Err(e) => {
+                        error!("Error while updating document: {:?}", e);
+                        return Err(ApiErrors::InternalServerError);
+                    }
+                };
 
-                    debug!("Event {:?} saved", res.id);
-                }
+                save_document_and_events(txn, &user, document, None, events)
+                    .await
+                    .map_err(|e| {
+                        error!("Error while creating event: {:?}", e);
+                        ApiErrors::InternalServerError
+                    })?;
 
                 Ok((StatusCode::CREATED, "Done".to_string()))
             })

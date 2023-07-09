@@ -13,6 +13,7 @@ mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 pub use openapi::models::CollectionItem;
+use tokio::signal;
 
 use std::{
     env,
@@ -119,6 +120,32 @@ impl From<validator::ValidationErrors> for ApiErrors {
     }
 }
 
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("shutdown signal received");
+}
+
 pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
     // build our application with a route
     let app = api_routes(db, hooks)
@@ -166,6 +193,7 @@ pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
     tracing::info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error running server")
 }

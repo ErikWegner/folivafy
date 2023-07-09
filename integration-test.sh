@@ -46,6 +46,11 @@ function authorize_client {
 
 
 cargo build --package folivafy --package migration
+if [ $? -ne 0 ]; then
+  echo “Error: Failed to build”
+  exit 1
+fi
+
 export DATABASE_URL=postgresql://inttest_role:inttest_pwd@db/inttest
 ./target/debug/migration
 
@@ -176,7 +181,7 @@ RESP=$(curl --silent \
   $API/collections/shapes)
 if [ "$RESP" != "Duplicate document" ]
 then
-      echo "Failure: duplicate rectangle document!\n$RESP"
+      echo -e "Failure: duplicate rectangle document!\n$RESP"
 fi
 
 
