@@ -57,6 +57,10 @@ impl User {
     pub(crate) fn subuuid(&self) -> Uuid {
         Uuid::parse_str(self.sub.as_ref()).unwrap_or_default()
     }
+
+    pub(crate) fn preferred_username(&self) -> &str {
+        self.preferred_username.as_ref()
+    }
 }
 
 /// Workaround for  https://github.com/Keats/jsonwebtoken/issues/252 not handling RSA-OAEP

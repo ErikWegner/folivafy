@@ -69,7 +69,7 @@ pub(crate) async fn api_create_document(
         let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
         let cdctx = HookContext::new(
             HookContextData::DocumentAdding { document: payload },
-            RequestContext::new(collection),
+            RequestContext::new(&collection.name, user.subuuid(), user.preferred_username()),
             tx,
         );
 
@@ -111,13 +111,6 @@ pub(crate) async fn api_create_document(
                     // Check if anyhow contains a DbErr
                     let d = e.downcast_ref::<DbErr>().unwrap();
                     debug!("DB error: {:?}", d);
-                    // match d {
-                    //     DbErr::Query(d) => match d {
-                    //         RuntimeErr::SqlxError(d) => match d {
-                    //             Databasqlx::Error::Databasese
-                    //         }
-                    //     }
-                    // }
                     if let Some(DbErr::Query(RuntimeErr::SqlxError(sqlx::Error::Database(e)))) =
                         e.downcast_ref::<DbErr>()
                     {

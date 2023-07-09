@@ -6,6 +6,7 @@ use std::{
 
 use openapi::models::CollectionItem;
 use tokio::sync::mpsc::Sender;
+use uuid::Uuid;
 
 use super::{dto, ApiErrors};
 
@@ -100,18 +101,30 @@ impl Hooks {
 pub struct RequestContext {
     #[allow(dead_code)]
     collection_name: String,
+    user_id: Uuid,
+    user_name: String,
 }
 
 impl RequestContext {
-    pub fn new(collection: entity::collection::Model) -> Self {
+    pub fn new(collection_name: &str, user_id: Uuid, user_name: &str) -> Self {
         Self {
-            collection_name: collection.name,
+            collection_name: collection_name.to_string(),
+            user_id,
+            user_name: user_name.to_string(),
         }
     }
 
     #[allow(dead_code)]
     fn collection_name(&self) -> &str {
         self.collection_name.as_ref()
+    }
+
+    pub fn user_id(&self) -> Uuid {
+        self.user_id
+    }
+
+    pub fn user_name(&self) -> &str {
+        self.user_name.as_ref()
     }
 }
 
@@ -125,7 +138,6 @@ pub enum HookContextData {
         after_document: dto::CollectionDocument,
     },
     EventAdding {
-        document: dto::CollectionDocument,
         before_document: dto::CollectionDocument,
         after_document: dto::CollectionDocument,
         collection: dto::Collection,

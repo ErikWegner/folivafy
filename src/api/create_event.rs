@@ -80,13 +80,16 @@ pub(crate) async fn api_create_event(
                 let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
                 let cdctx = HookContext::new(
                     HookContextData::EventAdding {
-                        document: (&document).into(),
                         after_document,
                         before_document,
                         collection: (&collection).into(),
                         event: Event::new(document.id, payload.category, payload.e.clone()),
                     },
-                    RequestContext::new(collection),
+                    RequestContext::new(
+                        &collection.name,
+                        user.subuuid(),
+                        user.preferred_username(),
+                    ),
                     tx,
                 );
 

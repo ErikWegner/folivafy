@@ -46,6 +46,10 @@ impl CollectionDocument {
     pub fn fields(&self) -> &serde_json::Value {
         &self.fields
     }
+
+    pub fn set_field(&mut self, key: &str, value: serde_json::Value) {
+        self.fields[key] = value;
+    }
 }
 
 impl From<&entity::collection_document::Model> for CollectionDocument {

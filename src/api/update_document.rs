@@ -95,7 +95,11 @@ pub(crate) async fn api_update_document(
                             before_document,
                             after_document,
                         },
-                        RequestContext::new(collection),
+                        RequestContext::new(
+                            &collection.name,
+                            user.subuuid(),
+                            user.preferred_username(),
+                        ),
                         tx,
                     );
 
