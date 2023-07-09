@@ -120,6 +120,10 @@ pub enum HookContextData {
     DocumentAdding {
         document: CollectionItem, // TODO: use dto::CollectionDocument
     },
+    DocumentUpdating {
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
+    },
     EventAdding {
         document: dto::CollectionDocument,
         collection: dto::Collection,

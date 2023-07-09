@@ -11,6 +11,7 @@ mod list_documents;
 mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;
+use entity::collection_document::Entity as Documents;
 pub use openapi::models::CollectionItem;
 
 use std::{
@@ -29,7 +30,7 @@ use axum::{
     Router,
 };
 use jwt_authorizer::{JwtAuthorizer, Validation};
-use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
 use thiserror::Error;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
@@ -201,4 +202,18 @@ async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Rout
             .with_state(ApiContext { db, hooks })
             .layer(jwt_auth.layer().await.unwrap()),
     ))
+}
+
+pub(crate) async fn select_document_for_update(
+    unchecked_document_id: uuid::Uuid,
+    txn: &DatabaseTransaction,
+) -> Result<Option<entity::collection_document::Model>, DbErr> {
+    Documents::find()
+        .from_raw_sql(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            r#"SELECT * FROM "collection_document" WHERE "id" = $1 FOR UPDATE"#,
+            [unchecked_document_id.into()],
+        ))
+        .one(txn)
+        .await
 }

@@ -1,19 +1,17 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
-use entity::collection_document::Entity as Documents;
+
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateEventBody;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, DatabaseTransaction, DbErr, EntityTrait, Set,
-    TransactionError, TransactionTrait,
-};
+use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, Set, TransactionError, TransactionTrait};
 use tokio::sync::oneshot;
-use tracing::debug;
+use tracing::{debug, warn};
 use validator::Validate;
 
 use crate::api::{
     db::get_collection_by_name,
     hooks::{HookContext, HookContextData, ItemActionStage, ItemActionType, RequestContext},
+    select_document_for_update,
 };
 
 use super::{auth::User, dto::Event, hooks::HookSuccessResult, ApiContext, ApiErrors};
@@ -42,6 +40,15 @@ pub(crate) async fn api_create_event(
     }
 
     let collection = collection.unwrap();
+    // Check if collection is locked
+    if collection.locked {
+        warn!(
+            "User {} tried to add events to document in locked collection {}",
+            user.name_and_sub(),
+            collection_name
+        );
+        return Err(ApiErrors::BadRequest("Read only collection".into()));
+    }
     let hook_transmitter = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
         ItemActionType::AppendEvent,
@@ -113,18 +120,4 @@ pub(crate) async fn api_create_event(
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
             TransactionError::Transaction(t) => t,
         })
-}
-
-async fn select_document_for_update(
-    unchecked_document_id: uuid::Uuid,
-    txn: &DatabaseTransaction,
-) -> Result<Option<entity::collection_document::Model>, DbErr> {
-    Documents::find()
-        .from_raw_sql(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
-            r#"SELECT * FROM "collection_document" WHERE "id" = $1 FOR UPDATE"#,
-            [unchecked_document_id.into()],
-        ))
-        .one(txn)
-        .await
 }
