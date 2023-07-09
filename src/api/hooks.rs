@@ -147,7 +147,7 @@ pub enum HookContextData {
 
 pub struct HookContext {
     data: Arc<HookContextData>,
-    context: RequestContext,
+    context: Arc<RequestContext>,
     tx: tokio::sync::oneshot::Sender<HookResult>,
 }
 
@@ -159,7 +159,7 @@ impl HookContext {
     ) -> Self {
         Self {
             data: Arc::new(data),
-            context,
+            context: Arc::new(context),
             tx,
         }
     }
@@ -168,8 +168,8 @@ impl HookContext {
         let _ = self.tx.send(result);
     }
 
-    pub fn context(&self) -> &RequestContext {
-        &self.context
+    pub fn context(&self) -> Arc<RequestContext> {
+        self.context.clone()
     }
 
     pub fn data(&self) -> Arc<HookContextData> {
