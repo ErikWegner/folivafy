@@ -7,7 +7,7 @@ use axum_macros::debug_handler;
 use entity::collection_document;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
-use sea_orm::{prelude::Uuid, TransactionError, TransactionTrait};
+use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
@@ -22,6 +22,7 @@ use crate::api::{
     },
     select_document_for_update,
 };
+use entity::collection_document::Entity as Documents;
 
 use super::{db::get_collection_by_name, ApiContext, ApiErrors};
 
