@@ -16,6 +16,10 @@ COLADMIN_SECRET=q3RRoqv6tQNP8PRVJq0WdQOU1WKmbU6X
 SHAPES_EDITOR_CLIENT=inttest_shapes_editor
 SHAPES_EDITOR_SECRET=Ha7hcGzlHHYQc0rMS9vtlaecDHunTG8I
 
+# Account with role Editor for Fluids collection
+FLUIDS_EDITOR_CLIENT=inttest_fluids_editor
+FLUIDS_EDITOR_SECRET=Zjn8HoTjeedDtDJsYpIk6ZtCdhogHd2J
+
 # Account with role Reader for Shapes collection
 SHAPES_READER_CLIENT=inttest_shapes_reader
 SHAPES_READER_SECRET=hI523HzLvNmg8WDn4Dd7DY1NmAIV0KtK
@@ -151,6 +155,21 @@ then
       echo "Failure: list of collections incomplete!\n$RESP"
 fi
 
+
+echo "- Can create fluids collection"
+authorize_client $COLADMIN_CLIENT $COLADMIN_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"name": "fluids","title": "Fluids","oao": false}' \
+  $API/collections)
+if [ "$RESP" != "Collection fluids created" ]
+then
+      echo "Failure: user is not allowed to create fluids collection!"
+fi
+
+
 #####################################################
 ##
 ##  Public shapes collection
@@ -261,6 +280,20 @@ TITLE=$(echo $RESP | jq -r '.items[0].f.title')
 if [ "$TITLE" != "Rectangle" ]
 then
       echo "Failure: document title does not match!\n$RESP"
+fi
+
+
+echo "- User can create water fluid document"
+authorize_client $FLUIDS_EDITOR_CLIENT $FLUIDS_EDITOR_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "702562c8-8017-4b95-9c07-dfaceb5496ed","f": {"title": "Water"}}' \
+  $API/collections/fluids)
+if [ "$RESP" != "Document saved" ]
+then
+      echo "Failure: user is not allowed to save water document!\n$RESP"
 fi
 
 
@@ -421,6 +454,47 @@ RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collection
 if [ "$RESP" != "Document ff901d16-a533-4ad7-9e75-d69407440804 not found" ]
 then
       echo "Failure: user is allowed to read alpaca letter 1!\n$RESP"
+fi
+
+
+echo "- Fluid user can read water"
+authorize_client $FLUIDS_EDITOR_CLIENT $FLUIDS_EDITOR_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/fluids/702562c8-8017-4b95-9c07-dfaceb5496ed)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: other user is not allowed to read water!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.f.title')
+if [ "$CONTENT" != "Water" ]
+then
+      echo "Failure: cannot read water document!\n$RESP"
+fi
+
+
+echo "- Fluid user can read rectangle"
+authorize_client $FLUIDS_EDITOR_CLIENT $FLUIDS_EDITOR_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/ea25fa9d-4650-41ae-a1fa-00bd226b648f)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read rectangle!\n$RESP"
+fi
+CONTENT=$(echo $RESP | jq -r '.f.price')
+if [ "$CONTENT" != "14" ]
+then
+      echo "Failure: cannot read document!\n$RESP"
+fi
+
+
+echo "- No user can read rectangle accessed through wrong collection"
+authorize_client $FLUIDS_EDITOR_CLIENT $FLUIDS_EDITOR_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/fluids/ea25fa9d-4650-41ae-a1fa-00bd226b648f)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo "Failure: user is not allowed to read rectangle!\n$RESP"
+fi
+if [ "$RESP" != "Document ea25fa9d-4650-41ae-a1fa-00bd226b648f not found" ]
+then
+      echo "Failure: document was available!\n$RESP"
 fi
 
 

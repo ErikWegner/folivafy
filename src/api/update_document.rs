@@ -60,6 +60,24 @@ pub(crate) async fn api_update_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
+    let document = Documents::find_by_id(uuid)
+        .one(&ctx.db)
+        .await?
+        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
+        .and_then(|doc| {
+            if collection.oao && doc.owner != user.subuuid() {
+                None
+            } else {
+                Some(doc)
+            }
+        });
+
+    if document.is_none() {
+        return Err(ApiErrors::NotFound(format!(
+            "Document {document_id} not found"
+        )));
+    }
+
     let hook_processor = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
         ItemActionType::Update,

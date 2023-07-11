@@ -36,6 +36,7 @@ pub(crate) async fn api_read_document(
     let document = Documents::find_by_id(uuid)
         .one(&ctx.db)
         .await?
+        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
         .and_then(|doc| {
             if collection.oao && doc.owner != user.subuuid() {
                 None
