@@ -28,7 +28,7 @@ type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub enum ItemActionType {
-    AppendEvent,
+    AppendEvent { category: i32 },
     Create,
     Update,
 }

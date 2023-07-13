@@ -55,7 +55,9 @@ pub(crate) async fn api_create_event(
     }
     let hook_transmitter = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
-        ItemActionType::AppendEvent,
+        ItemActionType::AppendEvent {
+            category: payload.category,
+        },
         ItemActionStage::Before,
     );
 
