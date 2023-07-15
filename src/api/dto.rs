@@ -9,6 +9,15 @@ pub struct Collection {
 }
 
 impl Collection {
+    pub fn new(name: String, title: String, oao: bool, locked: bool) -> Self {
+        Self {
+            name,
+            title,
+            oao,
+            locked,
+        }
+    }
+
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
@@ -39,6 +48,10 @@ impl std::hash::Hash for CollectionDocument {
 }
 
 impl CollectionDocument {
+    pub fn new(id: Uuid, fields: serde_json::Value) -> Self {
+        Self { id, fields }
+    }
+
     pub fn id(&self) -> &Uuid {
         &self.id
     }
@@ -78,22 +91,6 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn category(&self) -> i32 {
-        self.category
-    }
-
-    pub fn document_id(&self) -> Uuid {
-        self.document_id
-    }
-}
-
-impl std::hash::Hash for Event {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.payload.to_string().hash(state);
-    }
-}
-
-impl Event {
     pub fn new(document_id: Uuid, category: i32, payload: serde_json::Value) -> Self {
         Self {
             document_id,
@@ -102,7 +99,21 @@ impl Event {
         }
     }
 
+    pub fn document_id(&self) -> Uuid {
+        self.document_id
+    }
+
+    pub fn category(&self) -> i32 {
+        self.category
+    }
+
     pub fn payload(&self) -> &serde_json::Value {
         &self.payload
+    }
+}
+
+impl std::hash::Hash for Event {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.payload.to_string().hash(state);
     }
 }
