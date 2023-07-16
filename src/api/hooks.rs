@@ -24,6 +24,12 @@ pub struct HookSuccessResult {
     pub events: Vec<dto::Event>,
 }
 
+impl Debug for HookSuccessResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HookSuccessResult").finish()
+    }
+}
+
 type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Debug)]

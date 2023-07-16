@@ -55,7 +55,7 @@ pub(crate) struct ApiContext {
     hooks: Hooks,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum ApiErrors {
     #[error("Internal server error")]
     InternalServerError,
