@@ -10,3 +10,12 @@ pub async fn migrate(db: &DatabaseConnection) -> Result<(), anyhow::Error> {
         .await
         .context("Database migration failed")
 }
+
+pub async fn drop(db: &DatabaseConnection) -> Result<(), anyhow::Error> {
+    Migrator::down(db, Some(1))
+        .await
+        .context("Database migration failed #1")?;
+    Migrator::down(db, Some(1))
+        .await
+        .context("Database migration failed #2")
+}

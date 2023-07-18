@@ -42,6 +42,15 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
+            .drop_foreign_key(
+                sea_query::ForeignKey::drop()
+                    .name("fk-event-document_id")
+                    .table(Event::Table)
+                    .to_owned(),
+            )
+            .await
+            .expect("ForeignKey dropped");
+        manager
             .drop_table(Table::drop().table(Event::Table).to_owned())
             .await
     }
