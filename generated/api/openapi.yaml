@@ -204,7 +204,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CollectionItem'
+                $ref: '#/components/schemas/CollectionItemDetails'
           description: successful operation
         "404":
           description: Item not found
@@ -406,6 +406,60 @@ components:
           type: object
       required:
       - f
+      - id
+      type: object
+    CollectionItemDetails:
+      example:
+        id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+        f:
+          title: Rectangle
+          price: 14
+        e:
+        - id: 17
+          category: 15
+          e:
+            title: Approved
+            mail: false
+      properties:
+        id:
+          description: Document identifier
+          example: 503a11c7-0a2a-48c3-bf0a-e5296c3f26db
+          format: uuid
+          type: string
+        f:
+          description: Field data
+          type: object
+        e:
+          items:
+            $ref: '#/components/schemas/CollectionItemEvent'
+          type: array
+      required:
+      - e
+      - f
+      - id
+      type: object
+    CollectionItemEvent:
+      example:
+        id: 17
+        category: 1020
+        e:
+          title: Approved
+          mail: false
+      properties:
+        id:
+          minimum: 0
+          type: integer
+        category:
+          description: Arbitrary event category
+          example: 10
+          format: int32
+          type: integer
+        e:
+          description: Field data
+          type: object
+      required:
+      - category
+      - e
       - id
       type: object
     CreateEventBody:

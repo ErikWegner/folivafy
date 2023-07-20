@@ -524,9 +524,9 @@ then
       echo "Failure: user is not allowed to read square!\n$RESP"
 fi
 CONTENT=$(echo $RESP)
-if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"}}' ]
+if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"},"e":[]}' ]
 then
-      echo "Failure: square content!\n$RESP\n$CONTENT"
+      echo -e "Failure: square content!\n$RESP\n$CONTENT"
 fi
 
 
@@ -540,17 +540,17 @@ RESP=$(curl --silent \
   $API/collections/letters)
 if [ "$RESP" != "Document updated" ]
 then
-      echo "Failure: user is not allowed to update Alpaca letter 1!\n$RESP"
+      echo -e "Failure: user is not allowed to update Alpaca letter 1!\n$RESP"
 fi
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
 if [ "$RESP" == "Unauthorized" ]
 then
-      echo "Failure: user is not allowed to read Alpaca letter 1!\n$RESP"
+      echo -e "Failure: user is not allowed to read Alpaca letter 1!\n$RESP"
 fi
 CONTENT=$(echo $RESP)
-if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"}}' ]
+if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[]}' ]
 then
-      echo "Failure: Alpaca letter 1 content!\n$RESP\n$CONTENT"
+      echo -e "Failure: Alpaca letter 1 content!\n$RESP\n$CONTENT"
 fi
 
 
@@ -568,9 +568,9 @@ then
 fi
 authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
-if [ "$RESP" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"}}' ]
+if [ "$RESP" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[]}' ]
 then
-      echo "Failure: Alpaca letter 1 content!\n$RESP"
+      echo -e "Failure: Alpaca letter 1 content!\n$RESP"
 fi
 
 

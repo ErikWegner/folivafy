@@ -37,7 +37,7 @@ pub enum GetCollectionsResponse {
 pub enum GetItemByIdResponse {
     /// successful operation
     SuccessfulOperation
-    (models::CollectionItem)
+    (models::CollectionItemDetails)
     ,
     /// Item not found
     ItemNotFound

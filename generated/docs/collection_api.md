@@ -11,7 +11,7 @@ Method | HTTP request | Description
 
 
 # **getItemById**
-> models::CollectionItem getItemById(collection, document_id)
+> models::CollectionItemDetails getItemById(collection, document_id)
 Get item
 
 Get item data
@@ -25,7 +25,7 @@ Name | Type | Description  | Notes
 
 ### Return type
 
-[**models::CollectionItem**](CollectionItem.md)
+[**models::CollectionItemDetails**](CollectionItemDetails.md)
 
 ### Authorization
 

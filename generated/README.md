@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 1.0.0
-- Build date: 2023-07-08T19:00:09.746200811Z[GMT]
+- Build date: 2023-07-20T19:21:56.631656241Z[GMT]
 
 
 
@@ -111,6 +111,8 @@ Method | HTTP request | Description
  - [CategoryId](docs/CategoryId.md)
  - [Collection](docs/Collection.md)
  - [CollectionItem](docs/CollectionItem.md)
+ - [CollectionItemDetails](docs/CollectionItemDetails.md)
+ - [CollectionItemEvent](docs/CollectionItemEvent.md)
  - [CollectionItemsList](docs/CollectionItemsList.md)
  - [CollectionName](docs/CollectionName.md)
  - [CollectionsList](docs/CollectionsList.md)

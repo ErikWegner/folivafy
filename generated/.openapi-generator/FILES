@@ -7,6 +7,8 @@ api/openapi.yaml
 docs/CategoryId.md
 docs/Collection.md
 docs/CollectionItem.md
+docs/CollectionItemDetails.md
+docs/CollectionItemEvent.md
 docs/CollectionItemsList.md
 docs/CollectionName.md
 docs/CollectionsList.md

@@ -338,6 +338,290 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CollectionItemDetails {
+    /// Document identifier
+    #[serde(rename = "id")]
+    pub id: uuid::Uuid,
+
+    /// Field data
+    #[serde(rename = "f")]
+    pub f: serde_json::Value,
+
+    #[serde(rename = "e")]
+    pub e: Vec<models::CollectionItemEvent>,
+
+}
+
+
+impl CollectionItemDetails {
+    #[allow(clippy::new_without_default)]
+    pub fn new(id: uuid::Uuid, f: serde_json::Value, e: Vec<models::CollectionItemEvent>, ) -> CollectionItemDetails {
+        CollectionItemDetails {
+            id,
+            f,
+            e,
+        }
+    }
+}
+
+/// Converts the CollectionItemDetails value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CollectionItemDetails {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+            // Skipping id in query parameter serialization
+
+            // Skipping f in query parameter serialization
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CollectionItemDetails value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CollectionItemDetails {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub id: Vec<uuid::Uuid>,
+            pub f: Vec<serde_json::Value>,
+            pub e: Vec<Vec<models::CollectionItemEvent>>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CollectionItemDetails".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "id" => intermediate_rep.id.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "f" => intermediate_rep.f.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "e" => return std::result::Result::Err("Parsing a container in this style is not supported in CollectionItemDetails".to_string()),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemDetails".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CollectionItemDetails {
+            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemDetails".to_string())?,
+            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in CollectionItemDetails".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemDetails".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CollectionItemDetails> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemDetails>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemDetails>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CollectionItemDetails - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemDetails> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CollectionItemDetails as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CollectionItemDetails - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CollectionItemEvent {
+    #[serde(rename = "id")]
+    #[validate(
+            range(min = 0),
+        )]
+    pub id: u32,
+
+    /// Arbitrary event category
+    #[serde(rename = "category")]
+    pub category: i32,
+
+    /// Field data
+    #[serde(rename = "e")]
+    pub e: serde_json::Value,
+
+}
+
+
+impl CollectionItemEvent {
+    #[allow(clippy::new_without_default)]
+    pub fn new(id: u32, category: i32, e: serde_json::Value, ) -> CollectionItemEvent {
+        CollectionItemEvent {
+            id,
+            category,
+            e,
+        }
+    }
+}
+
+/// Converts the CollectionItemEvent value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CollectionItemEvent {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("id".to_string()),
+            Some(self.id.to_string()),
+
+
+            Some("category".to_string()),
+            Some(self.category.to_string()),
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CollectionItemEvent value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CollectionItemEvent {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub id: Vec<u32>,
+            pub category: Vec<i32>,
+            pub e: Vec<serde_json::Value>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CollectionItemEvent".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "id" => intermediate_rep.id.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemEvent".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CollectionItemEvent {
+            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemEvent".to_string())?,
+            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CollectionItemEvent".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemEvent".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CollectionItemEvent> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemEvent>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemEvent>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CollectionItemEvent - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemEvent> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CollectionItemEvent as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CollectionItemEvent - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
     #[validate(

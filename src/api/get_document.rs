@@ -3,10 +3,11 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::collection_document::Entity as Documents;
+use entity::event::Entity as Events;
+use entity::{collection_document::Entity as Documents, event};
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionItem;
-use sea_orm::{prelude::Uuid, EntityTrait};
+use openapi::models::{CollectionItemDetails, CollectionItemEvent};
+use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use tracing::warn;
 
 use crate::api::auth::User;
@@ -18,7 +19,7 @@ pub(crate) async fn api_read_document(
     State(ctx): State<ApiContext>,
     Path((collection_name, document_id)): Path<(String, String)>,
     JwtClaims(user): JwtClaims<User>,
-) -> Result<Json<CollectionItem>, ApiErrors> {
+) -> Result<Json<CollectionItemDetails>, ApiErrors> {
     let uuid = Uuid::parse_str(&document_id)
         .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
 
@@ -52,8 +53,22 @@ pub(crate) async fn api_read_document(
     }
     let document = document.unwrap();
 
-    Ok(Json(CollectionItem {
+    let events = Events::find()
+        .filter(event::Column::DocumentId.eq(Uuid::parse_str(document_id.as_ref()).ok()))
+        .order_by_desc(event::Column::Id)
+        .all(&ctx.db)
+        .await?
+        .into_iter()
+        .map(|event| CollectionItemEvent {
+            id: u32::try_from(event.id).unwrap(),
+            category: event.category_id,
+            e: event.payload,
+        })
+        .collect();
+
+    Ok(Json(CollectionItemDetails {
         id: document.id,
         f: document.f,
+        e: events,
     }))
 }
