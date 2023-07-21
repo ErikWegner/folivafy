@@ -49,6 +49,8 @@ use self::{
     update_document::api_update_document,
 };
 
+pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
+
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,

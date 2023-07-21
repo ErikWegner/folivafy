@@ -8,6 +8,7 @@ use entity::collection_document;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
+use serde_json::json;
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
@@ -139,6 +140,20 @@ pub(crate) async fn api_update_document(
                     }
                     events.extend(hook_result.events);
                 }
+
+                events.insert(
+                    0,
+                    dto::Event::new(
+                        uuid,
+                        crate::api::CATEGORY_DOCUMENT_UPDATES,
+                        json!({
+                            "user": {
+                                "id": user.subuuid(),
+                                "name": user.preferred_username(),
+                            },
+                        }),
+                    ),
+                );
 
                 save_document_and_events(txn, &user, Some(after_document), None, events)
                     .await

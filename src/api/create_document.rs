@@ -8,6 +8,7 @@ use axum_macros::debug_handler;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{DbErr, RuntimeErr, TransactionError, TransactionTrait};
+use serde_json::json;
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
@@ -95,6 +96,20 @@ pub(crate) async fn api_create_document(
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
                 let document_id = *after_document.id();
+                events.insert(
+                    0,
+                    dto::Event::new(
+                        document_id,
+                        crate::api::CATEGORY_DOCUMENT_UPDATES,
+                        json!({
+                            "user": {
+                                "id": user.subuuid(),
+                                "name": user.preferred_username(),
+                            },
+                            "new": true,
+                        }),
+                    ),
+                );
                 save_document_and_events(
                     txn,
                     &user,
