@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     Json,
 };
 use entity::collection_document::Entity as Documents;
@@ -25,7 +25,8 @@ use super::{db::get_collection_by_name, types::Pagination, ApiContext, ApiErrors
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
     static ref RE_SORT_FIELDS: Regex =
-        Regex::new(r"^[a-zA-Z0-9]+[\+-](,[a-zA-Z0-9]+[\+-])*$").unwrap();
+        Regex::new(r"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-])*$")
+            .unwrap();
 }
 
 #[derive(Debug, Default, Deserialize, Validate)]
@@ -46,7 +47,7 @@ pub(crate) struct ListDocumentParams {
 pub(crate) async fn api_list_document(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
-    Query(list_params): Query<ListDocumentParams>,
+    ValidatedQueryParams(list_params): ValidatedQueryParams<ListDocumentParams>,
     Path(collection_name): Path<String>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {

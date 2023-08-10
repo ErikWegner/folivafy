@@ -98,7 +98,7 @@ paths:
           name: sort
           schema:
             type: string
-            pattern: ^[a-zA-Z0-9]+[\+-](,[a-zA-Z0-9]+[\+-])*$
+            pattern: ^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-])*$
           description: |
             A comma separated list of document fields that should
             be used to sort the collection. Append a `+` to sort ascending,

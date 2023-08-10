@@ -193,7 +193,8 @@ pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
     );
 
     tracing::info!("listening on {}", addr);
-    axum::Server::bind(&addr)
+    axum::Server::try_bind(&addr)
+        .context("Cannot start server")?
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await

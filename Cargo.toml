@@ -1,6 +1,6 @@
 [package]
 name = "folivafy"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,7 +15,7 @@ axum-macros = "0.3.7"
 dotenvy = "0.15.7"
 entity = { path = "entity" }
 jwt-authorizer = { git = "https://github.com/cduvray/jwt-authorizer", rev = "7fc800d", default-features = false, features = [
-"rustls-tls",
+    "rustls-tls",
 ] }
 #jwt-authorizer = "0.9.0"
 lazy_static = "1.4"
@@ -25,20 +25,23 @@ openapi = { path = "./generated", default-features = false, features = [
     "regex",
 ] }
 regex = "1"
-reqwest = { version = "0.11", default-features = false, features = ["rustls", "rustls-tls"] }
-sea-orm = { version = "0.11", features = [
+reqwest = { version = "0.11", default-features = false, features = [
+    "rustls",
+    "rustls-tls",
+] }
+sea-orm = { version = "0.12", features = [
     "macros",
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ] }
-sea-query = "0.28"
+sea-query = "0.30"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.6", features = [ "postgres", "runtime-tokio-rustls" ] }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls"] }
 thiserror = "1.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower-http = { version = "0.4", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = {version = "1", features = ["serde", "v4"]}
+uuid = { version = "1", features = ["serde", "v4"] }
 validator = { version = "0.16.0", features = ["derive"] }
