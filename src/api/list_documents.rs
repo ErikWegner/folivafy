@@ -4,7 +4,6 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
-use axum_macros::debug_handler;
 use entity::collection_document::Entity as Documents;
 use jwt_authorizer::JwtClaims;
 use lazy_static::lazy_static;
@@ -44,7 +43,6 @@ pub(crate) struct ListDocumentParams {
     sort_fields: Option<String>,
 }
 
-#[debug_handler]
 pub(crate) async fn api_list_document(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
@@ -88,23 +86,7 @@ pub(crate) async fn api_list_document(
         extra_fields.push(title);
     }
 
-    let sort_fields = list_params
-        .sort_fields
-        .unwrap_or_else(|| "created+".to_string())
-        .split(',')
-        .map(|s| {
-            let mut char_vec_from_s = s.chars().collect::<Vec<char>>();
-            let last_character = char_vec_from_s.pop().unwrap();
-            let field_name = char_vec_from_s.into_iter().collect::<String>();
-
-            let sort_direction = match last_character == '+' {
-                true => "ASC",
-                false => "DESC",
-            };
-            format!(r#""f"->>'{field_name}' {sort_direction}"#)
-        })
-        .collect::<Vec<_>>()
-        .join(",");
+    let sort_fields = sort_fields_sql(list_params.sort_fields);
 
     let extra_fields = extra_fields
         .into_iter()
@@ -168,6 +150,39 @@ pub(crate) async fn api_list_document(
     }))
 }
 
+fn sort_fields_sql(fields: Option<String>) -> String {
+    fields
+        .unwrap_or_else(|| "created+".to_string())
+        .split(',')
+        .map(|s| {
+            let mut char_vec_from_s = s.chars().collect::<Vec<char>>();
+            let last_character = char_vec_from_s.pop().unwrap();
+            let field_name = char_vec_from_s.into_iter().collect::<String>();
+
+            let sort_direction = match last_character == '+' {
+                true => "ASC",
+                false => "DESC",
+            };
+
+            if !field_name.contains('.') {
+                return format!(r#""f"->>'{field_name}' {sort_direction}"#);
+            }
+            // split field_name on dots
+            let mut field_struct = field_name
+                .split('.')
+                .map(|s| format!("'{s}'"))
+                .collect::<Vec<String>>();
+            let field_name = field_struct.pop().unwrap();
+            let field_path = field_struct
+                // .into_iter()
+                // .map(|f| format!("'{f}'"))
+                .join("->");
+            format!(r#""f"->{field_path}->>{field_name} {sort_direction}"#)
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,5 +217,50 @@ mod tests {
             sort_fields: None,
         };
         assert!(invalid_extra_fields.validate().is_err());
+    }
+
+    #[test]
+    fn sort_fields_sql_test_simple() {
+        // Arrange
+        let sort_fields = "title+,price-,length-".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->>'price' DESC,\"f\"->>'length' DESC"
+        );
+    }
+
+    #[test]
+    fn sort_fields_sql_test_subfield() {
+        // Arrange
+        let sort_fields = "title+,company.title-,supplier.city+".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->'company'->>'title' DESC,\"f\"->'supplier'->>'city' ASC"
+        );
+    }
+
+    #[test]
+    fn sort_fields_sql_test_subsubfield() {
+        // Arrange
+        let sort_fields = "title+,company.hq.addr.city-,supplier.city+".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->'company'->'hq'->'addr'->>'city' DESC,\"f\"->'supplier'->>'city' ASC"
+        );
     }
 }
