@@ -149,6 +149,10 @@ pub enum HookContextData {
         collection: dto::Collection,
         event: dto::Event,
     },
+    EventAdded {
+        collection: dto::Collection,
+        event: dto::Event,
+    },
 }
 
 pub struct HookContext {

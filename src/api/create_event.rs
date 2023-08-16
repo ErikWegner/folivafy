@@ -26,6 +26,9 @@ pub(crate) async fn api_create_event(
     JwtClaims(user): JwtClaims<User>,
     Json(payload): Json<CreateEventBody>,
 ) -> Result<(StatusCode, String), ApiErrors> {
+    let post_payload = payload.clone();
+    let post_user = user.clone();
+
     // Validate the payload
     payload.validate().map_err(ApiErrors::from)?;
     let unchecked_collection_name = payload.collection;
@@ -60,6 +63,14 @@ pub(crate) async fn api_create_event(
         },
         ItemActionStage::Before,
     );
+    let after_hook = ctx.hooks.get_registered_hook(
+        collection_name.as_ref(),
+        ItemActionType::AppendEvent {
+            category: payload.category,
+        },
+        ItemActionStage::After,
+    );
+    let post_collection = collection.clone();
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
@@ -89,8 +100,8 @@ pub(crate) async fn api_create_event(
                     },
                     RequestContext::new(
                         &collection.name,
-                        user.subuuid(),
-                        user.preferred_username(),
+                        user.subuuid().clone(),
+                        user.preferred_username().clone(),
                     ),
                     tx,
                 );
@@ -130,5 +141,40 @@ pub(crate) async fn api_create_event(
         .map_err(|err| match err {
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
             TransactionError::Transaction(t) => t,
+        })
+        .and_then(|res| {
+            // Start thread
+            tokio::spawn(async move {
+                if let Some(hook) = after_hook {
+                    let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
+                    let cdctx = HookContext::new(
+                        HookContextData::EventAdded {
+                            collection: (&post_collection).into(),
+                            event: Event::new(
+                                unchecked_document_id,
+                                post_payload.category,
+                                post_payload.e.clone(),
+                            ),
+                        },
+                        RequestContext::new(
+                            &collection_name,
+                            post_user.subuuid().clone(),
+                            post_user.preferred_username(),
+                        ),
+                        tx,
+                    );
+
+                    let _ = hook.send(cdctx).await;
+                    let _ = rx.await.ok().map(|i| i.ok()).and_then(|r| {
+                        if let Some(result) = r {
+                            if result.events.len() > 0 {
+                                error!("Not implemented");
+                            }
+                        }
+                        Some(())
+                    });
+                }
+            });
+            Ok(res)
         })
 }
