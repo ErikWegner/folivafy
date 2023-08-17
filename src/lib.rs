@@ -5,6 +5,7 @@ use sea_orm::DatabaseConnection;
 pub mod api;
 mod axumext;
 pub mod cron;
+mod mail;
 
 pub async fn migrate(db: &DatabaseConnection) -> Result<(), anyhow::Error> {
     Migrator::up(db, None)

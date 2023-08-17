@@ -35,6 +35,8 @@ use thiserror::Error;
 use tower_http::trace::TraceLayer;
 use tracing::error;
 
+use crate::mail;
+
 use self::{
     auth::{cert_loader, User},
     create_collection::api_create_collection,
@@ -148,9 +150,10 @@ async fn shutdown_signal() {
 
 pub async fn serve(
     db: DatabaseConnection,
-    hooks: Hooks,
+    mut hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
+    mail::insert_mail_cron_hook(&mut hooks);
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
     let (join_handle, _immediate_cron_signal, shutdown_cron_signal) =
         crate::cron::setup_cron(db.clone(), cronhooks, cron_interval);

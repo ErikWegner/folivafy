@@ -47,10 +47,22 @@ pub enum ItemActionStage {
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub(crate) struct HookData {
-    collection_name: String,
-    item_action_type: ItemActionType,
-    item_action_stage: ItemActionStage,
+pub enum CronDocumentSelector {
+    ByFieldEqualsValue { field: String, value: String },
+}
+
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+pub(crate) enum HookData {
+    ItemHook {
+        collection_name: String,
+        item_action_type: ItemActionType,
+        item_action_stage: ItemActionStage,
+    },
+    CronDefaultIntervalHook {
+        job_name: String,
+        collection_name: String,
+        document_selector: CronDocumentSelector,
+    },
 }
 
 #[derive(Clone)]
@@ -78,10 +90,27 @@ impl Hooks {
         stage: ItemActionStage,
         tx: Sender<HookContext>,
     ) {
-        let hook_data = HookData {
+        let hook_data = HookData::ItemHook {
             collection_name: collection_name.to_string(),
             item_action_type: action,
             item_action_stage: stage,
+        };
+        let mut m = self.hooks.write().unwrap();
+        m.insert(hook_data, tx);
+    }
+
+    /// Insert a cron job running at the default interval.
+    pub fn insert_cron_default_interval(
+        &mut self,
+        job_name: &str,
+        collection_name: &str,
+        selector: CronDocumentSelector,
+        tx: Sender<HookContext>,
+    ) {
+        let hook_data = HookData::CronDefaultIntervalHook {
+            job_name: job_name.to_string(),
+            collection_name: collection_name.to_string(),
+            document_selector: selector,
         };
         let mut m = self.hooks.write().unwrap();
         m.insert(hook_data, tx);
@@ -93,7 +122,7 @@ impl Hooks {
         action: ItemActionType,
         stage: ItemActionStage,
     ) -> Option<Sender<HookContext>> {
-        let hook_data = HookData {
+        let hook_data = HookData::ItemHook {
             collection_name: collection_name.to_string(),
             item_action_type: action,
             item_action_stage: stage,
@@ -109,10 +138,17 @@ impl Hooks {
         let mut cronhooks = HashMap::new();
         let mut requesthooks = HashMap::new();
         for (k, v) in a.drain() {
-            if k.item_action_type == ItemActionType::CronDefaultInterval {
-                cronhooks.insert(k, v);
-            } else {
-                requesthooks.insert(k, v);
+            match k {
+                HookData::ItemHook {
+                    collection_name: _,
+                    item_action_type: _,
+                    item_action_stage: _,
+                } => requesthooks.insert(k, v),
+                HookData::CronDefaultIntervalHook {
+                    job_name: _,
+                    collection_name: _,
+                    document_selector: _,
+                } => cronhooks.insert(k, v),
             };
         }
         (
@@ -129,9 +165,20 @@ impl Hooks {
         let a = self.hooks.read().unwrap();
         let mut hooks = HashMap::new();
         for (k, v) in a.iter() {
-            if k.item_action_type == ItemActionType::CronDefaultInterval {
-                hooks.insert(k.clone(), v.clone());
-            }
+            match k {
+                HookData::ItemHook {
+                    collection_name: _,
+                    item_action_type: _,
+                    item_action_stage: _,
+                } => {}
+                HookData::CronDefaultIntervalHook {
+                    job_name: _,
+                    collection_name: _,
+                    document_selector: _,
+                } => {
+                    hooks.insert(k.clone(), v.clone());
+                }
+            };
         }
         hooks
     }

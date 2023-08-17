@@ -5,10 +5,9 @@ use crate::api::hooks::Hooks;
 
 async fn cron(_db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
-    for hook in hooks.get_cron_hooks() {
-        debug!("Running cron task: {:?}", hook);
+    for (hookdata, _listener) in hooks.get_cron_hooks() {
+        debug!("Running cron task: {:?}", hookdata);
     }
-    todo!("Check for mail delivery");
 }
 
 pub(crate) fn setup_cron(
