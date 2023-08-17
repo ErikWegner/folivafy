@@ -19,13 +19,12 @@ use std::{
     env,
     net::{IpAddr, SocketAddr},
     str::FromStr,
-    sync::Arc,
 };
 
 use anyhow::Context;
 use axum::{
-    http::{StatusCode},
-    response::{IntoResponse},
+    http::StatusCode,
+    response::IntoResponse,
     routing::{get, post},
     Router,
 };
@@ -33,8 +32,8 @@ use jwt_authorizer::{JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
 use thiserror::Error;
-use tower_http::{trace::TraceLayer};
-use tracing::{error};
+use tower_http::trace::TraceLayer;
+use tracing::error;
 
 use self::{
     auth::{cert_loader, User},
@@ -53,7 +52,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
-    hooks: Arc<Hooks>,
+    hooks: Hooks,
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -152,11 +151,11 @@ pub async fn serve(
     hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
-    let hooks = Arc::new(hooks);
+    let (requesthooks, cronhooks) = hooks.split_cron_hooks();
     let (join_handle, _immediate_cron_signal, shutdown_cron_signal) =
-        crate::cron::setup_cron(db.clone(), hooks.clone(), cron_interval);
+        crate::cron::setup_cron(db.clone(), cronhooks, cron_interval);
     // build our application with a route
-    let app = api_routes(db, hooks.clone())
+    let app = api_routes(db, requesthooks)
         .await?
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
@@ -188,7 +187,7 @@ pub async fn serve(
         .with_context(|| "Failed to complete cron background tasks".to_string())
 }
 
-async fn api_routes(db: DatabaseConnection, hooks: Arc<Hooks>) -> anyhow::Result<Router> {
+async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
         .unwrap_or_default()

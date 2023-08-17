@@ -1,17 +1,19 @@
-use std::sync::Arc;
-
 use tokio::sync::{mpsc, oneshot};
 use tracing::debug;
 
 use crate::api::hooks::Hooks;
 
-async fn cron(_db: sea_orm::DatabaseConnection, _hooks: Arc<Hooks>) {
+async fn cron(_db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
+    for hook in hooks.get_cron_hooks() {
+        debug!("Running cron task: {:?}", hook);
+    }
+    todo!("Check for mail delivery");
 }
 
 pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
-    hooks: Arc<Hooks>,
+    hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> (
     tokio::task::JoinHandle<()>,

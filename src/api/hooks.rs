@@ -32,21 +32,22 @@ impl Debug for HookSuccessResult {
 
 type HookResult = Result<HookSuccessResult, ApiErrors>;
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum ItemActionType {
     AppendEvent { category: i32 },
     Create,
     Update,
+    CronDefaultInterval,
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum ItemActionStage {
     Before,
     After,
 }
 
-#[derive(Eq, Hash, PartialEq)]
-struct HookData {
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
+pub(crate) struct HookData {
     collection_name: String,
     item_action_type: ItemActionType,
     item_action_stage: ItemActionStage,
@@ -100,6 +101,39 @@ impl Hooks {
         let a = self.hooks.read().unwrap();
         let b = a.get(&hook_data);
         b.cloned()
+    }
+
+    pub fn split_cron_hooks(self) -> (Hooks, Hooks) {
+        let mut a = self.hooks.write().unwrap();
+
+        let mut cronhooks = HashMap::new();
+        let mut requesthooks = HashMap::new();
+        for (k, v) in a.drain() {
+            if k.item_action_type == ItemActionType::CronDefaultInterval {
+                cronhooks.insert(k, v);
+            } else {
+                requesthooks.insert(k, v);
+            };
+        }
+        (
+            Hooks {
+                hooks: Arc::new(RwLock::new(requesthooks)),
+            },
+            Hooks {
+                hooks: Arc::new(RwLock::new(cronhooks)),
+            },
+        )
+    }
+
+    pub(crate) fn get_cron_hooks(&self) -> HashMap<HookData, Sender<HookContext>> {
+        let a = self.hooks.read().unwrap();
+        let mut hooks = HashMap::new();
+        for (k, v) in a.iter() {
+            if k.item_action_type == ItemActionType::CronDefaultInterval {
+                hooks.insert(k.clone(), v.clone());
+            }
+        }
+        hooks
     }
 }
 
