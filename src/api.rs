@@ -19,14 +19,13 @@ use std::{
     env,
     net::{IpAddr, SocketAddr},
     str::FromStr,
-    time::Duration,
+    sync::Arc,
 };
 
 use anyhow::Context;
 use axum::{
-    body::Bytes,
-    http::{HeaderMap, Request, StatusCode},
-    response::{IntoResponse, Response},
+    http::{StatusCode},
+    response::{IntoResponse},
     routing::{get, post},
     Router,
 };
@@ -34,8 +33,8 @@ use jwt_authorizer::{JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
 use thiserror::Error;
-use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
-use tracing::{error, Span};
+use tower_http::{trace::TraceLayer};
+use tracing::{error};
 
 use self::{
     auth::{cert_loader, User},
@@ -54,7 +53,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
-    hooks: Hooks,
+    hooks: Arc<Hooks>,
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -148,40 +147,22 @@ async fn shutdown_signal() {
     tracing::info!("shutdown signal received");
 }
 
-pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
+pub async fn serve(
+    db: DatabaseConnection,
+    hooks: Hooks,
+    cron_interval: std::time::Duration,
+) -> anyhow::Result<()> {
+    let hooks = Arc::new(hooks);
+    let (join_handle, _immediate_cron_signal, shutdown_cron_signal) =
+        crate::cron::setup_cron(db.clone(), hooks.clone(), cron_interval);
     // build our application with a route
-    let app = api_routes(db, hooks)
+    let app = api_routes(db, hooks.clone())
         .await?
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
         //
         // See https://docs.rs/tower-http/0.1.1/tower_http/trace/index.html for more details.
-        .layer(TraceLayer::new_for_http())
-        // If you want to customize the behavior using closures here is how
-        //
-        // This is just for demonstration, you don't need to add this middleware twice
-        .layer(
-            TraceLayer::new_for_http()
-                .on_request(|_request: &Request<_>, _span: &Span| {
-                    // ...
-                })
-                .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
-                    // ...
-                })
-                .on_body_chunk(|_chunk: &Bytes, _latency: Duration, _span: &Span| {
-                    // ..
-                })
-                .on_eos(
-                    |_trailers: Option<&HeaderMap>, _stream_duration: Duration, _span: &Span| {
-                        // ...
-                    },
-                )
-                .on_failure(
-                    |_error: ServerErrorsFailureClass, _latency: Duration, _span: &Span| {
-                        // ...
-                    },
-                ),
-        );
+        .layer(TraceLayer::new_for_http());
 
     // run it
     let addr = SocketAddr::new(
@@ -198,10 +179,16 @@ pub async fn serve(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<()> {
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .context("error running server")
+        .context("error running server")?;
+    shutdown_cron_signal
+        .send(())
+        .map_err(|_| anyhow::anyhow!("Failed to send cron shutdown signal"))?;
+    join_handle
+        .await
+        .with_context(|| "Failed to complete cron background tasks".to_string())
 }
 
-async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {
+async fn api_routes(db: DatabaseConnection, hooks: Arc<Hooks>) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
         .unwrap_or_default()

@@ -100,7 +100,7 @@ pub(crate) async fn api_create_event(
                     },
                     RequestContext::new(
                         &collection.name,
-                        user.subuuid().clone(),
+                        user.subuuid(),
                         user.preferred_username().clone(),
                     ),
                     tx,
@@ -142,7 +142,7 @@ pub(crate) async fn api_create_event(
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
             TransactionError::Transaction(t) => t,
         })
-        .and_then(|res| {
+        .map(|res| {
             // Start thread
             tokio::spawn(async move {
                 if let Some(hook) = after_hook {
@@ -158,23 +158,22 @@ pub(crate) async fn api_create_event(
                         },
                         RequestContext::new(
                             &collection_name,
-                            post_user.subuuid().clone(),
+                            post_user.subuuid(),
                             post_user.preferred_username(),
                         ),
                         tx,
                     );
 
                     let _ = hook.send(cdctx).await;
-                    let _ = rx.await.ok().map(|i| i.ok()).and_then(|r| {
+                    let _ = rx.await.ok().map(|i| i.ok()).map(|r| {
                         if let Some(result) = r {
-                            if result.events.len() > 0 {
+                            if !result.events.is_empty() {
                                 error!("Not implemented");
                             }
                         }
-                        Some(())
                     });
                 }
             });
-            Ok(res)
+            res
         })
 }

@@ -1,5 +1,6 @@
 use std::env;
 
+
 use anyhow::Context;
 
 use dotenvy::dotenv;
@@ -28,7 +29,13 @@ async fn main() -> anyhow::Result<()> {
 
     migrate(&db).await?;
 
-    folivafy::api::serve(db, Hooks::new()).await?;
+    let cron_interval = std::time::Duration::from_secs(
+        60 * env::var("FOLIVAFY_CRON_INTERVAL")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse::<u64>()
+            .with_context(|| "could not parse FOLIVAFY_CRON_INTERVAL")?,
+    );
+    folivafy::api::serve(db, Hooks::new(), cron_interval).await?;
 
     Ok(())
 }
