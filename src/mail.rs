@@ -1,12 +1,15 @@
 use tokio::sync::{mpsc, oneshot};
 use tracing::debug;
 
-use crate::api::hooks::{self, Hooks};
+use crate::{
+    api::hooks::{self, Hooks},
+    BackgroundTask,
+};
 
-pub(crate) fn insert_mail_cron_hook(hooks: &mut Hooks) {
-    let (_shutdown_mail_signal, mut shutdown_mail_recv) = oneshot::channel::<()>();
+pub(crate) fn insert_mail_cron_hook(hooks: &mut Hooks) -> BackgroundTask {
+    let (shutdown_mail_signal, mut shutdown_mail_recv) = oneshot::channel::<()>();
     let (tx, mut rx) = mpsc::channel::<hooks::HookContext>(1);
-    let _join_handle = tokio::spawn(async move {
+    let join_handle = tokio::spawn(async move {
         debug!("Mail job started");
         loop {
             tokio::select! {
@@ -30,4 +33,5 @@ pub(crate) fn insert_mail_cron_hook(hooks: &mut Hooks) {
         },
         tx,
     );
+    BackgroundTask::new("mail", join_handle, shutdown_mail_signal)
 }

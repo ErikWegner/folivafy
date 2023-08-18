@@ -153,9 +153,9 @@ pub async fn serve(
     mut hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
-    mail::insert_mail_cron_hook(&mut hooks);
+    let mailbt = mail::insert_mail_cron_hook(&mut hooks);
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
-    let (join_handle, _immediate_cron_signal, shutdown_cron_signal) =
+    let (cronbt, _immediate_cron_signal) =
         crate::cron::setup_cron(db.clone(), cronhooks, cron_interval);
     // build our application with a route
     let app = api_routes(db, requesthooks)
@@ -182,12 +182,10 @@ pub async fn serve(
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error running server")?;
-    shutdown_cron_signal
-        .send(())
-        .map_err(|_| anyhow::anyhow!("Failed to send cron shutdown signal"))?;
-    join_handle
-        .await
-        .with_context(|| "Failed to complete cron background tasks".to_string())
+
+    mailbt.shutdown().await;
+    cronbt.shutdown().await;
+    Ok(())
 }
 
 async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {

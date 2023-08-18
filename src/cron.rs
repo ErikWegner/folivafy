@@ -1,7 +1,7 @@
 use tokio::sync::{mpsc, oneshot};
 use tracing::debug;
 
-use crate::api::hooks::Hooks;
+use crate::{api::hooks::Hooks, BackgroundTask};
 
 async fn cron(_db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
@@ -14,11 +14,7 @@ pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
     hooks: Hooks,
     cron_interval: std::time::Duration,
-) -> (
-    tokio::task::JoinHandle<()>,
-    tokio::sync::mpsc::Sender<()>,
-    tokio::sync::oneshot::Sender<()>,
-) {
+) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {
     let mut interval = tokio::time::interval(cron_interval);
     debug!("cron_interval: {:?}", cron_interval);
     let (immediate_cron_signal, mut immediate_cron_recv) = mpsc::channel::<()>(1);
@@ -44,5 +40,8 @@ pub(crate) fn setup_cron(
         }
         debug!("Cron exited");
     });
-    (join_handle, immediate_cron_signal, shutdown_cron_signal)
+    (
+        BackgroundTask::new("cron", join_handle, shutdown_cron_signal),
+        immediate_cron_signal,
+    )
 }
