@@ -1,18 +1,52 @@
 use tokio::sync::{mpsc, oneshot};
-use tracing::debug;
+use tracing::{debug, error};
 
-use crate::{api::hooks::Hooks, BackgroundTask};
+use crate::{
+    api::{
+        db::{get_collection_by_name, FieldFilter},
+        hooks::Hooks,
+        types::Pagination,
+    },
+    BackgroundTask,
+};
 
-async fn cron(_db: sea_orm::DatabaseConnection, hooks: Hooks) {
+async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
     for (hookdata, _listener) in hooks.get_cron_hooks() {
-        debug!("Running cron task: {:?}", hookdata);
-        // list up to max 100 documents from the databasse
-        // for each result-id:
-        //     select document for update
-        //     call cron handler
-        //     modified document? update document
-        //     events? save events
+        if let crate::api::hooks::HookData::CronDefaultIntervalHook {
+            job_name,
+            collection_name,
+            document_selector,
+        } = hookdata
+        {
+            debug!("Running cron task: {job_name}");
+            let collection = get_collection_by_name(&db, &collection_name).await;
+            if let Some(collection) = collection {
+                let pagination = Pagination::new(100, 0);
+                // list up to max 100 documents from the databasse
+                let (_, items) = super::api::db::list_documents(
+                    &db,
+                    collection.id,
+                    None,
+                    crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
+                    "".to_string(),
+                    None,
+                    vec![document_selector.into()],
+                    &pagination,
+                )
+                .await
+                .unwrap_or_default();
+            // for each result-id:
+            //     select document for update
+            //     call cron handler
+            //     modified document? update document
+            //     events? save events
+            } else {
+                error!("Could not find collection: {collection_name}");
+            }
+        } else {
+            debug!("Unknown hook data type: {:?}", hookdata);
+        }
     }
 }
 

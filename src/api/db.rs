@@ -10,6 +10,7 @@ use uuid::Uuid;
 use super::{
     auth::User,
     dto::{self, Event},
+    hooks::CronDocumentSelector,
     types::Pagination,
     ApiErrors,
 };
@@ -60,6 +61,23 @@ impl CollectionDocumentVisibility {
     }
 }
 
+pub(crate) enum FieldFilter {
+    ExactFieldMatch { field_name: String, value: String },
+}
+
+impl From<CronDocumentSelector> for FieldFilter {
+    fn from(cds: CronDocumentSelector) -> Self {
+        match cds {
+            CronDocumentSelector::ByFieldEqualsValue { field, value } => {
+                FieldFilter::ExactFieldMatch {
+                    field_name: field,
+                    value,
+                }
+            }
+        }
+    }
+}
+
 pub(crate) async fn list_documents(
     db: &DatabaseConnection,
     collection: Uuid,
@@ -67,6 +85,7 @@ pub(crate) async fn list_documents(
     oao_access: CollectionDocumentVisibility,
     extra_fields: String,
     sort_fields: Option<String>,
+    filters: Vec<FieldFilter>,
     pagination: &Pagination,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind =
@@ -99,31 +118,7 @@ pub(crate) async fn list_documents(
     let items: Vec<JsonValue> =
         JsonValue::find_by_statement(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
-            format!(
-                "{}{extra_fields}{}{}{} ORDER BY {sort_fields} {}",
-                r#"SELECT "id", "t"."new_f" as "f"
-                FROM "collection_document"
-                cross join lateral (
-                 select jsonb_object_agg("key", "value") as "new_f"
-                 from jsonb_each("f") as x("key", "value")
-                 WHERE
-                    "key" in ("#,
-                r#")
-                  ) as "t"
-                WHERE "collection_id" = $1 "#,
-                match oao_access.get_userid() {
-                    Some(_) => r#"AND "owner" = $4 "#,
-                    None => "",
-                },
-                if exact_title.is_some() {
-                    r#"AND "f"->>'title' = $5 "#
-                } else {
-                    ""
-                },
-                r#"LIMIT $2
-                OFFSET $3"#
-            )
-            .as_str(),
+            select_documents_sql(&extra_fields, &oao_access, &exact_title, &sort_fields).as_str(),
             [
                 collection.into(),
                 pagination.limit().into(),
@@ -137,6 +132,38 @@ pub(crate) async fn list_documents(
         .map_err(ApiErrors::from)?;
 
     Ok((total, items))
+}
+
+fn select_documents_sql(
+    extra_fields: &String,
+    oao_access: &CollectionDocumentVisibility,
+    exact_title: &Option<String>,
+    sort_fields: &String,
+) -> String {
+    format!(
+        "{}{extra_fields}{}{}{} ORDER BY {sort_fields} {}",
+        r#"SELECT "id", "t"."new_f" as "f"
+                FROM "collection_document"
+                cross join lateral (
+                 select jsonb_object_agg("key", "value") as "new_f"
+                 from jsonb_each("f") as x("key", "value")
+                 WHERE
+                    "key" in ("#,
+        r#")
+                  ) as "t"
+                WHERE "collection_id" = $1 "#,
+        match oao_access.get_userid() {
+            Some(_) => r#"AND "owner" = $4 "#,
+            None => "",
+        },
+        if exact_title.is_some() {
+            r#"AND "f"->>'title' = $5 "#
+        } else {
+            ""
+        },
+        r#"LIMIT $2
+                OFFSET $3"#
+    )
 }
 
 fn sort_fields_sql(fields: Option<String>) -> String {

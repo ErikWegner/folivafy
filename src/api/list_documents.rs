@@ -92,6 +92,7 @@ pub(crate) async fn api_list_document(
         oao_access,
         extra_fields,
         list_params.sort_fields,
+        vec![],
         &pagination,
     )
     .await

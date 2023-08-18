@@ -10,6 +10,10 @@ pub(crate) struct Pagination {
 }
 
 impl Pagination {
+    pub(crate) fn new(limit: u8, offset: u32) -> Self {
+        Self { limit, offset }
+    }
+
     pub(crate) fn limit(&self) -> u8 {
         self.limit
     }
