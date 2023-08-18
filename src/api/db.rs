@@ -67,7 +67,7 @@ pub(crate) async fn list_documents(
     oao_access: CollectionDocumentVisibility,
     extra_fields: String,
     sort_fields: Option<String>,
-    pagination: Pagination,
+    pagination: &Pagination,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind =
         Documents::find().filter(entity::collection_document::Column::CollectionId.eq(collection));
@@ -94,19 +94,7 @@ pub(crate) async fn list_documents(
         .map_err(ApiErrors::from)
         .map(|t| u32::try_from(t).unwrap_or_default())?;
 
-    let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
-    let title = "title".to_string();
-    if !extra_fields.contains(&title) {
-        extra_fields.push(title);
-    }
-
     let sort_fields = sort_fields_sql(sort_fields);
-
-    let extra_fields = extra_fields
-        .into_iter()
-        .map(|f| format!("'{f}'"))
-        .collect::<Vec<_>>()
-        .join(",");
 
     let items: Vec<JsonValue> =
         JsonValue::find_by_statement(sea_orm::Statement::from_sql_and_values(

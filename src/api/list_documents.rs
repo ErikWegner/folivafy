@@ -85,8 +85,6 @@ pub(crate) async fn api_list_document(
     } else {
         CollectionDocumentVisibility::PublicAndUserIsReader
     };
-    let limit = pagination.limit();
-    let offset = pagination.offset();
     let (total, items) = list_documents(
         &ctx.db,
         collection.id,
@@ -94,7 +92,7 @@ pub(crate) async fn api_list_document(
         oao_access,
         extra_fields,
         list_params.sort_fields,
-        pagination,
+        &pagination,
     )
     .await
     .map_err(ApiErrors::from)?;
@@ -108,8 +106,8 @@ pub(crate) async fn api_list_document(
         .collect();
 
     Ok(Json(CollectionItemsList {
-        limit,
-        offset,
+        limit: pagination.limit(),
+        offset: pagination.offset(),
         total,
         items,
     }))
