@@ -33,7 +33,7 @@ use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
 use thiserror::Error;
 use tower_http::trace::TraceLayer;
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::mail;
 
@@ -185,6 +185,7 @@ pub async fn serve(
 
     mailbt.shutdown().await;
     cronbt.shutdown().await;
+    debug!("Shutdown complete");
     Ok(())
 }
 

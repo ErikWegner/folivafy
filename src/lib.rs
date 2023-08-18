@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 use tokio::{sync::oneshot, task::JoinHandle};
-use tracing::error;
+use tracing::{debug, error};
 
 pub mod api;
 mod axumext;
@@ -29,14 +29,13 @@ impl BackgroundTask {
     }
 
     async fn shutdown(self) {
-        let _ = self.shutdown_signal.send(()).or_else(|_| {
+        debug!("Shutting down background task: {}", self.name);
+        if let Err(_) = self.shutdown_signal.send(()) {
             error!("Failed to send shutdown signal to {} task", self.name);
-            Err(())
-        });
-        let _ = self.join_handle.await.or_else(|_| {
+        }
+        if let Err(_) = self.join_handle.await {
             error!("Failed to complete {} task", self.name);
-            Err(())
-        });
+        }
     }
 }
 

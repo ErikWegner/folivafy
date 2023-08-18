@@ -1,8 +1,8 @@
-use anyhow::Context;
+use anyhow::{Context, Result};
 use entity::collection::Model;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DatabaseConnection, DatabaseTransaction,
-    EntityTrait, QueryFilter, Set,
+    EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
 };
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -10,7 +10,10 @@ use uuid::Uuid;
 use super::{
     auth::User,
     dto::{self, Event},
+    types::Pagination,
+    ApiErrors,
 };
+use entity::collection_document::Entity as Documents;
 
 pub(crate) async fn get_collection_by_name(
     db: &DatabaseConnection,
@@ -39,6 +42,148 @@ pub(crate) async fn get_collection_by_name(
         }
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum CollectionDocumentVisibility {
+    PublicAndUserIsReader,
+    PrivateAndUserIs(Uuid),
+    PrivateAndUserCanAccessAllDocuments,
+}
+
+impl CollectionDocumentVisibility {
+    pub(crate) fn get_userid(&self) -> Option<Uuid> {
+        match self {
+            CollectionDocumentVisibility::PublicAndUserIsReader => None,
+            CollectionDocumentVisibility::PrivateAndUserIs(userid) => Some(*userid),
+            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => None,
+        }
+    }
+}
+
+pub(crate) async fn list_documents(
+    db: &DatabaseConnection,
+    collection: Uuid,
+    exact_title: Option<String>,
+    oao_access: CollectionDocumentVisibility,
+    extra_fields: String,
+    sort_fields: Option<String>,
+    pagination: Pagination,
+) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
+    let mut basefind =
+        Documents::find().filter(entity::collection_document::Column::CollectionId.eq(collection));
+
+    if let Some(ref title) = exact_title {
+        basefind = basefind.filter(sea_query::Expr::cust_with_values(
+            r#""f"->>'title' = $1"#,
+            [title],
+        ));
+    }
+
+    match oao_access {
+        CollectionDocumentVisibility::PublicAndUserIsReader => {}
+        CollectionDocumentVisibility::PrivateAndUserIs(uuid) => {
+            basefind = basefind.filter(entity::collection_document::Column::Owner.eq(uuid));
+        }
+        CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => {}
+    }
+
+    let total = basefind
+        .clone()
+        .count(db)
+        .await
+        .map_err(ApiErrors::from)
+        .map(|t| u32::try_from(t).unwrap_or_default())?;
+
+    let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
+    let title = "title".to_string();
+    if !extra_fields.contains(&title) {
+        extra_fields.push(title);
+    }
+
+    let sort_fields = sort_fields_sql(sort_fields);
+
+    let extra_fields = extra_fields
+        .into_iter()
+        .map(|f| format!("'{f}'"))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let items: Vec<JsonValue> =
+        JsonValue::find_by_statement(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            format!(
+                "{}{extra_fields}{}{}{} ORDER BY {sort_fields} {}",
+                r#"SELECT "id", "t"."new_f" as "f"
+                FROM "collection_document"
+                cross join lateral (
+                 select jsonb_object_agg("key", "value") as "new_f"
+                 from jsonb_each("f") as x("key", "value")
+                 WHERE
+                    "key" in ("#,
+                r#")
+                  ) as "t"
+                WHERE "collection_id" = $1 "#,
+                match oao_access.get_userid() {
+                    Some(_) => r#"AND "owner" = $4 "#,
+                    None => "",
+                },
+                if exact_title.is_some() {
+                    r#"AND "f"->>'title' = $5 "#
+                } else {
+                    ""
+                },
+                r#"LIMIT $2
+                OFFSET $3"#
+            )
+            .as_str(),
+            [
+                collection.into(),
+                pagination.limit().into(),
+                pagination.offset().into(),
+                oao_access.get_userid().unwrap_or_default().into(),
+                exact_title.unwrap_or_default().into(),
+            ],
+        ))
+        .all(db)
+        .await
+        .map_err(ApiErrors::from)?;
+
+    Ok((total, items))
+}
+
+fn sort_fields_sql(fields: Option<String>) -> String {
+    fields
+        .unwrap_or_else(|| "created+".to_string())
+        .split(',')
+        .map(|s| {
+            let mut char_vec_from_s = s.chars().collect::<Vec<char>>();
+            let last_character = char_vec_from_s.pop().unwrap();
+            let field_name = char_vec_from_s.into_iter().collect::<String>();
+
+            let sort_direction = match last_character == '+' {
+                true => "ASC",
+                false => "DESC",
+            };
+
+            if !field_name.contains('.') {
+                return format!(r#""f"->>'{field_name}' {sort_direction}"#);
+            }
+            // split field_name on dots
+            let mut field_struct = field_name
+                .split('.')
+                .map(|s| format!("'{s}'"))
+                .collect::<Vec<String>>();
+            let field_name = field_struct.pop().unwrap();
+            let field_path = field_struct
+                // .into_iter()
+                // .map(|f| format!("'{f}'"))
+                .join("->");
+            format!(r#""f"->{field_path}->>{field_name} {sort_direction}"#)
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 pub(crate) struct InsertDocumentData {
     pub(crate) owner: Uuid,
     pub(crate) collection_id: Uuid,
@@ -95,4 +240,90 @@ pub(crate) async fn save_document_and_events(
         debug!("Event {:?} saved", res.id);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use validator::Validate;
+
+    use crate::api::list_documents::ListDocumentParams;
+
+    use super::*;
+
+    #[test]
+    fn param_validation_test() {
+        let all_fields_empty = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: None,
+        };
+
+        assert!(all_fields_empty.validate().is_ok());
+
+        let valid_sort_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: Some("title+,price-,length-".to_string()),
+        };
+        assert!(valid_sort_fields.validate().is_ok());
+
+        let invalid_sort_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: None,
+            sort_fields: Some("title,price-".to_string()),
+        };
+        assert!(invalid_sort_fields.validate().is_err());
+
+        let invalid_extra_fields = ListDocumentParams {
+            exact_title: None,
+            extra_fields: Some("title📣".to_string()),
+            sort_fields: None,
+        };
+        assert!(invalid_extra_fields.validate().is_err());
+    }
+
+    #[test]
+    fn sort_fields_sql_test_simple() {
+        // Arrange
+        let sort_fields = "title+,price-,length-".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->>'price' DESC,\"f\"->>'length' DESC"
+        );
+    }
+
+    #[test]
+    fn sort_fields_sql_test_subfield() {
+        // Arrange
+        let sort_fields = "title+,company.title-,supplier.city+".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->'company'->>'title' DESC,\"f\"->'supplier'->>'city' ASC"
+        );
+    }
+
+    #[test]
+    fn sort_fields_sql_test_subsubfield() {
+        // Arrange
+        let sort_fields = "title+,company.hq.addr.city-,supplier.city+".to_string();
+
+        // Act
+        let sql = sort_fields_sql(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            "\"f\"->>'title' ASC,\"f\"->'company'->'hq'->'addr'->>'city' DESC,\"f\"->'supplier'->>'city' ASC"
+        );
+    }
 }

@@ -7,6 +7,12 @@ async fn cron(_db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
     for (hookdata, _listener) in hooks.get_cron_hooks() {
         debug!("Running cron task: {:?}", hookdata);
+        // list up to max 100 documents from the databasse
+        // for each result-id:
+        //     select document for update
+        //     call cron handler
+        //     modified document? update document
+        //     events? save events
     }
 }
 
@@ -20,6 +26,8 @@ pub(crate) fn setup_cron(
     let (immediate_cron_signal, mut immediate_cron_recv) = mpsc::channel::<()>(1);
     let (shutdown_cron_signal, mut shutdown_cron_recv) = oneshot::channel::<()>();
     let join_handle = tokio::spawn(async move {
+        debug!("Delaying cron start");
+        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
         debug!("Cron started");
         let loopdb = db;
         loop {

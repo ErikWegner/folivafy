@@ -25,7 +25,7 @@ pub(crate) fn insert_mail_cron_hook(hooks: &mut Hooks) -> BackgroundTask {
         debug!("Mail job stopped");
     });
     hooks.insert_cron_default_interval(
-        "folivafy-mail",
+        "folivafy mailer",
         "folivafy-mail",
         hooks::CronDocumentSelector::ByFieldEqualsValue {
             field: "status".to_string(),
@@ -33,5 +33,5 @@ pub(crate) fn insert_mail_cron_hook(hooks: &mut Hooks) -> BackgroundTask {
         },
         tx,
     );
-    BackgroundTask::new("mail", join_handle, shutdown_mail_signal)
+    BackgroundTask::new("folivafy mailer", join_handle, shutdown_mail_signal)
 }

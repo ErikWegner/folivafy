@@ -40,6 +40,11 @@ impl User {
             .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
     }
 
+    pub(crate) fn can_access_all_documents(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_ALLREADER", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
     pub(crate) fn is_collection_editor(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_EDITOR", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
