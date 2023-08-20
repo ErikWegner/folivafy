@@ -8,7 +8,6 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use super::{
-    auth::User,
     dto::{self, Event},
     hooks::CronDocumentSelector,
     types::Pagination,
@@ -85,7 +84,7 @@ pub(crate) async fn list_documents(
     oao_access: CollectionDocumentVisibility,
     extra_fields: String,
     sort_fields: Option<String>,
-    filters: Vec<FieldFilter>,
+    _filters: Vec<FieldFilter>,
     pagination: &Pagination,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind =
@@ -189,10 +188,7 @@ fn sort_fields_sql(fields: Option<String>) -> String {
                 .map(|s| format!("'{s}'"))
                 .collect::<Vec<String>>();
             let field_name = field_struct.pop().unwrap();
-            let field_path = field_struct
-                // .into_iter()
-                // .map(|f| format!("'{f}'"))
-                .join("->");
+            let field_path = field_struct.join("->");
             format!(r#""f"->{field_path}->>{field_name} {sort_direction}"#)
         })
         .collect::<Vec<_>>()
@@ -206,7 +202,7 @@ pub(crate) struct InsertDocumentData {
 
 pub(crate) async fn save_document_and_events(
     txn: &DatabaseTransaction,
-    user: &User,
+    user_id: &Uuid,
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
@@ -247,7 +243,7 @@ pub(crate) async fn save_document_and_events(
             category_id: Set(event.category()),
             timestamp: NotSet,
             document_id: Set(event.document_id()),
-            user: Set(user.subuuid()),
+            user: Set(user_id.clone()),
             payload: Set(event.payload().clone()),
         };
         let res = dbevent.save(txn).await.context("Saving event")?;
@@ -328,17 +324,33 @@ mod tests {
     }
 
     #[test]
-    fn sort_fields_sql_test_subsubfield() {
+    fn test_select_documents_sql_basic_query() {
         // Arrange
-        let sort_fields = "title+,company.hq.addr.city-,supplier.city+".to_string();
+        let userid = Uuid::new_v4();
+        let sort_fields = r#""f"->>'created' ASC"#.to_string();
+        let extra = String::new();
 
         // Act
-        let sql = sort_fields_sql(Some(sort_fields));
+        let sql = select_documents_sql(
+            &extra,
+            &CollectionDocumentVisibility::PrivateAndUserIs(userid),
+            &None,
+            &sort_fields,
+        );
 
         // Assert
         assert_eq!(
             sql,
-            "\"f\"->>'title' ASC,\"f\"->'company'->'hq'->'addr'->>'city' DESC,\"f\"->'supplier'->>'city' ASC"
+            r#"SELECT "id", "t"."new_f" as "f"
+                FROM "collection_document"
+                cross join lateral (
+                 select jsonb_object_agg("key", "value") as "new_f"
+                 from jsonb_each("f") as x("key", "value")
+                 WHERE
+                    "key" in ()
+                  ) as "t"
+                WHERE "collection_id" = $1 AND "owner" = $4  ORDER BY "f"->>'created' ASC LIMIT $2
+                OFFSET $3"#
         );
     }
 }

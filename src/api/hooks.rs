@@ -234,6 +234,10 @@ pub enum HookContextData {
         collection: dto::Collection,
         event: dto::Event,
     },
+    Cron {
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
+    },
 }
 
 pub struct HookContext {

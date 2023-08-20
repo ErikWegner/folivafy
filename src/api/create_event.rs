@@ -127,7 +127,7 @@ pub(crate) async fn api_create_event(
                     }
                 };
 
-                save_document_and_events(txn, &user, document, None, events)
+                save_document_and_events(txn, &user.subuuid(), document, None, events)
                     .await
                     .map_err(|e| {
                         error!("Error while creating event: {:?}", e);

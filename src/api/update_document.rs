@@ -4,7 +4,6 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::collection_document;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
@@ -105,7 +104,6 @@ pub(crate) async fn api_update_document(
                 let document = document.unwrap();
 
                 let before_document: dto::CollectionDocument = (&document).into();
-                let _document: collection_document::ActiveModel = document.into();
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];
                 if let Some(sender) = hook_processor {
@@ -155,7 +153,7 @@ pub(crate) async fn api_update_document(
                     ),
                 );
 
-                save_document_and_events(txn, &user, Some(after_document), None, events)
+                save_document_and_events(txn, &user.subuuid(), Some(after_document), None, events)
                     .await
                     .map_err(|e| {
                         error!("Update document error: {:?}", e);

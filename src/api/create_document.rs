@@ -112,7 +112,7 @@ pub(crate) async fn api_create_document(
                 );
                 save_document_and_events(
                     txn,
-                    &user,
+                    &user.subuuid(),
                     Some(after_document),
                     Some(crate::api::db::InsertDocumentData {
                         collection_id,
