@@ -5,10 +5,7 @@ use sea_orm::{
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
     Statement,
 };
-use sea_query::{
-    Alias, Condition, Expr, JoinType, Order, PostgresQueryBuilder, Query, SelectStatement,
-    SimpleExpr,
-};
+use sea_query::{Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -166,7 +163,7 @@ fn select_documents_sql(
             sea_orm::IntoIdentity::into_identity("t"),
             Condition::all(),
         )
-        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.to_string()));
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.clone()));
 
     if let Some(user_id) = oao_access.get_userid() {
         q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
@@ -305,7 +302,8 @@ pub(crate) async fn save_document_events_mails(
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
+    use sea_query::PostgresQueryBuilder;
     use validator::Validate;
 
     use crate::api::list_documents::ListDocumentParams;
@@ -415,7 +413,6 @@ mod tests {
         let collection = Uuid::new_v4();
         let userid = Uuid::new_v4();
         let sort_fields = "created+".to_string();
-        let extra = String::new();
         let filters = vec![CronDocumentSelector::ByFieldEqualsValue {
             field: "orgaddr.zip".to_string(),
             value: "11101".to_string(),

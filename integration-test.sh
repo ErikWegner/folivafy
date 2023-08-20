@@ -97,10 +97,10 @@ then
 fi
 
 
-echo "- Can list collections, list is empty"
+echo "- Can list collections, list is empty (except mail)"
 authorize_client $COLADMIN_CLIENT $COLADMIN_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections)
-if [ "$RESP" != '{"limit":50,"offset":0,"total":0,"items":[]}' ]
+if [ "$RESP" != '{"limit":50,"offset":0,"total":1,"items":[{"name":"folivafy-mail","title":"Folivafy mail","oao":true,"locked":false}]}' ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to list collections!\n$RESP"
 fi
@@ -152,7 +152,7 @@ echo "- Can list collections"
 authorize_client $COLADMIN_CLIENT $COLADMIN_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections)
 TOTAL=$(echo $RESP | jq -r '.total')
-if [ "$TOTAL" != "2" ]
+if [ "$TOTAL" != "3" ]
 then
       echo -e "${RED}Failure:${NC} list of collections incomplete!\n$RESP"
 fi
