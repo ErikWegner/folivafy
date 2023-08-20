@@ -1,8 +1,13 @@
 use anyhow::{Context, Result};
 use entity::collection::Model;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DatabaseConnection, DatabaseTransaction,
-    EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
+    ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
+    Statement,
+};
+use sea_query::{
+    Alias, Condition, Expr, JoinType, Order, PostgresQueryBuilder, Query, SelectStatement,
+    SimpleExpr,
 };
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -13,6 +18,7 @@ use super::{
     types::Pagination,
     ApiErrors,
 };
+use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
 
 pub(crate) async fn get_collection_by_name(
@@ -82,9 +88,9 @@ pub(crate) async fn list_documents(
     collection: Uuid,
     exact_title: Option<String>,
     oao_access: CollectionDocumentVisibility,
-    extra_fields: String,
+    extra_fields: Vec<String>,
     sort_fields: Option<String>,
-    _filters: Vec<FieldFilter>,
+    filters: Vec<FieldFilter>,
     pagination: &Pagination,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind =
@@ -112,22 +118,21 @@ pub(crate) async fn list_documents(
         .map_err(ApiErrors::from)
         .map(|t| u32::try_from(t).unwrap_or_default())?;
 
-    let sort_fields = sort_fields_sql(sort_fields);
-    let sql = select_documents_sql(&extra_fields, &oao_access, &exact_title, &sort_fields);
-    debug!("{sql}");
+    let sql = select_documents_sql(
+        &collection,
+        extra_fields,
+        &oao_access,
+        &exact_title,
+        sort_fields,
+        filters,
+    )
+    .limit(pagination.limit().into())
+    .offset(pagination.offset().into())
+    .to_owned();
+    let builder = db.get_database_backend();
+    let stmt: Statement = builder.build(&sql);
 
-    let items: Vec<JsonValue> =
-        JsonValue::find_by_statement(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
-            sql,
-            [
-                collection.into(),
-                pagination.limit().into(),
-                pagination.offset().into(),
-                oao_access.get_userid().unwrap_or_default().into(),
-                exact_title.unwrap_or_default().into(),
-            ],
-        ))
+    let items: Vec<JsonValue> = JsonValue::find_by_statement(stmt)
         .all(db)
         .await
         .map_err(ApiErrors::from)?;
@@ -136,38 +141,60 @@ pub(crate) async fn list_documents(
 }
 
 fn select_documents_sql(
-    extra_fields: &String,
+    collection: &Uuid,
+    extra_fields: Vec<String>,
     oao_access: &CollectionDocumentVisibility,
     exact_title: &Option<String>,
-    sort_fields: &String,
-) -> String {
-    format!(
-        "{}{extra_fields}{}{}{} ORDER BY {sort_fields} {}",
-        r#"SELECT "id", "t"."new_f" as "f"
-                FROM "collection_document"
-                cross join lateral (
-                 select jsonb_object_agg("key", "value") as "new_f"
-                 from jsonb_each("f") as x("key", "value")
-                 WHERE
-                    "key" in ("#,
-        r#")
-                  ) as "t"
-                WHERE "collection_id" = $1 "#,
-        match oao_access.get_userid() {
-            Some(_) => r#"AND "owner" = $4 "#,
-            None => "",
-        },
-        if exact_title.is_some() {
-            r#"AND "f"->>'title' = $5 "#
-        } else {
-            ""
-        },
-        r#"LIMIT $2
-                OFFSET $3"#
-    )
+    sort_fields: Option<String>,
+    filters: Vec<FieldFilter>,
+) -> SelectStatement {
+    let j: SelectStatement = Query::select()
+        .expr(Expr::cust_with_expr(
+            r#"jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in $1"#,
+            SimpleExpr::Tuple(extra_fields.into_iter().map(|s| s.into()).collect()),
+        ))
+        .to_owned();
+    let mut b = Query::select();
+    let mut q = b
+        .from_as(Documents, Alias::new("d"))
+        .column(DocumentsColumns::Id)
+        // .order_by_expr(Expr::cust(r#""d"."f"->>'created'"#), Order::Asc)
+        .expr_as(Expr::cust(r#""t"."new_f""#), Alias::new("f"))
+        .join_lateral(
+            JoinType::InnerJoin,
+            j,
+            sea_orm::IntoIdentity::into_identity("t"),
+            Condition::all(),
+        )
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.to_string()));
+
+    if let Some(user_id) = oao_access.get_userid() {
+        q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
+    }
+
+    for filter in filters {
+        match filter {
+            FieldFilter::ExactFieldMatch { field_name, value } => {
+                q = q.and_where(Expr::cust_with_values(
+                    format!(r#""d"."f"{}=$1"#, field_path_json(&field_name),),
+                    vec![value],
+                ));
+            }
+        }
+    }
+
+    if let Some(title) = exact_title {
+        q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
+    }
+
+    let sort_fields = sort_fields_parser(sort_fields);
+    for sort_field in sort_fields {
+        q = q.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
+    }
+    q.to_owned()
 }
 
-fn sort_fields_sql(fields: Option<String>) -> String {
+fn sort_fields_parser(fields: Option<String>) -> Vec<(String, Order)> {
     fields
         .unwrap_or_else(|| "created+".to_string())
         .split(',')
@@ -177,24 +204,29 @@ fn sort_fields_sql(fields: Option<String>) -> String {
             let field_name = char_vec_from_s.into_iter().collect::<String>();
 
             let sort_direction = match last_character == '+' {
-                true => "ASC",
-                false => "DESC",
+                true => Order::Asc,
+                false => Order::Desc,
             };
-
-            if !field_name.contains('.') {
-                return format!(r#""f"->>'{field_name}' {sort_direction}"#);
-            }
-            // split field_name on dots
-            let mut field_struct = field_name
-                .split('.')
-                .map(|s| format!("'{s}'"))
-                .collect::<Vec<String>>();
-            let field_name = field_struct.pop().unwrap();
-            let field_path = field_struct.join("->");
-            format!(r#""f"->{field_path}->>{field_name} {sort_direction}"#)
+            (
+                format!(r#""d"."f"{}"#, field_path_json(&field_name)),
+                sort_direction,
+            )
         })
-        .collect::<Vec<_>>()
-        .join(",")
+        .collect()
+}
+
+fn field_path_json(field_name: &str) -> String {
+    if !field_name.contains('.') {
+        return format!(r#"->>'{field_name}'"#);
+    }
+    // split field_name on dots
+    let mut field_struct = field_name
+        .split('.')
+        .map(|s| format!("'{s}'"))
+        .collect::<Vec<String>>();
+    let field_name = field_struct.pop().unwrap();
+    let field_path = field_struct.join("->");
+    format!(r#"->{field_path}->>{field_name}"#)
 }
 
 pub(crate) struct InsertDocumentData {
@@ -273,6 +305,7 @@ pub(crate) async fn save_document_events_mails(
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::{assert_eq, assert_ne};
     use validator::Validate;
 
     use crate::api::list_documents::ListDocumentParams;
@@ -317,12 +350,16 @@ mod tests {
         let sort_fields = "title+,price-,length-".to_string();
 
         // Act
-        let sql = sort_fields_sql(Some(sort_fields));
+        let sql = sort_fields_parser(Some(sort_fields));
 
         // Assert
         assert_eq!(
             sql,
-            "\"f\"->>'title' ASC,\"f\"->>'price' DESC,\"f\"->>'length' DESC"
+            vec![
+                ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
+                ("\"d\".\"f\"->>'price'".to_string(), Order::Desc),
+                ("\"d\".\"f\"->>'length'".to_string(), Order::Desc)
+            ]
         );
     }
 
@@ -332,43 +369,76 @@ mod tests {
         let sort_fields = "title+,company.title-,supplier.city+".to_string();
 
         // Act
-        let sql = sort_fields_sql(Some(sort_fields));
+        let sql = sort_fields_parser(Some(sort_fields));
 
         // Assert
         assert_eq!(
             sql,
-            "\"f\"->>'title' ASC,\"f\"->'company'->>'title' DESC,\"f\"->'supplier'->>'city' ASC"
+            vec![
+                ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
+                ("\"d\".\"f\"->'company'->>'title'".to_string(), Order::Desc),
+                ("\"d\".\"f\"->'supplier'->>'city'".to_string(), Order::Asc)
+            ]
         );
     }
 
     #[test]
     fn test_select_documents_sql_basic_query() {
         // Arrange
+        let collection = Uuid::new_v4();
         let userid = Uuid::new_v4();
-        let sort_fields = r#""f"->>'created' ASC"#.to_string();
-        let extra = String::new();
+        let sort_fields = "created+".to_string();
 
         // Act
         let sql = select_documents_sql(
-            &extra,
+            &collection,
+            vec!["title".to_string()],
             &CollectionDocumentVisibility::PrivateAndUserIs(userid),
             &None,
-            &sort_fields,
-        );
+            Some(sort_fields),
+            vec![],
+        )
+        .to_string(PostgresQueryBuilder);
 
         // Assert
         assert_eq!(
             sql,
-            r#"SELECT "id", "t"."new_f" as "f"
-                FROM "collection_document"
-                cross join lateral (
-                 select jsonb_object_agg("key", "value") as "new_f"
-                 from jsonb_each("f") as x("key", "value")
-                 WHERE
-                    "key" in ()
-                  ) as "t"
-                WHERE "collection_id" = $1 AND "owner" = $4  ORDER BY "f"->>'created' ASC LIMIT $2
-                OFFSET $3"#
+            format!(
+                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "collection_id" = '{collection}' AND "owner" = '{userid}' ORDER BY "d"."f"->>'created' ASC"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_select_documents_sql_query1() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let userid = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let extra = String::new();
+        let filters = vec![CronDocumentSelector::ByFieldEqualsValue {
+            field: "orgaddr.zip".to_string(),
+            value: "11101".to_string(),
+        }
+        .into()];
+
+        // Act
+        let sql = select_documents_sql(
+            &collection,
+            vec!["title".to_string()],
+            &CollectionDocumentVisibility::PrivateAndUserIs(userid),
+            &None,
+            Some(sort_fields),
+            filters,
+        )
+        .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "collection_id" = '{collection}' AND "owner" = '{userid}' AND "d"."f"->'orgaddr'->>'zip'='11101' ORDER BY "d"."f"->>'created' ASC"#
+            )
         );
     }
 }

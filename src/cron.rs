@@ -45,7 +45,7 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                     collection.id,
                     None,
                     crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
-                    "'title'".to_string(),
+                    vec!["title".to_string()],
                     None,
                     vec![document_selector.clone().into()],
                     &pagination,

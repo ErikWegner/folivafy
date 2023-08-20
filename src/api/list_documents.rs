@@ -70,12 +70,6 @@ pub(crate) async fn api_list_document(
         extra_fields.push(title);
     }
 
-    let extra_fields = extra_fields
-        .into_iter()
-        .map(|f| format!("'{f}'"))
-        .collect::<Vec<_>>()
-        .join(",");
-
     let oao_access = if collection.oao {
         if user.can_access_all_documents(&collection_name) {
             CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
