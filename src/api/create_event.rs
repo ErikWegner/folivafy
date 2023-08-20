@@ -9,7 +9,7 @@ use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
-    db::{get_collection_by_name, save_document_and_events},
+    db::{get_collection_by_name, save_document_events_mails},
     dto,
     hooks::{
         DocumentResult, HookContext, HookContextData, ItemActionStage, ItemActionType,
@@ -113,6 +113,7 @@ pub(crate) async fn api_create_event(
 
                 let result = rx.await.map_err(|_e| ApiErrors::InternalServerError)??;
                 let events = result.events;
+                let mails = result.mails;
                 if events.is_empty() {
                     debug!("No events were permitted");
                     return Err(ApiErrors::PermissionDenied);
@@ -127,7 +128,7 @@ pub(crate) async fn api_create_event(
                     }
                 };
 
-                save_document_and_events(txn, &user.subuuid(), document, None, events)
+                save_document_events_mails(txn, &user.subuuid(), document, None, events, mails)
                     .await
                     .map_err(|e| {
                         error!("Error while creating event: {:?}", e);

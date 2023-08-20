@@ -22,6 +22,7 @@ pub enum DocumentResult {
 pub struct HookSuccessResult {
     pub document: DocumentResult,
     pub events: Vec<dto::Event>,
+    pub mails: Vec<dto::MailMessage>,
 }
 
 impl Debug for HookSuccessResult {

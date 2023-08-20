@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        db::{get_collection_by_name, save_document_and_events},
+        db::{get_collection_by_name, save_document_events_mails},
         dto,
         hooks::{HookContext, HookContextData, HookSuccessResult, Hooks, RequestContext},
         types::Pagination,
@@ -20,7 +20,7 @@ use crate::{
 };
 
 lazy_static! {
-    static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
+    pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
         .expect("System Timer Uuid is not valid");
 }
 static CRON_USER_NAME: &str = "System Timer";
@@ -45,7 +45,7 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                     collection.id,
                     None,
                     crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
-                    "".to_string(),
+                    "'title'".to_string(),
                     None,
                     vec![document_selector.clone().into()],
                     &pagination,
@@ -193,11 +193,18 @@ async fn check_modifications_and_update(
         crate::api::hooks::DocumentResult::NoUpdate => {}
         crate::api::hooks::DocumentResult::Err(e) => return Err(e),
     }
-    save_document_and_events(txn, &CRON_USER_ID, document, None, result.events)
-        .await
-        .map_err(|e| {
-            error!("Update document error: {:?}", e);
-            ApiErrors::InternalServerError
-        })?;
+    save_document_events_mails(
+        txn,
+        &CRON_USER_ID,
+        document,
+        None,
+        result.events,
+        result.mails,
+    )
+    .await
+    .map_err(|e| {
+        error!("Update document error: {:?}", e);
+        ApiErrors::InternalServerError
+    })?;
     Ok(())
 }

@@ -14,7 +14,7 @@ use validator::Validate;
 
 use crate::api::{
     auth::User,
-    db::save_document_and_events,
+    db::save_document_events_mails,
     dto,
     hooks::{
         HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
@@ -106,6 +106,7 @@ pub(crate) async fn api_update_document(
                 let before_document: dto::CollectionDocument = (&document).into();
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];
+                let mut mails: Vec<dto::MailMessage> = vec![];
                 if let Some(sender) = hook_processor {
                     let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
                     let cdctx = HookContext::new(
@@ -137,6 +138,7 @@ pub(crate) async fn api_update_document(
                         crate::api::hooks::DocumentResult::Err(err) => return Err(err),
                     }
                     events.extend(hook_result.events);
+                    mails.extend(hook_result.mails);
                 }
 
                 events.insert(
@@ -153,12 +155,19 @@ pub(crate) async fn api_update_document(
                     ),
                 );
 
-                save_document_and_events(txn, &user.subuuid(), Some(after_document), None, events)
-                    .await
-                    .map_err(|e| {
-                        error!("Update document error: {:?}", e);
-                        ApiErrors::InternalServerError
-                    })?;
+                save_document_events_mails(
+                    txn,
+                    &user.subuuid(),
+                    Some(after_document),
+                    None,
+                    events,
+                    mails,
+                )
+                .await
+                .map_err(|e| {
+                    error!("Update document error: {:?}", e);
+                    ApiErrors::InternalServerError
+                })?;
                 debug!(
                     "Document {:?} updated in collection {}",
                     document_id, collection_name

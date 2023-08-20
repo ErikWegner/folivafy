@@ -8,7 +8,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use super::{
-    dto::{self, Event},
+    dto::{self, Event, MailMessage},
     hooks::CronDocumentSelector,
     types::Pagination,
     ApiErrors,
@@ -113,11 +113,13 @@ pub(crate) async fn list_documents(
         .map(|t| u32::try_from(t).unwrap_or_default())?;
 
     let sort_fields = sort_fields_sql(sort_fields);
+    let sql = select_documents_sql(&extra_fields, &oao_access, &exact_title, &sort_fields);
+    debug!("{sql}");
 
     let items: Vec<JsonValue> =
         JsonValue::find_by_statement(sea_orm::Statement::from_sql_and_values(
             sea_orm::DbBackend::Postgres,
-            select_documents_sql(&extra_fields, &oao_access, &exact_title, &sort_fields).as_str(),
+            sql,
             [
                 collection.into(),
                 pagination.limit().into(),
@@ -200,12 +202,13 @@ pub(crate) struct InsertDocumentData {
     pub(crate) collection_id: Uuid,
 }
 
-pub(crate) async fn save_document_and_events(
+pub(crate) async fn save_document_events_mails(
     txn: &DatabaseTransaction,
     user_id: &Uuid,
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
+    mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     if let Some(document) = document {
         debug!("Saving document");
@@ -249,6 +252,21 @@ pub(crate) async fn save_document_and_events(
         let res = dbevent.save(txn).await.context("Saving event")?;
 
         debug!("Event {:?} saved", res.id);
+    }
+
+    debug!("Trying to store {} mail(s) in queue", mails.len());
+    for mailmessage in mails {
+        let document_fields =
+            serde_json::to_value(mailmessage).expect("Failed to serialize mail message");
+        entity::collection_document::ActiveModel {
+            id: NotSet,
+            owner: Set(*crate::cron::CRON_USER_ID),
+            collection_id: Set(*crate::mail::FOLIVAFY_MAIL_COLLECTION_ID),
+            f: Set(document_fields),
+        }
+        .insert(txn)
+        .await
+        .context("Saving new document")?;
     }
     Ok(())
 }

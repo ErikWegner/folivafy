@@ -153,7 +153,7 @@ pub async fn serve(
     mut hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
-    let mailbt = mail::insert_mail_cron_hook(&mut hooks);
+    let mailbt = mail::insert_mail_cron_hook(&mut hooks, &db).await?;
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
     let (cronbt, _immediate_cron_signal) =
         crate::cron::setup_cron(db.clone(), cronhooks, cron_interval);

@@ -15,7 +15,7 @@ use validator::Validate;
 
 use crate::api::{
     auth::User,
-    db::save_document_and_events,
+    db::save_document_events_mails,
     hooks::{
         HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
         RequestContext,
@@ -66,6 +66,7 @@ pub(crate) async fn api_create_document(
     );
     let mut after_document: dto::CollectionDocument = (payload.clone()).into();
     let mut events: Vec<dto::Event> = vec![];
+    let mut mails: Vec<dto::MailMessage> = vec![];
     if let Some(sender) = sender {
         let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
         let cdctx = HookContext::new(
@@ -90,6 +91,7 @@ pub(crate) async fn api_create_document(
             crate::api::hooks::DocumentResult::Err(err) => return Err(err),
         }
         events.extend(hook_result.events);
+        mails.extend(hook_result.mails);
     };
 
     ctx.db
@@ -110,7 +112,7 @@ pub(crate) async fn api_create_document(
                         }),
                     ),
                 );
-                save_document_and_events(
+                save_document_events_mails(
                     txn,
                     &user.subuuid(),
                     Some(after_document),
@@ -119,6 +121,7 @@ pub(crate) async fn api_create_document(
                         owner: user.subuuid(),
                     }),
                     events,
+                    mails,
                 )
                 .await
                 .map_err(|e| {

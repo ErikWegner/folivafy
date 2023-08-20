@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -109,6 +110,94 @@ impl Event {
 
     pub fn payload(&self) -> &serde_json::Value {
         &self.payload
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MailMessageStatus {
+    Pending,
+    Sent,
+    Failed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MailMessage {
+    to: String,
+    subject: String,
+    body_text: String,
+    body_html: String,
+    status: MailMessageStatus,
+}
+
+impl MailMessage {
+    pub fn builder() -> MailMessageBuilder<(), (), ()> {
+        MailMessageBuilder::new()
+    }
+}
+
+pub struct MailMessageBuilder<T, S, B> {
+    to: T,
+    subject: S,
+    body_text: B,
+    body_html: B,
+}
+
+impl<T, S, B> MailMessageBuilder<T, S, B>
+where
+    T: std::default::Default + Copy,
+    S: std::default::Default + Copy,
+    B: std::default::Default + Copy,
+{
+    pub fn new() -> Self {
+        Self {
+            to: T::default(),
+            subject: S::default(),
+            body_text: B::default(),
+            body_html: B::default(),
+        }
+    }
+
+    pub fn to(&self, to: impl Into<String>) -> MailMessageBuilder<String, S, B> {
+        MailMessageBuilder {
+            to: to.into(),
+            subject: self.subject,
+            body_text: self.body_text,
+            body_html: self.body_html,
+        }
+    }
+
+    pub fn subject(&self, subject: impl Into<String>) -> MailMessageBuilder<T, String, B> {
+        MailMessageBuilder {
+            to: self.to,
+            subject: subject.into(),
+            body_text: self.body_text,
+            body_html: self.body_html,
+        }
+    }
+
+    pub fn body(
+        &self,
+        body_text: impl Into<String>,
+        body_html: impl Into<String>,
+    ) -> MailMessageBuilder<T, S, String> {
+        MailMessageBuilder {
+            to: self.to,
+            subject: self.subject,
+            body_text: body_text.into(),
+            body_html: body_html.into(),
+        }
+    }
+}
+
+impl MailMessageBuilder<String, String, String> {
+    pub fn build(self) -> MailMessage {
+        MailMessage {
+            to: self.to,
+            subject: self.subject,
+            body_text: self.body_text,
+            body_html: self.body_html,
+            status: MailMessageStatus::Pending,
+        }
     }
 }
 
