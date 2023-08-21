@@ -176,7 +176,7 @@ async fn run_hook(
         RequestContext::new(collection_name, *CRON_USER_ID, CRON_USER_NAME),
         tx,
     );
-    let _ = hook_processor
+    hook_processor
         .send(cdctx)
         .await
         .map_err(|_| ApiErrors::InternalServerError)?;

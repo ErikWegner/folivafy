@@ -30,7 +30,7 @@ impl BackgroundTask {
 
     async fn shutdown(self) {
         debug!("Shutting down background task: {}", self.name);
-        if let Err(_) = self.shutdown_signal.send(()) {
+        if self.shutdown_signal.send(()).is_err() {
             error!("Failed to send shutdown signal to {} task", self.name);
         }
         if let Err(_) = self.join_handle.await {

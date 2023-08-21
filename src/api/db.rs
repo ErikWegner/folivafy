@@ -163,7 +163,7 @@ fn select_documents_sql(
             sea_orm::IntoIdentity::into_identity("t"),
             Condition::all(),
         )
-        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.clone()));
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(*collection));
 
     if let Some(user_id) = oao_access.get_userid() {
         q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
@@ -275,7 +275,7 @@ pub(crate) async fn save_document_events_mails(
             category_id: Set(event.category()),
             timestamp: NotSet,
             document_id: Set(event.document_id()),
-            user: Set(user_id.clone()),
+            user: Set(*user_id),
             payload: Set(event.payload().clone()),
         };
         let res = dbevent.save(txn).await.context("Saving event")?;
