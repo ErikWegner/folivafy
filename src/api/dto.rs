@@ -189,6 +189,17 @@ where
     }
 }
 
+impl<T, S, B> Default for MailMessageBuilder<T, S, B>
+where
+    T: std::default::Default + Copy,
+    S: std::default::Default + Copy,
+    B: std::default::Default + Copy,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MailMessageBuilder<String, String, String> {
     pub fn build(self) -> MailMessage {
         MailMessage {

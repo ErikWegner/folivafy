@@ -33,7 +33,7 @@ impl BackgroundTask {
         if self.shutdown_signal.send(()).is_err() {
             error!("Failed to send shutdown signal to {} task", self.name);
         }
-        if let Err(_) = self.join_handle.await {
+        if (self.join_handle.await).is_err() {
             error!("Failed to complete {} task", self.name);
         }
     }
