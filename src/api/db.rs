@@ -46,7 +46,7 @@ pub(crate) async fn get_collection_by_name(
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CollectionDocumentVisibility {
     PublicAndUserIsReader,
     PrivateAndUserIs(Uuid),
@@ -63,6 +63,7 @@ impl CollectionDocumentVisibility {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) enum FieldFilter {
     ExactFieldMatch { field_name: String, value: String },
 }
@@ -80,27 +81,32 @@ impl From<CronDocumentSelector> for FieldFilter {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct ListDocumentParams {
+    pub(crate) collection: Uuid,
+    pub(crate) exact_title: Option<String>,
+    pub(crate) oao_access: CollectionDocumentVisibility,
+    pub(crate) extra_fields: Vec<String>,
+    pub(crate) sort_fields: Option<String>,
+    pub(crate) filters: Vec<FieldFilter>,
+    pub(crate) pagination: Pagination,
+}
+
 pub(crate) async fn list_documents(
     db: &DatabaseConnection,
-    collection: Uuid,
-    exact_title: Option<String>,
-    oao_access: CollectionDocumentVisibility,
-    extra_fields: Vec<String>,
-    sort_fields: Option<String>,
-    filters: Vec<FieldFilter>,
-    pagination: &Pagination,
+    params: ListDocumentParams,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
-    let mut basefind =
-        Documents::find().filter(entity::collection_document::Column::CollectionId.eq(collection));
+    let mut basefind = Documents::find()
+        .filter(entity::collection_document::Column::CollectionId.eq(params.collection));
 
-    if let Some(ref title) = exact_title {
+    if let Some(ref title) = params.exact_title {
         basefind = basefind.filter(sea_query::Expr::cust_with_values(
             r#""f"->>'title' = $1"#,
             [title],
         ));
     }
 
-    match oao_access {
+    match params.oao_access {
         CollectionDocumentVisibility::PublicAndUserIsReader => {}
         CollectionDocumentVisibility::PrivateAndUserIs(uuid) => {
             basefind = basefind.filter(entity::collection_document::Column::Owner.eq(uuid));
@@ -116,15 +122,15 @@ pub(crate) async fn list_documents(
         .map(|t| u32::try_from(t).unwrap_or_default())?;
 
     let sql = select_documents_sql(
-        &collection,
-        extra_fields,
-        &oao_access,
-        &exact_title,
-        sort_fields,
-        filters,
+        &params.collection,
+        params.extra_fields,
+        &params.oao_access,
+        &params.exact_title,
+        params.sort_fields,
+        params.filters,
     )
-    .limit(pagination.limit().into())
-    .offset(pagination.offset().into())
+    .limit(params.pagination.limit().into())
+    .offset(params.pagination.offset().into())
     .to_owned();
     let builder = db.get_database_backend();
     let stmt: Statement = builder.build(&sql);

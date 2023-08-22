@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use validator::Validate;
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Clone, Deserialize, Validate)]
 #[serde(default)]
 pub(crate) struct Pagination {
     #[validate(range(min = 1, max = 250))]

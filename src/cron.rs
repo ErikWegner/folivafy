@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        db::{get_collection_by_name, save_document_events_mails},
+        db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
         hooks::{HookContext, HookContextData, HookSuccessResult, Hooks, RequestContext},
         types::Pagination,
@@ -42,13 +42,16 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                 let mut counter = cron_limit;
                 let (total, mut items) = super::api::db::list_documents(
                     &db,
-                    collection.id,
-                    None,
-                    crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
-                    vec!["title".to_string()],
-                    None,
-                    vec![document_selector.clone().into()],
-                    &pagination,
+                    ListDocumentParams {
+                        collection: collection.id,
+                        exact_title: None,
+                        oao_access:
+                            crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
+                        extra_fields: vec!["title".to_string()],
+                        sort_fields: None,
+                        filters: vec![document_selector.clone().into()],
+                        pagination: pagination.clone(),
+                    },
                 )
                 .await
                 .unwrap_or_default();

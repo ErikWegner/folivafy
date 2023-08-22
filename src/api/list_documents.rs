@@ -81,13 +81,15 @@ pub(crate) async fn api_list_document(
     };
     let (total, items) = list_documents(
         &ctx.db,
-        collection.id,
-        list_params.exact_title,
-        oao_access,
-        extra_fields,
-        list_params.sort_fields,
-        vec![],
-        &pagination,
+        crate::api::db::ListDocumentParams {
+            collection: collection.id,
+            exact_title: list_params.exact_title,
+            oao_access,
+            extra_fields,
+            sort_fields: list_params.sort_fields,
+            filters: vec![],
+            pagination: pagination.clone(),
+        },
     )
     .await
     .map_err(ApiErrors::from)?;
