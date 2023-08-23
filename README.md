@@ -57,3 +57,31 @@ sea-orm-cli generate entity -o entity/src
 cat integration-test.sql | docker exec -i folivafy_devcontainer-db-1 psql -U postgres postgres
 docker exec -it --user $(id -u):$(id -g) folivafy_devcontainer-app-1 /bin/bash -c "cd /workspaces/folivafy ; ./integration-test.sh"
 ```
+
+## Mail tests
+
+Use https://github.com/mailtutan/mailtutan as mail server: `cargo install mailtutan`
+
+Run with: `mailtutan`
+
+## Configuration
+
+Use a `.env` file and/or set the environment variables to override the `.env`
+file settings.
+
+### Example file
+
+```
+# Required settings
+FOLIVAFY_DATABASE=postgresql://dbuser:dbpassw@dbhost/database
+FOLIVAFY_JWT_ISSUER=https://keycloak/realms/my-realm
+FOLIVAFY_MAIL_SERVER=smtp.example.domain
+FOLIVAFY_MAIL_PORT=587
+FOLIVAFY_MAIL_USERNAME=smtplogin
+FOLIVAFY_MAIL_PASSWORD=smtppassword
+
+# Optional settings
+PORT=3000 # listen on all interfaces on this port
+FOLIVAFY_CRON_INTERVAL=5 # minutes
+```
+

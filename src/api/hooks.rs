@@ -241,6 +241,32 @@ pub enum HookContextData {
     },
 }
 
+impl HookContextData {
+    pub fn after_document(&self) -> Option<&dto::CollectionDocument> {
+        match self {
+            HookContextData::DocumentAdding { document: _ } => None,
+            HookContextData::DocumentUpdating {
+                before_document: _,
+                after_document,
+            } => Some(after_document),
+            HookContextData::EventAdding {
+                before_document: _,
+                after_document,
+                collection: _,
+                event: _,
+            } => Some(after_document),
+            HookContextData::EventAdded {
+                collection: _,
+                event: _,
+            } => None,
+            HookContextData::Cron {
+                before_document: _,
+                after_document,
+            } => Some(after_document),
+        }
+    }
+}
+
 pub struct HookContext {
     data: Arc<HookContextData>,
     context: Arc<RequestContext>,

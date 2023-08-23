@@ -1,3 +1,10 @@
+use std::time::SystemTime;
+
+use anyhow::Context;
+use lettre::{
+    message::{MultiPart, SinglePart},
+    Message,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -116,8 +123,8 @@ impl Event {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MailMessageStatus {
     Pending,
-    Sent,
-    Failed,
+    Sent(u64),
+    Failed(u64),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -132,6 +139,33 @@ pub struct MailMessage {
 impl MailMessage {
     pub fn builder() -> MailMessageBuilder<(), (), ()> {
         MailMessageBuilder::new()
+    }
+
+    pub fn build_mail(&self, from: &str) -> anyhow::Result<lettre::Message> {
+        Message::builder()
+            .from(from.parse().context("From")?)
+            .to(self.to.parse().context("Recipient")?)
+            .subject(self.subject.clone())
+            .multipart(
+                MultiPart::mixed().multipart(
+                    MultiPart::alternative()
+                        .singlepart(SinglePart::plain(self.body_text.clone()))
+                        .multipart(
+                            MultiPart::related()
+                                .singlepart(SinglePart::html(self.body_html.clone())),
+                        ),
+                ),
+            )
+            .context("Build mail")
+    }
+
+    pub fn set_sent(&mut self) {
+        self.status = MailMessageStatus::Sent(
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        );
     }
 }
 

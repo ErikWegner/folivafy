@@ -28,7 +28,7 @@ static CRON_USER_NAME: &str = "System Timer";
 async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
     debug!("Running cron tasks");
     let cron_limit = 100;
-    let pagination = Pagination::new(1, 0);
+    let pagination = Pagination::new(cron_limit, 0);
     for (hookdata, listener) in hooks.get_cron_hooks() {
         if let crate::api::hooks::HookData::CronDefaultIntervalHook {
             job_name,
@@ -69,7 +69,7 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                         break;
                     }
                     let item = item.unwrap();
-                    let id = item["id"].to_string();
+                    let id = item["id"].as_str().unwrap_or("").to_string();
                     let uuid = Uuid::parse_str(&id);
                     if uuid.is_err() {
                         error!("{job_name} failed to parse id {id}");
