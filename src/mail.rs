@@ -90,7 +90,7 @@ impl SmtpClientConfiguration {
         };
         let from_address = env::var("FOLIVAFY_MAIL_FROM_ADDRESS")?;
         let i = Self {
-            server,
+            server: server.clone(),
             port,
             username,
             password,
@@ -99,7 +99,9 @@ impl SmtpClientConfiguration {
             from_address,
         };
         debug!("Testing connection to mail server");
-        i.transport().test_connection().await?;
+        i.transport().test_connection().await.with_context(|| {
+            format!("Connection to mail server `{server}` on port {port} failed")
+        })?;
         Ok(i)
     }
 

@@ -99,6 +99,20 @@ pub(crate) async fn list_documents(
     let mut basefind = Documents::find()
         .filter(entity::collection_document::Column::CollectionId.eq(params.collection));
 
+    for filter in &params.filters {
+        match filter {
+            FieldFilter::ExactFieldMatch { field_name, value } => {
+                basefind = basefind.filter(Expr::cust_with_values(
+                    format!(
+                        r#""collection_document"."f"{}=$1"#,
+                        field_path_json(field_name),
+                    ),
+                    vec![value],
+                ));
+            }
+        }
+    }
+
     if let Some(ref title) = params.exact_title {
         basefind = basefind.filter(sea_query::Expr::cust_with_values(
             r#""f"->>'title' = $1"#,
