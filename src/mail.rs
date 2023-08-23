@@ -68,8 +68,7 @@ impl SmtpClientConfiguration {
                 .context("FOLIVAFY_MAIL_SERVER_TYPE is not set")?,
         )
         .map_err(|_| anyhow!("Invalid value for FOLIVAFY_MAIL_SERVER_TYPE"))?;
-        let server = env::var("FOLIVAFY_MAIL_SERVER")
-            .unwrap_or_else(|_| "localhost".into());
+        let server = env::var("FOLIVAFY_MAIL_SERVER").unwrap_or_else(|_| "localhost".into());
         let port = env::var("FOLIVAFY_MAIL_PORT")
             .unwrap_or_else(|_| {
                 match connection_type {
