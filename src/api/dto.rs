@@ -167,6 +167,14 @@ impl MailMessage {
                 .as_secs(),
         );
     }
+
+    pub fn to(&self) -> &str {
+        self.to.as_ref()
+    }
+
+    pub fn subject(&self) -> &str {
+        self.subject.as_ref()
+    }
 }
 
 pub struct MailMessageBuilder {
@@ -222,7 +230,7 @@ impl MailMessageBuilder {
                 status: MailMessageStatus::Pending,
             })
         } else {
-            Err(format!("Recipient, subject and body are required"))
+            Err("Recipient, subject and body are required".to_string())
         }
     }
 }
