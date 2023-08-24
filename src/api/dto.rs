@@ -137,7 +137,7 @@ pub struct MailMessage {
 }
 
 impl MailMessage {
-    pub fn builder() -> MailMessageBuilder<(), (), ()> {
+    pub fn builder() -> MailMessageBuilder {
         MailMessageBuilder::new()
     }
 
@@ -169,79 +169,60 @@ impl MailMessage {
     }
 }
 
-pub struct MailMessageBuilder<T, S, B> {
-    to: T,
-    subject: S,
-    body_text: B,
-    body_html: B,
+pub struct MailMessageBuilder {
+    to: Option<String>,
+    subject: Option<String>,
+    body_text: Option<String>,
+    body_html: Option<String>,
 }
 
-impl<T, S, B> MailMessageBuilder<T, S, B>
-where
-    T: std::default::Default + Copy,
-    S: std::default::Default + Copy,
-    B: std::default::Default + Copy,
-{
+impl MailMessageBuilder {
     pub fn new() -> Self {
         Self {
-            to: T::default(),
-            subject: S::default(),
-            body_text: B::default(),
-            body_html: B::default(),
+            to: None,
+            subject: None,
+            body_text: None,
+            body_html: None,
         }
     }
 
-    pub fn to(&self, to: impl Into<String>) -> MailMessageBuilder<String, S, B> {
-        MailMessageBuilder {
-            to: to.into(),
-            subject: self.subject,
-            body_text: self.body_text,
-            body_html: self.body_html,
-        }
+    pub fn set_to(mut self, to: &str) -> Self {
+        self.to = Some(to.into());
+        self
     }
 
-    pub fn subject(&self, subject: impl Into<String>) -> MailMessageBuilder<T, String, B> {
-        MailMessageBuilder {
-            to: self.to,
-            subject: subject.into(),
-            body_text: self.body_text,
-            body_html: self.body_html,
-        }
+    pub fn set_subject(mut self, subject: &str) -> Self {
+        self.subject = Some(subject.into());
+        self
     }
 
-    pub fn body(
-        &self,
-        body_text: impl Into<String>,
-        body_html: impl Into<String>,
-    ) -> MailMessageBuilder<T, S, String> {
-        MailMessageBuilder {
-            to: self.to,
-            subject: self.subject,
-            body_text: body_text.into(),
-            body_html: body_html.into(),
-        }
+    pub fn set_body(mut self, body_text: &str, body_html: &str) -> Self {
+        self.body_text = Some(body_text.into());
+        self.body_html = Some(body_html.into());
+        self
     }
 }
 
-impl<T, S, B> Default for MailMessageBuilder<T, S, B>
-where
-    T: std::default::Default + Copy,
-    S: std::default::Default + Copy,
-    B: std::default::Default + Copy,
-{
+impl Default for MailMessageBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MailMessageBuilder<String, String, String> {
-    pub fn build(self) -> MailMessage {
-        MailMessage {
-            to: self.to,
-            subject: self.subject,
-            body_text: self.body_text,
-            body_html: self.body_html,
-            status: MailMessageStatus::Pending,
+impl MailMessageBuilder {
+    pub fn build(self) -> Result<MailMessage, String> {
+        if let (Some(to), Some(subject), Some(body_text), Some(body_html)) =
+            (self.to, self.subject, self.body_text, self.body_html)
+        {
+            Ok(MailMessage {
+                to,
+                subject,
+                body_text,
+                body_html,
+                status: MailMessageStatus::Pending,
+            })
+        } else {
+            Err(format!("Recipient, subject and body are required"))
         }
     }
 }
