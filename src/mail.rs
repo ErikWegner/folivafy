@@ -88,7 +88,8 @@ impl SmtpClientConfiguration {
         } else {
             None
         };
-        let from_address = env::var("FOLIVAFY_MAIL_FROM_ADDRESS")?;
+        let from_address =
+            env::var("FOLIVAFY_MAIL_FROM_ADDRESS").context("FOLIVAFY_MAIL_FROM_ADDRESS not set")?;
         let i = Self {
             server: server.clone(),
             port,
