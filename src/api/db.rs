@@ -308,7 +308,7 @@ pub(crate) async fn save_document_events_mails(
         let document_fields =
             serde_json::to_value(mailmessage).expect("Failed to serialize mail message");
         entity::collection_document::ActiveModel {
-            id: NotSet,
+            id: Set(Uuid::new_v4()),
             owner: Set(*crate::cron::CRON_USER_ID),
             collection_id: Set(*crate::mail::FOLIVAFY_MAIL_COLLECTION_ID),
             f: Set(document_fields),

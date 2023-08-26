@@ -56,7 +56,7 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                 .await
                 .unwrap_or_default();
                 items.reverse();
-                debug!("{job_name} found {total} documents, processing up to {cron_limit}");
+                info!("{job_name} found {total} documents, processing up to {cron_limit}");
                 loop {
                     if counter == 0 {
                         break;
