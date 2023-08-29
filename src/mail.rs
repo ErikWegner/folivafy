@@ -213,6 +213,7 @@ pub(crate) async fn insert_mail_cron_hook(
                                             document: hooks::DocumentResult::NoUpdate,
                                             events: vec![],
                                             mails: vec![],
+                                            trigger_cron: false,
                                         }
                                     )
                                 },
@@ -221,6 +222,7 @@ pub(crate) async fn insert_mail_cron_hook(
                                         document: hooks::DocumentResult::Store(o),
                                         events: vec![],
                                         mails: vec![],
+                                        trigger_cron: false,
                                     }
                                 )
                             }

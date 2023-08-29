@@ -8,7 +8,7 @@ use openapi::models::CollectionItem;
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
-use super::{dto, ApiErrors};
+use super::{data_service::DataService, dto, ApiErrors};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -23,6 +23,7 @@ pub struct HookSuccessResult {
     pub document: DocumentResult,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
+    pub trigger_cron: bool,
 }
 
 impl Debug for HookSuccessResult {
@@ -271,6 +272,7 @@ pub struct HookContext {
     data: Arc<HookContextData>,
     context: Arc<RequestContext>,
     tx: tokio::sync::oneshot::Sender<HookResult>,
+    data_service: Arc<DataService>,
 }
 
 impl HookContext {
@@ -278,11 +280,13 @@ impl HookContext {
         data: HookContextData,
         context: RequestContext,
         tx: tokio::sync::oneshot::Sender<HookResult>,
+        data_service: Arc<DataService>,
     ) -> Self {
         Self {
             data: Arc::new(data),
             context: Arc::new(context),
             tx,
+            data_service,
         }
     }
 
@@ -296,6 +300,10 @@ impl HookContext {
 
     pub fn data(&self) -> Arc<HookContextData> {
         self.data.clone()
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
     }
 }
 

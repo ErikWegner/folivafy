@@ -120,6 +120,7 @@ pub(crate) async fn api_update_document(
                             user.preferred_username(),
                         ),
                         tx,
+                        ctx.data_service,
                     );
 
                     sender

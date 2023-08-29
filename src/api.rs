@@ -2,6 +2,7 @@ mod auth;
 mod create_collection;
 mod create_document;
 mod create_event;
+pub mod data_service;
 pub(crate) mod db;
 pub mod dto;
 mod get_document;
@@ -13,6 +14,7 @@ mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 pub use openapi::models::CollectionItem;
+use std::sync::Arc;
 use tokio::signal;
 
 use std::{
@@ -42,6 +44,7 @@ use self::{
     create_collection::api_create_collection,
     create_document::api_create_document,
     create_event::api_create_event,
+    data_service::DataService,
     get_document::api_read_document,
     hooks::Hooks,
     list_collections::api_list_collections,
@@ -55,6 +58,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Hooks,
+    data_service: Arc<DataService>,
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -155,10 +159,12 @@ pub async fn serve(
 ) -> anyhow::Result<()> {
     let mailbt = mail::insert_mail_cron_hook(&mut hooks, &db).await?;
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
+    let user_service = data_service::user_service::UserService::new_from_env().await?;
+    let data_service = Arc::new(DataService::new(&db, user_service));
     let (cronbt, _immediate_cron_signal) =
-        crate::cron::setup_cron(db.clone(), cronhooks, cron_interval);
+        crate::cron::setup_cron(db.clone(), cronhooks, cron_interval, data_service.clone());
     // build our application with a route
-    let app = api_routes(db, requesthooks)
+    let app = api_routes(db, requesthooks, data_service)
         .await?
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
@@ -189,7 +195,11 @@ pub async fn serve(
     Ok(())
 }
 
-async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Router> {
+async fn api_routes(
+    db: DatabaseConnection,
+    hooks: Hooks,
+    data_service: Arc<DataService>,
+) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
         .unwrap_or_default()
@@ -218,7 +228,11 @@ async fn api_routes(db: DatabaseConnection, hooks: Hooks) -> anyhow::Result<Rout
                 get(api_read_document),
             )
             .route("/events", post(api_create_event))
-            .with_state(ApiContext { db, hooks })
+            .with_state(ApiContext {
+                db,
+                hooks,
+                data_service,
+            })
             .layer(jwt_auth.layer().await.unwrap()),
     ))
 }

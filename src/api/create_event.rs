@@ -71,6 +71,7 @@ pub(crate) async fn api_create_event(
         ItemActionStage::After,
     );
     let post_collection = collection.clone();
+    let data_service1 = ctx.data_service.clone();
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
@@ -104,6 +105,7 @@ pub(crate) async fn api_create_event(
                         user.preferred_username().clone(),
                     ),
                     tx,
+                    data_service1,
                 );
 
                 hook_transmitter
@@ -163,6 +165,7 @@ pub(crate) async fn api_create_event(
                             post_user.preferred_username(),
                         ),
                         tx,
+                        ctx.data_service,
                     );
 
                     let _ = hook.send(cdctx).await;

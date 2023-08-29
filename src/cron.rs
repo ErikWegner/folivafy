@@ -1,6 +1,7 @@
 use anyhow::Result;
 use lazy_static::lazy_static;
 use sea_orm::{DatabaseTransaction, DbErr, EntityTrait, TransactionTrait};
+use std::sync::Arc;
 use tokio::sync::{
     mpsc::{self, Sender},
     oneshot,
@@ -10,6 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{
+        data_service::DataService,
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
         hooks::{HookContext, HookContextData, HookSuccessResult, Hooks, RequestContext},
@@ -25,8 +27,17 @@ lazy_static! {
 }
 static CRON_USER_NAME: &str = "System Timer";
 
-async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
+struct CronResult {
+    trigger_cron: bool,
+}
+
+async fn cron(
+    db: sea_orm::DatabaseConnection,
+    hooks: Hooks,
+    data_service: Arc<crate::api::data_service::DataService>,
+) -> CronResult {
     debug!("Running cron tasks");
+    let mut trigger_cron = false;
     let cron_limit = 100;
     let pagination = Pagination::new(cron_limit, 0);
     for (hookdata, listener) in hooks.get_cron_hooks() {
@@ -81,25 +92,31 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
                     let tx_job_name = job_name.clone();
                     let tx_collection_name = collection_name.clone();
                     let tx_listener = listener.clone();
-                    let _ = db
-                        .transaction::<_, (), ApiErrors>(|txn| {
+                    let loop_data_service = data_service.clone();
+                    let cr = db
+                        .transaction::<_, CronResult, ApiErrors>(|txn| {
                             Box::pin(async move {
                                 let document = select_document_for_update(uuid, txn).await?;
                                 if document.is_none() {
                                     info!("Document vanished while running cron task: {tx_job_name} for document {id}");
-                                    return Ok(());
+                                    return Ok(CronResult { trigger_cron: false });
                                 }
                                 // TODO: Check document is still matching filters
                                 // call cron handler
                                 let document = document.unwrap();
                                 let before_document: dto::CollectionDocument = (&document).into();
                                 let after_document: dto::CollectionDocument = (&document).into();
-                                let result = run_hook(&tx_collection_name, before_document, after_document,tx_listener).await?;
+                                let result = run_hook(&tx_collection_name, before_document, after_document,tx_listener, loop_data_service).await?;
+                                let trigger_cron = result.trigger_cron;
                                 // modified document? update document and save events
-                                check_modifications_and_update(txn, result).await
+                                check_modifications_and_update(txn, result).await?;
+                                Ok(CronResult { trigger_cron })
                             })
                         })
                         .await;
+                    if let Ok(cr) = cr {
+                        trigger_cron = cr.trigger_cron || trigger_cron;
+                    }
                 }
             } else {
                 error!("Could not find collection: {collection_name}");
@@ -108,17 +125,22 @@ async fn cron(db: sea_orm::DatabaseConnection, hooks: Hooks) {
             debug!("Unknown hook data type: {:?}", hookdata);
         }
     }
+    CronResult { trigger_cron }
 }
 
 pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
     hooks: Hooks,
     cron_interval: std::time::Duration,
+    data_service: Arc<DataService>,
 ) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {
     let mut interval = tokio::time::interval(cron_interval);
     debug!("cron_interval: {:?}", cron_interval);
     let (immediate_cron_signal, mut immediate_cron_recv) = mpsc::channel::<()>(1);
     let (shutdown_cron_signal, mut shutdown_cron_recv) = oneshot::channel::<()>();
+    let loop_immediate_cron_signal = immediate_cron_signal.clone();
+    let loop_data_service1 = data_service.clone();
+    let loop_data_service2 = data_service.clone();
     let join_handle = tokio::spawn(async move {
         debug!("Delaying cron start");
         tokio::time::sleep(std::time::Duration::from_secs(8)).await;
@@ -132,11 +154,19 @@ pub(crate) fn setup_cron(
                 }
                 _ = interval.tick() => {
                     debug!("Cron tick");
-                    cron(loopdb.clone(), hooks.clone()).await
+                    let r = cron(loopdb.clone(), hooks.clone(), loop_data_service1.clone()).await;
+                    if r.trigger_cron {
+                        debug!("Triggering cron task");
+                        let _ = loop_immediate_cron_signal.send(()).await;
+                    }
                 }
                 _ = immediate_cron_recv.recv() => {
                     debug!("Immediate cron signal received");
-                    cron(loopdb.clone(), hooks.clone()).await
+                    let r = cron(loopdb.clone(), hooks.clone(), loop_data_service2.clone()).await;
+                    if r.trigger_cron {
+                        debug!("Triggering cron task");
+                        let _ = loop_immediate_cron_signal.send(()).await;
+                    }
                 }
             }
         }
@@ -168,6 +198,7 @@ async fn run_hook(
     before_document: dto::CollectionDocument,
     after_document: dto::CollectionDocument,
     hook_processor: Sender<HookContext>,
+    data_service: Arc<DataService>,
 ) -> Result<HookSuccessResult, ApiErrors> {
     let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
 
@@ -178,6 +209,7 @@ async fn run_hook(
         },
         RequestContext::new(collection_name, *CRON_USER_ID, CRON_USER_NAME),
         tx,
+        data_service,
     );
     hook_processor
         .send(cdctx)

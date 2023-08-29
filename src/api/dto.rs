@@ -92,6 +92,46 @@ impl From<openapi::models::CollectionItem> for CollectionDocument {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExistingEvent {
+    document_id: uuid::Uuid,
+    category: i32,
+    payload: serde_json::Value,
+    user_id: Uuid,
+    timestamp: i64,
+}
+
+impl ExistingEvent {
+    pub fn is_create_event(&self) -> bool {
+        self.category == super::CATEGORY_DOCUMENT_UPDATES
+            && self
+                .payload
+                .get("new")
+                .map(|jv| jv.as_bool().unwrap_or(false))
+                .unwrap_or(false)
+    }
+
+    pub fn category(&self) -> i32 {
+        self.category
+    }
+
+    pub fn payload(&self) -> &serde_json::Value {
+        &self.payload
+    }
+
+    pub fn document_id(&self) -> Uuid {
+        self.document_id
+    }
+
+    pub fn user_id(&self) -> Uuid {
+        self.user_id
+    }
+
+    pub fn timestamp(&self) -> i64 {
+        self.timestamp
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Event {
     document_id: uuid::Uuid,
     category: i32,
@@ -117,6 +157,18 @@ impl Event {
 
     pub fn payload(&self) -> &serde_json::Value {
         &self.payload
+    }
+}
+
+impl From<&entity::event::Model> for ExistingEvent {
+    fn from(model: &entity::event::Model) -> Self {
+        Self {
+            document_id: model.document_id,
+            category: model.category_id,
+            payload: model.payload.clone(),
+            user_id: model.user,
+            timestamp: model.timestamp.unwrap_or_default().timestamp(),
+        }
     }
 }
 

@@ -73,6 +73,7 @@ pub(crate) async fn api_create_document(
             HookContextData::DocumentAdding { document: payload },
             RequestContext::new(&collection.name, user.subuuid(), user.preferred_username()),
             tx,
+            ctx.data_service,
         );
 
         sender
