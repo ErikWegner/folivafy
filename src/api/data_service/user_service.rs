@@ -3,8 +3,11 @@ use std::sync::{Arc, RwLock};
 use anyhow::Context;
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 use tracing::{debug, info};
 use uuid::Uuid;
+
+use crate::BackgroundTask;
 
 use super::ClientCredentials;
 
@@ -43,7 +46,7 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub(crate) async fn new_from_env() -> anyhow::Result<UserService> {
+    pub(crate) async fn new_from_env() -> anyhow::Result<(UserService, BackgroundTask)> {
         let client_id =
             std::env::var("USERDATA_CLIENT_ID").context("USERDATA_CLIENT_ID not defined")?;
         let client_secret = std::env::var("USERDATA_CLIENT_SECRET")
@@ -65,29 +68,48 @@ impl UserService {
                 .eq_ignore_ascii_case("true");
 
         let thread_auth_token = auth_token.clone();
-        let _ = tokio::spawn(async move {
+        let (shutdown_signal, mut shutdown_recv) = oneshot::channel::<()>();
+        let join_handle = tokio::spawn(async move {
             let thread_credentials = client_credentials;
+            let mut skip = 0;
+
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15));
             loop {
-                let token_response = super::get_token(&thread_credentials).await;
-                if let Ok(token_response) = token_response {
-                    {
-                        let mut token = thread_auth_token.write().unwrap();
-                        *token = Some(token_response.clone());
+                tokio::select! {
+                    _ = &mut shutdown_recv => break,
+                    _ = interval.tick() => {
+                        if skip > 0 {
+                            skip -= 1;
+                        } else {
+                            let token_response = super::get_token(&thread_credentials).await;
+                            if let Ok(token_response) = token_response {
+                                {
+                                    let mut token = thread_auth_token.write().unwrap();
+                                    *token = Some(token_response.clone());
+                                }
+                                skip = 11;
+                            } else {
+                                info!("Failed to get token, retrying in 15 seconds");
+                                skip = 0;
+                            }
+                        }
                     }
-                    tokio::time::sleep(tokio::time::Duration::from_secs(3 * 60)).await;
-                } else {
-                    info!("Failed to get token, retrying in 15 seconds");
-                    tokio::time::sleep(tokio::time::Duration::from_secs(15)).await;
                 }
             }
-        })
-        .await;
+        });
 
-        Ok(UserService {
-            userinfo_url,
-            auth_token,
-            danger_accept_invalid_certs,
-        })
+        Ok((
+            UserService {
+                userinfo_url,
+                auth_token,
+                danger_accept_invalid_certs,
+            },
+            BackgroundTask {
+                name: "user-service".to_string(),
+                join_handle,
+                shutdown_signal,
+            },
+        ))
     }
 
     pub async fn get_user_by_id(&self, id: Uuid) -> anyhow::Result<User> {

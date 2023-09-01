@@ -159,7 +159,8 @@ pub async fn serve(
 ) -> anyhow::Result<()> {
     let mailbt = mail::insert_mail_cron_hook(&mut hooks, &db).await?;
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
-    let user_service = data_service::user_service::UserService::new_from_env().await?;
+    let (user_service, user_service_task) =
+        data_service::user_service::UserService::new_from_env().await?;
     let data_service = Arc::new(DataService::new(&db, user_service));
     let (cronbt, _immediate_cron_signal) =
         crate::cron::setup_cron(db.clone(), cronhooks, cron_interval, data_service.clone());
@@ -172,6 +173,7 @@ pub async fn serve(
         // See https://docs.rs/tower-http/0.1.1/tower_http/trace/index.html for more details.
         .layer(TraceLayer::new_for_http());
 
+    tracing::debug!("Initializing service...");
     // run it
     let addr = SocketAddr::new(
         IpAddr::from_str("::")?,
@@ -191,6 +193,7 @@ pub async fn serve(
 
     mailbt.shutdown().await;
     cronbt.shutdown().await;
+    user_service_task.shutdown().await;
     debug!("Shutdown complete");
     Ok(())
 }

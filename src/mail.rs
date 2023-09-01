@@ -103,6 +103,7 @@ impl SmtpClientConfiguration {
         i.transport().test_connection().await.with_context(|| {
             format!("Connection to mail server `{server}` on port {port} failed")
         })?;
+        debug!("Connection to mail server established");
         Ok(i)
     }
 

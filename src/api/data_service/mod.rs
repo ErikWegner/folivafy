@@ -66,6 +66,7 @@ pub(crate) async fn get_token(client_credentials: &ClientCredentials) -> anyhow:
     let res = client
         .post(client_credentials.token_url.clone())
         .form(&form_data)
+        .timeout(std::time::Duration::from_secs(4))
         .send()
         .await;
     match res {
