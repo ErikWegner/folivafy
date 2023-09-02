@@ -8,6 +8,7 @@ pub mod api;
 mod axumext;
 pub mod cron;
 mod mail;
+mod monitoring;
 
 pub(crate) struct BackgroundTask {
     name: String,

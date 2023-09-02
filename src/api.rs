@@ -37,7 +37,10 @@ use thiserror::Error;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
-use crate::mail;
+use crate::{
+    mail,
+    monitoring::{health_routes, HealthMonitor},
+};
 
 use self::{
     auth::{cert_loader, User},
@@ -164,9 +167,11 @@ pub async fn serve(
     let data_service = Arc::new(DataService::new(&db, user_service));
     let (cronbt, _immediate_cron_signal) =
         crate::cron::setup_cron(db.clone(), cronhooks, cron_interval, data_service.clone());
+    let monitor = Arc::new(HealthMonitor::new());
     // build our application with a route
     let app = api_routes(db, requesthooks, data_service)
         .await?
+        .nest("/app", health_routes(monitor))
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
         //
