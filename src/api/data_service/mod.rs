@@ -8,8 +8,9 @@ use uuid::Uuid;
 
 use self::user_service::User;
 
-use super::dto::ExistingEvent;
+use super::dto::{self, ExistingEvent};
 
+mod document_service;
 mod event_service;
 pub(crate) mod user_service;
 
@@ -26,6 +27,7 @@ pub struct TokenResponse {
 
 pub struct DataService {
     db: DatabaseConnection,
+    document_service: document_service::DocumentService,
     event_service: event_service::DocumentEventService,
     user_service: user_service::UserService,
 }
@@ -34,6 +36,7 @@ impl DataService {
     pub(crate) fn new(db: &DatabaseConnection, user_service: user_service::UserService) -> Self {
         Self {
             db: db.clone(),
+            document_service: document_service::DocumentService::new(),
             event_service: event_service::DocumentEventService::new(),
             user_service,
         }
@@ -50,6 +53,16 @@ impl DataService {
 
     pub async fn get_user_by_id(&self, user_id: Uuid) -> anyhow::Result<User> {
         self.user_service.get_user_by_id(user_id).await
+    }
+
+    pub async fn get_document(
+        &self,
+        collection_name: &str,
+        document_id: Uuid,
+    ) -> Option<dto::CollectionDocument> {
+        self.document_service
+            .get_document(&self.db, collection_name, document_id)
+            .await
     }
 }
 

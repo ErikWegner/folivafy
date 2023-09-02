@@ -44,14 +44,18 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-                #          livenessProbe:
-                #            httpGet:
-                #              path: /
-                #              port: http
-                #          readinessProbe:
-                #            httpGet:
-                #              path: /
-                #              port: http
+          livenessProbe:
+            httpGet:
+              path: /app/up
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /app/health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
