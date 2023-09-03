@@ -17,10 +17,8 @@ impl DocumentService {
         collection_name: &str,
         uuid: Uuid,
     ) -> Option<dto::CollectionDocument> {
-        let collection = get_collection_by_name(db, &collection_name).await;
-        if collection.is_none() {
-            return None;
-        }
+        let collection = get_collection_by_name(db, collection_name).await;
+        collection.as_ref()?;
 
         let collection = collection.unwrap();
 
@@ -30,9 +28,7 @@ impl DocumentService {
             .ok()?
             .and_then(|doc| (doc.collection_id == collection.id).then_some(doc));
 
-        if document.is_none() {
-            return None;
-        }
+        document.as_ref()?;
         Some((&document.unwrap()).into())
     }
 }
