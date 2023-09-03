@@ -64,7 +64,7 @@ pub(crate) async fn api_read_document(
             id: u32::try_from(event.id).unwrap(),
             category: event.category_id,
             e: event.payload,
-            ts: DateTime::<chrono::Utc>::from_utc(event.timestamp.unwrap(), chrono::Utc),
+            ts: DateTime::from_naive_utc_and_offset(event.timestamp.unwrap(), chrono::Utc),
         })
         .collect();
 
