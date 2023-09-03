@@ -12,6 +12,7 @@ members = [".", "entity", "migration"]
 anyhow = "1.0"
 axum = "0.6"
 axum-macros = "0.3.7"
+chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15.7"
 entity = { path = "entity" }
 jwt-authorizer = { git = "https://github.com/cduvray/jwt-authorizer", rev = "7fc800d", default-features = false, features = [

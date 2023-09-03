@@ -79,6 +79,10 @@ FOLIVAFY_MAIL_SERVER=smtp.example.domain
 FOLIVAFY_MAIL_PORT=587
 FOLIVAFY_MAIL_USERNAME=smtplogin
 FOLIVAFY_MAIL_PASSWORD=smtppassword
+USERDATA_CLIENT_ID=clientname
+USERDATA_CLIENT_SECRET=clientsecret
+USERDATA_TOKEN_URL=https://identity/token/url
+USERDATA_USERINFO_URL=https://identity/users/{id}
 
 # Optional settings
 PORT=3000 # listen on all interfaces on this port

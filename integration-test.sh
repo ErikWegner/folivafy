@@ -57,6 +57,10 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+export USERDATA_CLIENT_ID=clientname
+export USERDATA_CLIENT_SECRET=clientsecret
+export USERDATA_TOKEN_URL=https://identity/token/url
+export USERDATA_USERINFO_URL=https://identity/users/{id}
 export DATABASE_URL=postgresql://inttest_role:inttest_pwd@db/inttest
 ./target/debug/migration
 
@@ -64,7 +68,7 @@ export DATABASE_URL=postgresql://inttest_role:inttest_pwd@db/inttest
 rm nohup.out
 nohup /bin/bash -c "RUST_LOG=debug FOLIVAFY_DATABASE=$DATABASE_URL ./target/debug/folivafy" &
 serverPID=$!
-sleep 0.15
+sleep 0.5
 
 
 #####################################################
@@ -582,7 +586,7 @@ if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to read square!\n$RESP"
 fi
-CONTENT=$(echo $RESP)
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
 if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"},"e":[{"id":9,"category":1,"e":{"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}},{"id":1,"category":1,"e":{"new":true,"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} square content!\n$RESP\n$CONTENT"
@@ -606,7 +610,7 @@ if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to read Alpaca letter 1!\n$RESP"
 fi
-CONTENT=$(echo $RESP)
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
 if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"id":10,"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"id":6,"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} Alpaca letter 1 content (2)!\n$RESP\n$CONTENT"
@@ -627,9 +631,10 @@ then
 fi
 authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
-if [ "$RESP" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"id":10,"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"id":6,"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
+if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"id":10,"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"id":6,"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
 then
-      echo -e "${RED}Failure:${NC} Alpaca letter 1 content (3)!\n$RESP"
+      echo -e "${RED}Failure:${NC} Alpaca letter 1 content (3)!\n$RESP\n$CONTENT"
 fi
 
 

@@ -2,7 +2,7 @@ use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 
 use crate::api::{db::get_collection_by_name, dto};
-use entity::{collection_document::Entity as Documents, event};
+use entity::collection_document::Entity as Documents;
 
 pub(crate) struct DocumentService {}
 

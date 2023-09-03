@@ -395,6 +395,7 @@ components:
         e:
           - id: 17
             category: 15
+            ts: "2017-07-21T17:32:28Z"
             e:
               title: Approved
               mail: false
@@ -419,10 +420,15 @@ components:
         e:
           title: Approved
           mail: false
+        ts: "2017-07-21T17:32:28Z"
       properties:
         id:
           minimum: 0
           type: integer
+        ts:
+          example: "2017-07-21T17:32:28Z"
+          format: date-time
+          type: string
         category:
           $ref: "#/components/schemas/CategoryId"
         e:
@@ -431,6 +437,7 @@ components:
         - id
         - category
         - e
+        - ts
       type: object
     CreateEventBody:
       example:

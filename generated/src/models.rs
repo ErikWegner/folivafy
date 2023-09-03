@@ -483,6 +483,9 @@ pub struct CollectionItemEvent {
         )]
     pub id: u32,
 
+    #[serde(rename = "ts")]
+    pub ts: chrono::DateTime::<chrono::Utc>,
+
     /// Arbitrary event category
     #[serde(rename = "category")]
     pub category: i32,
@@ -496,9 +499,10 @@ pub struct CollectionItemEvent {
 
 impl CollectionItemEvent {
     #[allow(clippy::new_without_default)]
-    pub fn new(id: u32, category: i32, e: serde_json::Value, ) -> CollectionItemEvent {
+    pub fn new(id: u32, ts: chrono::DateTime::<chrono::Utc>, category: i32, e: serde_json::Value, ) -> CollectionItemEvent {
         CollectionItemEvent {
             id,
+            ts,
             category,
             e,
         }
@@ -514,6 +518,8 @@ impl std::string::ToString for CollectionItemEvent {
 
             Some("id".to_string()),
             Some(self.id.to_string()),
+
+            // Skipping ts in query parameter serialization
 
 
             Some("category".to_string()),
@@ -539,6 +545,7 @@ impl std::str::FromStr for CollectionItemEvent {
         #[allow(dead_code)]
         struct IntermediateRep {
             pub id: Vec<u32>,
+            pub ts: Vec<chrono::DateTime::<chrono::Utc>>,
             pub category: Vec<i32>,
             pub e: Vec<serde_json::Value>,
         }
@@ -561,6 +568,8 @@ impl std::str::FromStr for CollectionItemEvent {
                     #[allow(clippy::redundant_clone)]
                     "id" => intermediate_rep.id.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
+                    "ts" => intermediate_rep.ts.push(<chrono::DateTime::<chrono::Utc> as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
                     "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
                     "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
@@ -575,6 +584,7 @@ impl std::str::FromStr for CollectionItemEvent {
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionItemEvent {
             id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemEvent".to_string())?,
+            ts: intermediate_rep.ts.into_iter().next().ok_or_else(|| "ts missing in CollectionItemEvent".to_string())?,
             category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CollectionItemEvent".to_string())?,
             e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemEvent".to_string())?,
         })

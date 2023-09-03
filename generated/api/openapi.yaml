@@ -88,7 +88,8 @@ paths:
         name: sort
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+[\\+-](,[a-zA-Z0-9]+[\\+-])*$"
+          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+-](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
+            +-])*$"
           type: string
         style: form
       - description: |
@@ -417,6 +418,7 @@ components:
         e:
         - id: 17
           category: 15
+          ts: 2017-07-21T17:32:28Z
           e:
             title: Approved
             mail: false
@@ -445,10 +447,15 @@ components:
         e:
           title: Approved
           mail: false
+        ts: 2017-07-21T17:32:28Z
       properties:
         id:
           minimum: 0
           type: integer
+        ts:
+          example: 2017-07-21T17:32:28Z
+          format: date-time
+          type: string
         category:
           description: Arbitrary event category
           example: 10
@@ -461,6 +468,7 @@ components:
       - category
       - e
       - id
+      - ts
       type: object
     CreateEventBody:
       example:

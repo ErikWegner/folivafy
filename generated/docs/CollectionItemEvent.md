@@ -4,6 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **id** | **u32** |  | 
+**ts** | [**chrono::DateTime::<chrono::Utc>**](DateTime.md) |  | 
 **category** | **i32** | Arbitrary event category | 
 **e** | [***serde_json::Value**](.md) | Field data | 
 

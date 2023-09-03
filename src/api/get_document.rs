@@ -8,6 +8,7 @@ use entity::{collection_document::Entity as Documents, event};
 use jwt_authorizer::JwtClaims;
 use openapi::models::{CollectionItemDetails, CollectionItemEvent};
 use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sqlx::types::chrono::DateTime;
 use tracing::warn;
 
 use crate::api::auth::User;
@@ -63,6 +64,7 @@ pub(crate) async fn api_read_document(
             id: u32::try_from(event.id).unwrap(),
             category: event.category_id,
             e: event.payload,
+            ts: DateTime::<chrono::Utc>::from_utc(event.timestamp.unwrap(), chrono::Utc),
         })
         .collect();
 
