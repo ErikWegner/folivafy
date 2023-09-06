@@ -112,6 +112,22 @@ paths:
             Search for documents with this exact title
             (upper and lower case are respected)
           example: Rectangle
+        - in: query
+          name: pfilter
+          schema:
+            type: string
+          description: |
+            Filter some columns
+          examples:
+            simple:
+              summary: A simple filter
+              value: "f1='v12'"
+            multiple:
+              summary: Multiple fields
+              value: "a='k'&f1=4"
+            list:
+              summary: A list of values
+              value: "a='k'&f3=['p1','p4','p9']"
       responses:
         "200":
           content:

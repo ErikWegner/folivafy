@@ -65,7 +65,52 @@ impl CollectionDocumentVisibility {
 
 #[derive(Debug, Clone)]
 pub(crate) enum FieldFilter {
-    ExactFieldMatch { field_name: String, value: String },
+    ExactFieldMatch {
+        field_name: String,
+        value: String,
+    },
+    FieldValueInMatch {
+        field_name: String,
+        values: Vec<String>,
+    },
+}
+
+impl FieldFilter {
+    pub(crate) fn from_str(s: &str) -> Option<FieldFilter> {
+        if s.is_empty() {
+            return None;
+        }
+
+        // Split at first equal sign
+        let (field_name, value) = s.split_once('=')?;
+        
+        
+
+        // Remove quotes
+        let value = value.trim_matches('"').trim_matches('\'');
+
+        // If value is inside square brackets, then it's a list of values
+        if value.starts_with('[') && value.ends_with(']') {
+            let values: Vec<String> = value[1..value.len() - 1]
+                .split(',')
+                .map(|v| v.trim().trim_matches('"').trim_matches('\'').to_string())
+                .collect();
+
+            return if values.is_empty() {
+                None
+            } else {
+                Some(FieldFilter::FieldValueInMatch {
+                    field_name: field_name.to_string(),
+                    values,
+                })
+            };
+        }
+
+        Some(FieldFilter::ExactFieldMatch {
+            field_name: field_name.to_string(),
+            value: value.to_string(),
+        })
+    }
 }
 
 impl From<CronDocumentSelector> for FieldFilter {
@@ -110,6 +155,10 @@ pub(crate) async fn list_documents(
                     vec![value],
                 ));
             }
+            FieldFilter::FieldValueInMatch {
+                field_name: _,
+                values: _,
+            } => {}
         }
     }
 
@@ -196,6 +245,15 @@ fn select_documents_sql(
                     format!(r#""d"."f"{}=$1"#, field_path_json(&field_name),),
                     vec![value],
                 ));
+            }
+            FieldFilter::FieldValueInMatch { field_name, values } => {
+                q = q.and_where(
+                    Expr::expr(Expr::cust(format!(
+                        r#""d"."f"{}"#,
+                        field_path_json(&field_name),
+                    )))
+                    .is_in(values),
+                );
             }
         }
     }
@@ -336,6 +394,7 @@ mod tests {
             exact_title: None,
             extra_fields: None,
             sort_fields: None,
+            pfilter: None,
         };
 
         assert!(all_fields_empty.validate().is_ok());
@@ -344,6 +403,7 @@ mod tests {
             exact_title: None,
             extra_fields: None,
             sort_fields: Some("title+,price-,length-".to_string()),
+            pfilter: None,
         };
         assert!(valid_sort_fields.validate().is_ok());
 
@@ -351,6 +411,7 @@ mod tests {
             exact_title: None,
             extra_fields: None,
             sort_fields: Some("title,price-".to_string()),
+            pfilter: None,
         };
         assert!(invalid_sort_fields.validate().is_err());
 
@@ -358,6 +419,7 @@ mod tests {
             exact_title: None,
             extra_fields: Some("title📣".to_string()),
             sort_fields: None,
+            pfilter: None,
         };
         assert!(invalid_extra_fields.validate().is_err());
     }
@@ -423,6 +485,43 @@ mod tests {
             sql,
             format!(
                 r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "collection_id" = '{collection}' AND "owner" = '{userid}' ORDER BY "d"."f"->>'created' ASC"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_select_documents_sql_query2() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let _userid = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let filters = vec![
+            FieldFilter::ExactFieldMatch {
+                field_name: "orgaddr.zip".to_string(),
+                value: "11101".to_string(),
+            },
+            FieldFilter::FieldValueInMatch {
+                field_name: "wf1.seq".to_string(),
+                values: vec!["1".to_string(), "2".to_string()],
+            },
+        ];
+
+        // Act
+        let sql = select_documents_sql(
+            &collection,
+            vec!["title".to_string()],
+            &CollectionDocumentVisibility::PublicAndUserIsReader,
+            &None,
+            Some(sort_fields),
+            filters,
+        )
+        .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "collection_id" = '{collection}' AND "d"."f"->'orgaddr'->>'zip'='11101' AND ("d"."f"->'wf1'->>'seq') IN ('1', '2') ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }

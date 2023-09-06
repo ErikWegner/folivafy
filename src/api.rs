@@ -14,6 +14,7 @@ mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 pub use openapi::models::CollectionItem;
+
 use std::sync::Arc;
 use tokio::signal;
 

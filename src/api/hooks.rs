@@ -65,6 +65,9 @@ pub(crate) enum HookData {
         collection_name: String,
         document_selector: CronDocumentSelector,
     },
+    ListDocumentsFilterHook {
+        collection_name: String,
+    },
 }
 
 #[derive(Clone)]
@@ -151,6 +154,7 @@ impl Hooks {
                     collection_name: _,
                     document_selector: _,
                 } => cronhooks.insert(k, v),
+                HookData::ListDocumentsFilterHook { collection_name: _ } => None,
             };
         }
         (
@@ -180,6 +184,7 @@ impl Hooks {
                 } => {
                     hooks.insert(k.clone(), v.clone());
                 }
+                HookData::ListDocumentsFilterHook { collection_name: _ } => {}
             };
         }
         hooks
