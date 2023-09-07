@@ -83,8 +83,6 @@ impl FieldFilter {
 
         // Split at first equal sign
         let (field_name, value) = s.split_once('=')?;
-        
-        
 
         // Remove quotes
         let value = value.trim_matches('"').trim_matches('\'');
