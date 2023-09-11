@@ -98,11 +98,16 @@ paths:
           name: sort
           schema:
             type: string
-            pattern: ^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-])*$
+            pattern: ^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb])*$
           description: |
             A comma separated list of document fields that should
-            be used to sort the collection. Append a `+` to sort ascending,
-            append a `-` to sort descending.
+            be used to sort the collection.
+
+            Append a `+` to sort text ascending,
+            append a `-` to sort text descending.
+
+            Append a `f` to sort the native field value ascending (forward),
+            append a `b` to sort the native field value descending (backwards).
           example: price+,length-
         - in: query
           name: exactTitle

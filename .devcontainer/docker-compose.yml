@@ -51,3 +51,8 @@ services:
       - KC_HTTP_PORT=8101
     volumes:
       - ../dev_realm.json:/opt/keycloak/data/import/dev_realm.json
+
+  maildev:
+    image: maildev/maildev
+    network_mode: "service:db"
+

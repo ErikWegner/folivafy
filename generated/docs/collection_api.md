@@ -58,8 +58,9 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **collection** | **String**| Path name of the collection | 
  **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
- **sort** | **String**| A comma separated list of document fields that should be used to sort the collection. Append a `+` to sort ascending, append a `-` to sort descending.  | 
+ **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  Append a `+` to sort text ascending, append a `-` to sort text descending.  Append a `f` to sort the native field value ascending (forward), append a `b` to sort the native field value descending (backwards).  | 
  **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
+ **pfilter** | **String**| Filter some columns  | 
 
 ### Return type
 

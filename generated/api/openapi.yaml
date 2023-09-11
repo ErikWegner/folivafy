@@ -80,16 +80,21 @@ paths:
         style: form
       - description: |
           A comma separated list of document fields that should
-          be used to sort the collection. Append a `+` to sort ascending,
-          append a `-` to sort descending.
+          be used to sort the collection.
+
+          Append a `+` to sort text ascending,
+          append a `-` to sort text descending.
+
+          Append a `f` to sort the native field value ascending (forward),
+          append a `b` to sort the native field value descending (backwards).
         example: "price+,length-"
         explode: true
         in: query
         name: sort
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+-](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
-            +-])*$"
+          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+-fb](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
+            +-fb])*$"
           type: string
         style: form
       - description: |
@@ -99,6 +104,25 @@ paths:
         explode: true
         in: query
         name: exactTitle
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: |
+          Filter some columns
+        examples:
+          simple:
+            summary: A simple filter
+            value: f1='v12'
+          multiple:
+            summary: Multiple fields
+            value: a='k'&f1=4
+          list:
+            summary: A list of values
+            value: "a='k'&f3=['p1','p4','p9']"
+        explode: true
+        in: query
+        name: pfilter
         required: false
         schema:
           type: string

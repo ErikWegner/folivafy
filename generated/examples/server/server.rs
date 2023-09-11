@@ -149,10 +149,11 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         extra_fields: Option<String>,
         sort: Option<String>,
         exact_title: Option<String>,
+        pfilter: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
         let context = context.clone();
-        info!("list_collection(\"{}\", {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, extra_fields, sort, exact_title, context.get().0.clone());
+        info!("list_collection(\"{}\", {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 

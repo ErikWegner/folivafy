@@ -645,6 +645,7 @@ impl<S, C> Api<C> for Client<S, C> where
         param_extra_fields: Option<String>,
         param_sort: Option<String>,
         param_exact_title: Option<String>,
+        param_pfilter: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
         let mut client_service = self.client_service.clone();
@@ -668,6 +669,10 @@ impl<S, C> Api<C> for Client<S, C> where
             if let Some(param_exact_title) = param_exact_title {
                 query_string.append_pair("exactTitle",
                     &param_exact_title);
+            }
+            if let Some(param_pfilter) = param_pfilter {
+                query_string.append_pair("pfilter",
+                    &param_pfilter);
             }
             query_string.finish()
         };

@@ -25,9 +25,10 @@ use super::{
 
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
-    static ref RE_SORT_FIELDS: Regex =
-        Regex::new(r"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+-])*$")
-            .unwrap();
+    static ref RE_SORT_FIELDS: Regex = Regex::new(
+        r"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb])*$"
+    )
+    .unwrap();
 }
 
 #[derive(Debug, Default, Deserialize, Validate)]
@@ -191,7 +192,7 @@ mod tests {
     pub fn test_list() {
         // Arrange
         let s = "a='k'&f3=['p1','p4','p9']";
-        let expectedValues = ["p1", "p4", "p9"]
+        let expected_values = ["p1", "p4", "p9"]
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
@@ -211,7 +212,7 @@ mod tests {
         match r.get(1).unwrap() {
             FieldFilter::FieldValueInMatch { field_name, values } => {
                 assert_eq!(field_name, "f3");
-                assert_eq!(values, &expectedValues);
+                assert_eq!(values, &expected_values);
             }
             _ => panic!("Unexpected value"),
         }

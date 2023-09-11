@@ -276,16 +276,40 @@ fn sort_fields_parser(fields: Option<String>) -> Vec<(String, Order)> {
             let last_character = char_vec_from_s.pop().unwrap();
             let field_name = char_vec_from_s.into_iter().collect::<String>();
 
-            let sort_direction = match last_character == '+' {
-                true => Order::Asc,
-                false => Order::Desc,
-            };
-            (
-                format!(r#""d"."f"{}"#, field_path_json(&field_name)),
-                sort_direction,
-            )
+            match last_character {
+                '+' => (
+                    format!(r#""d"."f"{}"#, field_path_json(&field_name)),
+                    Order::Asc,
+                ),
+                '-' => (
+                    format!(r#""d"."f"{}"#, field_path_json(&field_name)),
+                    Order::Desc,
+                ),
+                'f' => (
+                    format!(r#""d"."f"{}"#, field_path_json_native(&field_name)),
+                    Order::Asc,
+                ),
+                'b' => (
+                    format!(r#""d"."f"{}"#, field_path_json_native(&field_name)),
+                    Order::Desc,
+                ),
+                _ => unreachable!(),
+            }
         })
         .collect()
+}
+
+fn field_path_json_native(field_name: &str) -> String {
+    if !field_name.contains('.') {
+        return format!(r#"->>'{field_name}'"#);
+    }
+    // split field_name on dots
+    let field_struct = field_name
+        .split('.')
+        .map(|s| format!("'{s}'"))
+        .collect::<Vec<String>>();
+    let field_path = field_struct.join("->");
+    format!(r#"->{field_path}"#)
 }
 
 fn field_path_json(field_name: &str) -> String {
@@ -456,6 +480,25 @@ mod tests {
                 ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
                 ("\"d\".\"f\"->'company'->>'title'".to_string(), Order::Desc),
                 ("\"d\".\"f\"->'supplier'->>'city'".to_string(), Order::Asc)
+            ]
+        );
+    }
+
+    #[test]
+    fn sort_fields_sql_test_subfield_native() {
+        // Arrange
+        let sort_fields = "title+,item.priceb,m.lengthf".to_string();
+
+        // Act
+        let sql = sort_fields_parser(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            vec![
+                ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
+                ("\"d\".\"f\"->'item'->'price'".to_string(), Order::Desc),
+                ("\"d\".\"f\"->'m'->'length'".to_string(), Order::Asc)
             ]
         );
     }

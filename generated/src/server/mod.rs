@@ -440,12 +440,30 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
+                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
+                    .next();
+                let param_pfilter = match param_pfilter {
+                    Some(param_pfilter) => {
+                        let param_pfilter =
+                            <String as std::str::FromStr>::from_str
+                                (&param_pfilter);
+                        match param_pfilter {
+                            Ok(param_pfilter) => Some(param_pfilter),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
+                        }
+                    },
+                    None => None,
+                };
 
                                 let result = api_impl.list_collection(
                                             param_collection,
                                             param_extra_fields,
                                             param_sort,
                                             param_exact_title,
+                                            param_pfilter,
                                         &context
                                     ).await;
                                 let mut response = Response::new(Body::empty());
