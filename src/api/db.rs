@@ -300,9 +300,6 @@ fn sort_fields_parser(fields: Option<String>) -> Vec<(String, Order)> {
 }
 
 fn field_path_json_native(field_name: &str) -> String {
-    if !field_name.contains('.') {
-        return format!(r#"->>'{field_name}'"#);
-    }
     // split field_name on dots
     let field_struct = field_name
         .split('.')
@@ -444,6 +441,25 @@ mod tests {
             pfilter: None,
         };
         assert!(invalid_extra_fields.validate().is_err());
+    }
+
+    #[test]
+    fn sort_fields_sql_test_simple_native() {
+        // Arrange
+        let sort_fields = "title+,priceb,lengthf".to_string();
+
+        // Act
+        let sql = sort_fields_parser(Some(sort_fields));
+
+        // Assert
+        assert_eq!(
+            sql,
+            vec![
+                ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
+                ("\"d\".\"f\"->'price'".to_string(), Order::Desc),
+                ("\"d\".\"f\"->'length'".to_string(), Order::Asc)
+            ]
+        );
     }
 
     #[test]
