@@ -10,6 +10,7 @@ members = [".", "entity", "migration"]
 
 [dependencies]
 anyhow = "1.0"
+async-trait = "0.1.73"
 axum = "0.6"
 axum-macros = "0.3.7"
 chrono = { version = "0.4", features = ["serde"] }

@@ -959,6 +959,7 @@ name = "folivafy"
 version = "0.9.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "axum-macros",
  "chrono",

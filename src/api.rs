@@ -50,7 +50,7 @@ use self::{
     create_event::api_create_event,
     data_service::DataService,
     get_document::api_read_document,
-    hooks::Hooks,
+    hooks::{Hooks, HooksN},
     list_collections::api_list_collections,
     list_documents::api_list_document,
     update_document::api_update_document,
@@ -62,6 +62,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Hooks,
+    hooksn: HooksN,
     data_service: Arc<DataService>,
 }
 
@@ -241,6 +242,7 @@ async fn api_routes(
                 db,
                 hooks,
                 data_service,
+                hooksn: HooksN::new(),
             })
             .layer(jwt_auth.layer().await.unwrap()),
     ))

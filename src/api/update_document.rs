@@ -79,6 +79,8 @@ pub(crate) async fn api_update_document(
         )));
     }
 
+    let new_hook_processor = ctx.hooksn.updates().cloned();
+
     let hook_processor = ctx.hooks.get_registered_hook(
         collection_name.as_ref(),
         ItemActionType::Update,
@@ -103,6 +105,9 @@ pub(crate) async fn api_update_document(
                 }
                 let document = document.unwrap();
 
+                if let Some(new_hook_processor) = new_hook_processor {
+                    let hr = new_hook_processor.on_updating((&document).into()).await?;
+                }
                 let before_document: dto::CollectionDocument = (&document).into();
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];

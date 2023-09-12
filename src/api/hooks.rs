@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use async_trait::async_trait;
 use openapi::models::CollectionItem;
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
@@ -65,6 +66,27 @@ pub(crate) enum HookData {
         collection_name: String,
         document_selector: CronDocumentSelector,
     },
+}
+
+#[async_trait]
+pub trait DocumentUpdatingHook {
+    async fn on_updating(&self, document: dto::CollectionDocument) -> HookResult;
+    async fn on_updated(&self, document: dto::CollectionDocument) -> HookResult;
+}
+
+#[derive(Clone)]
+pub struct HooksN {
+    updates: Option<Arc<dyn DocumentUpdatingHook + Send + Sync>>,
+}
+
+impl HooksN {
+    pub fn new() -> Self {
+        Self { updates: None }
+    }
+
+    pub fn updates(&self) -> Option<&Arc<dyn DocumentUpdatingHook + Send + Sync>> {
+        self.updates.as_ref()
+    }
 }
 
 #[derive(Clone)]
