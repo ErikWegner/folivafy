@@ -38,7 +38,6 @@ type HookResult = Result<HookSuccessResult, ApiErrors>;
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum ItemActionType {
     AppendEvent { category: i32 },
-    Create,
     CronDefaultInterval,
 }
 
@@ -138,6 +137,64 @@ impl HookUpdateContext {
     }
 }
 
+pub struct HookCreatingEventContext {
+    event: dto::Event,
+    before_document: dto::CollectionDocument,
+    after_document: dto::CollectionDocument,
+    data_service: Arc<DataService>,
+    context: Arc<RequestContext>,
+}
+
+impl HookCreatingEventContext {
+    pub fn new(
+        event: dto::Event,
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
+        data_service: Arc<DataService>,
+        context: Arc<RequestContext>,
+    ) -> Self {
+        Self {
+            event,
+            before_document,
+            after_document,
+            data_service,
+            context,
+        }
+    }
+
+    pub fn event(&self) -> &dto::Event {
+        &self.event
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
+    }
+
+    pub fn context(&self) -> &RequestContext {
+        self.context.as_ref()
+    }
+}
+
+pub struct HookCreatedEventContext {
+    event: dto::Event,
+    data_service: Arc<DataService>,
+    context: Arc<RequestContext>,
+}
+
+impl HookCreatedEventContext {
+    pub fn new(
+        event: dto::Event,
+        data_service: Arc<DataService>,
+        context: Arc<RequestContext>,
+    ) -> Self {
+        Self {
+            event,
+            data_service,
+            context,
+        }
+    }
+}
+
 #[async_trait]
 pub trait DocumentCreatingHook {
     async fn on_creating(&self, context: &HookCreateContext) -> HookResult;
@@ -150,26 +207,67 @@ pub trait DocumentUpdatingHook {
     async fn on_updated(&self, context: &HookUpdateContext) -> HookResult;
 }
 
+#[async_trait]
+pub trait EventCreatingHook {
+    async fn on_creating(&self, context: &HookCreatingEventContext) -> HookResult;
+    async fn on_created(&self, context: &HookCreatedEventContext) -> HookResult;
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct HookDataN {
+    collection_name: String,
+}
+
 #[derive(Clone)]
 pub struct HooksN {
-    create: Option<Arc<dyn DocumentCreatingHook + Send + Sync>>,
-    updates: Option<Arc<dyn DocumentUpdatingHook + Send + Sync>>,
+    create_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
+    update_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
+    event_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn EventCreatingHook + Send + Sync>>>>,
 }
 
 impl HooksN {
     pub fn new() -> Self {
         Self {
-            create: None,
-            updates: None,
+            create_hooks: Arc::new(RwLock::new(HashMap::new())),
+            update_hooks: Arc::new(RwLock::new(HashMap::new())),
+            event_hooks: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    pub fn create(&self) -> Option<&Arc<dyn DocumentCreatingHook + Send + Sync>> {
-        self.create.as_ref()
+    pub fn get_create_hook(
+        &self,
+        collection_name: &str,
+    ) -> Option<Arc<dyn DocumentCreatingHook + Send + Sync>> {
+        let key = HookDataN {
+            collection_name: collection_name.to_string(),
+        };
+        let map = self.create_hooks.read().unwrap();
+        let value = map.get(&key);
+        value.cloned()
     }
 
-    pub fn updates(&self) -> Option<&Arc<dyn DocumentUpdatingHook + Send + Sync>> {
-        self.updates.as_ref()
+    pub fn get_update_hook(
+        &self,
+        collection_name: &str,
+    ) -> Option<Arc<dyn DocumentUpdatingHook + Send + Sync>> {
+        let key = HookDataN {
+            collection_name: collection_name.to_string(),
+        };
+        let map = self.update_hooks.read().unwrap();
+        let value = map.get(&key);
+        value.cloned()
+    }
+
+    pub fn get_event_hook(
+        &self,
+        collection_name: &str,
+    ) -> Option<Arc<dyn EventCreatingHook + Send + Sync>> {
+        let key = HookDataN {
+            collection_name: collection_name.to_string(),
+        };
+        let map = self.event_hooks.read().unwrap();
+        let value = map.get(&key);
+        value.cloned()
     }
 }
 

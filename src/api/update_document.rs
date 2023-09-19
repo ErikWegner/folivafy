@@ -76,7 +76,7 @@ pub(crate) async fn api_update_document(
         )));
     }
 
-    let hook_processor = ctx.hooksn.updates().cloned();
+    let hook_processor = ctx.hooksn.get_update_hook(&collection.name);
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {

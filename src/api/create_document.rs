@@ -50,7 +50,7 @@ pub(crate) async fn api_create_document(
     }
 
     let collection_id = collection.id;
-    let hook_processor = ctx.hooksn.create();
+    let hook_processor = ctx.hooksn.get_create_hook(&collection.name);
     let mut after_document: dto::CollectionDocument = (payload.clone()).into();
     let mut events: Vec<dto::Event> = vec![];
     let mut mails: Vec<dto::MailMessage> = vec![];
