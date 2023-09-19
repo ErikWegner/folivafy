@@ -193,6 +193,50 @@ impl HookCreatedEventContext {
             context,
         }
     }
+
+    pub fn event(&self) -> &dto::Event {
+        &self.event
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
+    }
+
+    pub fn context(&self) -> &RequestContext {
+        self.context.as_ref()
+    }
+}
+
+pub struct HookCronContext {
+    before_document: dto::CollectionDocument,
+    after_document: dto::CollectionDocument,
+    data_service: Arc<DataService>,
+}
+
+impl HookCronContext {
+    pub fn new(
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
+        data_service: Arc<DataService>,
+    ) -> Self {
+        Self {
+            before_document,
+            after_document,
+            data_service,
+        }
+    }
+
+    pub fn before_document(&self) -> &dto::CollectionDocument {
+        &self.before_document
+    }
+
+    pub fn after_document(&self) -> &dto::CollectionDocument {
+        &self.after_document
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
+    }
 }
 
 #[async_trait]
@@ -213,9 +257,21 @@ pub trait EventCreatingHook {
     async fn on_created(&self, context: &HookCreatedEventContext) -> HookResult;
 }
 
+#[async_trait]
+pub trait CronDefaultIntervalHook {
+    async fn on_default_interval(&self, context: &HookCronContext) -> HookResult;
+}
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct HookDataN {
     collection_name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct CronDefaultIntervalHookData {
+    job_name: String,
+    collection_name: String,
+    document_selector: CronDocumentSelector,
 }
 
 #[derive(Clone)]
@@ -223,6 +279,9 @@ pub struct HooksN {
     create_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
     update_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
     event_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn EventCreatingHook + Send + Sync>>>>,
+    cron_default_interval_hooks: Arc<
+        RwLock<HashMap<CronDefaultIntervalHookData, Arc<dyn DocumentUpdatingHook + Send + Sync>>>,
+    >,
 }
 
 impl HooksN {
@@ -231,6 +290,7 @@ impl HooksN {
             create_hooks: Arc::new(RwLock::new(HashMap::new())),
             update_hooks: Arc::new(RwLock::new(HashMap::new())),
             event_hooks: Arc::new(RwLock::new(HashMap::new())),
+            cron_default_interval_hooks: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -268,6 +328,22 @@ impl HooksN {
         let map = self.event_hooks.read().unwrap();
         let value = map.get(&key);
         value.cloned()
+    }
+
+    pub fn insert_cron_default_interval_hook(
+        &self,
+        job_name: &str,
+        collection_name: &str,
+        document_selector: CronDocumentSelector,
+        hook: Arc<dyn DocumentUpdatingHook + Send + Sync>,
+    ) {
+        let key = CronDefaultIntervalHookData {
+            job_name: job_name.to_string(),
+            collection_name: collection_name.to_string(),
+            document_selector,
+        };
+        let mut map = self.cron_default_interval_hooks.write().unwrap();
+        map.insert(key, hook);
     }
 }
 
