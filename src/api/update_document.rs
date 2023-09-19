@@ -80,13 +80,7 @@ pub(crate) async fn api_update_document(
         )));
     }
 
-    let new_hook_processor = ctx.hooksn.updates().cloned();
-
-    let hook_processor = ctx.hooks.get_registered_hook(
-        collection_name.as_ref(),
-        ItemActionType::Update,
-        ItemActionStage::Before,
-    );
+    let hook_processor = ctx.hooksn.updates().cloned();
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
@@ -115,14 +109,14 @@ pub(crate) async fn api_update_document(
                     user.subuuid(),
                     user.preferred_username(),
                 ));
-                if let Some(new_hook_processor) = new_hook_processor {
+                if let Some(ref hook_processor) = hook_processor {
                     let ctx = HookUpdateContext::new(
                         (&document).into(),
                         after_document,
                         ctx.data_service,
                         request_context,
                     );
-                    let hook_result = new_hook_processor.on_updating(&ctx).await?;
+                    let hook_result = hook_processor.on_updating(&ctx).await?;
 
                     match hook_result.document {
                         crate::api::hooks::DocumentResult::Store(document) => {
