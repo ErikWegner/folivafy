@@ -39,7 +39,6 @@ type HookResult = Result<HookSuccessResult, ApiErrors>;
 pub enum ItemActionType {
     AppendEvent { category: i32 },
     Create,
-    Update,
     CronDefaultInterval,
 }
 
@@ -66,6 +65,38 @@ pub(crate) enum HookData {
         collection_name: String,
         document_selector: CronDocumentSelector,
     },
+}
+
+pub struct HookCreateContext {
+    document: dto::CollectionDocument,
+    data_service: Arc<DataService>,
+    context: Arc<RequestContext>,
+}
+
+impl HookCreateContext {
+    pub fn new(
+        document: dto::CollectionDocument,
+        data_service: Arc<DataService>,
+        context: Arc<RequestContext>,
+    ) -> Self {
+        Self {
+            document,
+            data_service,
+            context,
+        }
+    }
+
+    pub fn document(&self) -> &dto::CollectionDocument {
+        &self.document
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
+    }
+
+    pub fn context(&self) -> &RequestContext {
+        self.context.as_ref()
+    }
 }
 
 pub struct HookUpdateContext {
@@ -108,6 +139,12 @@ impl HookUpdateContext {
 }
 
 #[async_trait]
+pub trait DocumentCreatingHook {
+    async fn on_creating(&self, context: &HookCreateContext) -> HookResult;
+    async fn on_created(&self, context: &HookCreateContext) -> HookResult;
+}
+
+#[async_trait]
 pub trait DocumentUpdatingHook {
     async fn on_updating(&self, context: &HookUpdateContext) -> HookResult;
     async fn on_updated(&self, context: &HookUpdateContext) -> HookResult;
@@ -115,12 +152,20 @@ pub trait DocumentUpdatingHook {
 
 #[derive(Clone)]
 pub struct HooksN {
+    create: Option<Arc<dyn DocumentCreatingHook + Send + Sync>>,
     updates: Option<Arc<dyn DocumentUpdatingHook + Send + Sync>>,
 }
 
 impl HooksN {
     pub fn new() -> Self {
-        Self { updates: None }
+        Self {
+            create: None,
+            updates: None,
+        }
+    }
+
+    pub fn create(&self) -> Option<&Arc<dyn DocumentCreatingHook + Send + Sync>> {
+        self.create.as_ref()
     }
 
     pub fn updates(&self) -> Option<&Arc<dyn DocumentUpdatingHook + Send + Sync>> {
@@ -129,6 +174,7 @@ impl HooksN {
 }
 
 #[derive(Clone)]
+#[deprecated(note = "use HooksN instead")]
 pub struct Hooks {
     hooks: Arc<RwLock<HashMap<HookData, Sender<HookContext>>>>,
 }

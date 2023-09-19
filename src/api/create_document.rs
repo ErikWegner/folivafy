@@ -4,26 +4,17 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{DbErr, RuntimeErr, TransactionError, TransactionTrait};
 use serde_json::json;
-use tokio::sync::oneshot;
+use std::sync::Arc;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
-use crate::api::{
-    auth::User,
-    db::save_document_events_mails,
-    hooks::{
-        HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
-        RequestContext,
-    },
-    ApiErrors,
-};
+use crate::api::{auth::User, db::save_document_events_mails, hooks::RequestContext, ApiErrors};
 
-use super::{db::get_collection_by_name, dto, ApiContext};
+use super::{db::get_collection_by_name, dto, hooks::HookCreateContext, ApiContext};
 
 #[debug_handler]
 pub(crate) async fn api_create_document(
@@ -59,29 +50,19 @@ pub(crate) async fn api_create_document(
     }
 
     let collection_id = collection.id;
-    let sender = ctx.hooks.get_registered_hook(
-        collection_name.as_ref(),
-        ItemActionType::Create,
-        ItemActionStage::Before,
-    );
+    let hook_processor = ctx.hooksn.create();
     let mut after_document: dto::CollectionDocument = (payload.clone()).into();
     let mut events: Vec<dto::Event> = vec![];
     let mut mails: Vec<dto::MailMessage> = vec![];
-    if let Some(sender) = sender {
-        let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-        let cdctx = HookContext::new(
-            HookContextData::DocumentAdding { document: payload },
-            RequestContext::new(&collection.name, user.subuuid(), user.preferred_username()),
-            tx,
-            ctx.data_service,
-        );
+    if let Some(ref hook) = hook_processor {
+        let request_context = Arc::new(RequestContext::new(
+            &collection.name,
+            user.subuuid(),
+            user.preferred_username(),
+        ));
 
-        sender
-            .send(cdctx)
-            .await
-            .map_err(|_e| ApiErrors::InternalServerError)?;
-
-        let hook_result = rx.await.map_err(|_e| ApiErrors::InternalServerError)??;
+        let ctx = HookCreateContext::new((payload).into(), ctx.data_service, request_context);
+        let hook_result = hook.on_creating(&ctx).await?;
         match hook_result.document {
             crate::api::hooks::DocumentResult::Store(document) => {
                 after_document = document;

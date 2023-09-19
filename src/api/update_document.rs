@@ -9,7 +9,6 @@ use openapi::models::CollectionItem;
 use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
 use serde_json::json;
 use std::sync::Arc;
-use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
@@ -17,10 +16,7 @@ use crate::api::{
     auth::User,
     db::save_document_events_mails,
     dto,
-    hooks::{
-        HookContext, HookContextData, HookSuccessResult, HookUpdateContext, ItemActionStage,
-        ItemActionType, RequestContext,
-    },
+    hooks::{HookUpdateContext, RequestContext},
     select_document_for_update,
 };
 use entity::collection_document::Entity as Documents;

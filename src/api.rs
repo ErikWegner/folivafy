@@ -61,6 +61,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
+    #[deprecated]
     hooks: Hooks,
     hooksn: HooksN,
     data_service: Arc<DataService>,
