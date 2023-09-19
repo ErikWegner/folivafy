@@ -68,10 +68,49 @@ pub(crate) enum HookData {
     },
 }
 
+pub struct HookUpdateContext {
+    before_document: dto::CollectionDocument,
+    after_document: dto::CollectionDocument,
+    data_service: Arc<DataService>,
+    context: Arc<RequestContext>,
+}
+
+impl HookUpdateContext {
+    pub fn new(
+        before_document: dto::CollectionDocument,
+        after_document: dto::CollectionDocument,
+        data_service: Arc<DataService>,
+        context: Arc<RequestContext>,
+    ) -> Self {
+        Self {
+            before_document,
+            after_document,
+            data_service,
+            context,
+        }
+    }
+
+    pub fn before_document(&self) -> &dto::CollectionDocument {
+        &self.before_document
+    }
+
+    pub fn after_document(&self) -> &dto::CollectionDocument {
+        &self.after_document
+    }
+
+    pub fn data_service(&self) -> &DataService {
+        self.data_service.as_ref()
+    }
+
+    pub fn context(&self) -> &RequestContext {
+        self.context.as_ref()
+    }
+}
+
 #[async_trait]
 pub trait DocumentUpdatingHook {
-    async fn on_updating(&self, document: dto::CollectionDocument) -> HookResult;
-    async fn on_updated(&self, document: dto::CollectionDocument) -> HookResult;
+    async fn on_updating(&self, context: &HookUpdateContext) -> HookResult;
+    async fn on_updated(&self, context: &HookUpdateContext) -> HookResult;
 }
 
 #[derive(Clone)]

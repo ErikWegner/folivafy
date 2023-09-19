@@ -8,6 +8,7 @@ use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
 use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
 use serde_json::json;
+use std::sync::Arc;
 use tokio::sync::oneshot;
 use tracing::{debug, error, warn};
 use validator::Validate;
@@ -17,8 +18,8 @@ use crate::api::{
     db::save_document_events_mails,
     dto,
     hooks::{
-        HookContext, HookContextData, HookSuccessResult, ItemActionStage, ItemActionType,
-        RequestContext,
+        HookContext, HookContextData, HookSuccessResult, HookUpdateContext, ItemActionStage,
+        ItemActionType, RequestContext,
     },
     select_document_for_update,
 };
@@ -105,35 +106,24 @@ pub(crate) async fn api_update_document(
                 }
                 let document = document.unwrap();
 
-                if let Some(new_hook_processor) = new_hook_processor {
-                    let hr = new_hook_processor.on_updating((&document).into()).await?;
-                }
                 let before_document: dto::CollectionDocument = (&document).into();
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];
                 let mut mails: Vec<dto::MailMessage> = vec![];
-                if let Some(sender) = hook_processor {
-                    let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-                    let cdctx = HookContext::new(
-                        HookContextData::DocumentUpdating {
-                            before_document,
-                            after_document,
-                        },
-                        RequestContext::new(
-                            &collection.name,
-                            user.subuuid(),
-                            user.preferred_username(),
-                        ),
-                        tx,
+                let request_context = Arc::new(RequestContext::new(
+                    &collection.name,
+                    user.subuuid(),
+                    user.preferred_username(),
+                ));
+                if let Some(new_hook_processor) = new_hook_processor {
+                    let ctx = HookUpdateContext::new(
+                        (&document).into(),
+                        after_document,
                         ctx.data_service,
+                        request_context,
                     );
+                    let hook_result = new_hook_processor.on_updating(&ctx).await?;
 
-                    sender
-                        .send(cdctx)
-                        .await
-                        .map_err(|_| ApiErrors::InternalServerError)?;
-
-                    let hook_result = rx.await.map_err(|_| ApiErrors::InternalServerError)??;
                     match hook_result.document {
                         crate::api::hooks::DocumentResult::Store(document) => {
                             after_document = document;
