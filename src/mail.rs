@@ -18,7 +18,7 @@ use crate::{
     api::{
         db::get_collection_by_name,
         dto::{self, MailMessage},
-        hooks::{self, Hooks},
+        hooks::{self, CronDefaultIntervalHook, Hooks},
     },
     BackgroundTask,
 };
@@ -145,6 +145,16 @@ impl SmtpClientConfiguration {
         }
         b.timeout(Some(std::time::Duration::from_secs(10))).build()
     }
+}
+
+struct Mailer;
+
+#[async_trait]
+impl CronDefaultIntervalHook for Mailer {
+    async fn on_default_interval(&self, context: &HookCronContext) {
+        todo!()
+    }
+    // add code here
 }
 
 async fn process_hook(
