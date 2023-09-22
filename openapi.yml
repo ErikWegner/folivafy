@@ -133,6 +133,12 @@ paths:
             list:
               summary: A list of values
               value: "a='k'&f3=['p1','p4','p9']"
+            contains:
+              summary: Filter a column to contain the specified value
+              value: "a=~'foo'"
+            starts_with:
+              summary: Filter a column to start with the specified value
+              value: "a=@'foo'"
       responses:
         "200":
           content:
