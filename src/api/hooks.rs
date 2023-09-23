@@ -33,7 +33,7 @@ impl Debug for HookSuccessResult {
     }
 }
 
-type HookResult = Result<HookSuccessResult, ApiErrors>;
+pub type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum ItemActionType {

@@ -1,6 +1,7 @@
 use std::{env, str::FromStr};
 
 use anyhow::{anyhow, bail, Context, Result};
+use async_trait::async_trait;
 use entity::collection;
 use lazy_static::lazy_static;
 use lettre::{
@@ -18,7 +19,8 @@ use crate::{
     api::{
         db::get_collection_by_name,
         dto::{self, MailMessage},
-        hooks::{self, CronDefaultIntervalHook, Hooks},
+        hooks::{self, CronDefaultIntervalHook, HookCronContext, HookResult, Hooks},
+        ApiErrors,
     },
     BackgroundTask,
 };
@@ -147,14 +149,57 @@ impl SmtpClientConfiguration {
     }
 }
 
-struct Mailer;
+struct Mailer {
+    smtp_cfg: SmtpClientConfiguration,
+}
+
+impl Mailer {
+    // TODO: init
+    fn new(smtp_cfg: SmtpClientConfiguration) -> Self {
+        Self { smtp_cfg }
+    }
+}
 
 #[async_trait]
 impl CronDefaultIntervalHook for Mailer {
-    async fn on_default_interval(&self, context: &HookCronContext) {
-        todo!()
+    async fn on_default_interval(&self, context: &HookCronContext) -> HookResult {
+        let document_id = context.after_document().id();
+        let mut maildocument =
+            serde_json::from_value::<MailMessage>(context.after_document().fields().clone())
+                .map_err(|e| {
+                    error!("Cannot read mail message ({document_id}) from store: {}", e);
+                    ApiErrors::InternalServerError
+                })?;
+        let email = maildocument
+            .build_mail(self.smtp_cfg.from_address.as_ref())
+            .map_err(|e| {
+                error!("Cannot build message from {document_id}: {}", e);
+                ApiErrors::InternalServerError
+            })?;
+        let mailer = self.smtp_cfg.transport();
+
+        // Send the email
+        match mailer.send(email).await {
+            Ok(_) => {
+                debug!("Email {document_id} sent successfully!");
+                maildocument.set_sent();
+                let o = dto::CollectionDocument::new(
+                    *document_id,
+                    serde_json::to_value(maildocument).unwrap(),
+                );
+                Ok(hooks::HookSuccessResult {
+                    document: hooks::DocumentResult::Store(o),
+                    events: vec![],
+                    mails: vec![],
+                    trigger_cron: false,
+                })
+            }
+            Err(e) => {
+                error!("Could not send email: {:?}", e);
+                Err(ApiErrors::InternalServerError)
+            }
+        }
     }
-    // add code here
 }
 
 async fn process_hook(
