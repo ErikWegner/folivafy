@@ -360,6 +360,35 @@ then
       echo -e "${RED}Failure:${NC} list of documents with sort fields failed!\n$FIELDS\n$RESP"
 fi
 
+
+echo "- Can list shapes containing a filter value"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?pfilter=title\%3D\~"c")
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Rectangle Circle" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents containing a filter value!\n$FIELDS\n$RESP"
+fi
+
+
+echo "- Can list shapes starting with a filter value"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?pfilter=title\%3D\@"H")
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Hexagon" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents starting with a filter value!\n$FIELDS\n$RESP"
+fi
+
+
 #####################################################
 ##
 ##  Owner access only collection

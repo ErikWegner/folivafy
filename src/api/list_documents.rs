@@ -217,4 +217,42 @@ mod tests {
             _ => panic!("Unexpected value"),
         }
     }
+
+    #[test]
+    pub fn test_starts_with() {
+        // Arrange
+        let s = "az=@'kl'";
+
+        // Act
+        let r = parse_pfilter(Some(s.to_string()));
+
+        // Assert
+        assert_eq!(r.len(), 1);
+        match r.get(0).unwrap() {
+            FieldFilter::FieldStartsWith { field_name, value } => {
+                assert_eq!(field_name, "az");
+                assert_eq!(value, "kl");
+            }
+            _ => panic!("Unexpected value"),
+        }
+    }
+
+    #[test]
+    pub fn test_contains() {
+        // Arrange
+        let s = "pt=~'imi'";
+
+        // Act
+        let r = parse_pfilter(Some(s.to_string()));
+
+        // Assert
+        assert_eq!(r.len(), 1);
+        match r.get(0).unwrap() {
+            FieldFilter::FieldContains { field_name, value } => {
+                assert_eq!(field_name, "pt");
+                assert_eq!(value, "imi");
+            }
+            _ => panic!("Unexpected value"),
+        }
+    }
 }
