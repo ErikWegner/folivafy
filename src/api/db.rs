@@ -69,6 +69,14 @@ pub(crate) enum FieldFilter {
         field_name: String,
         value: String,
     },
+    FieldContains {
+        field_name: String,
+        value: String,
+    },
+    FieldStartsWith {
+        field_name: String,
+        value: String,
+    },
     FieldValueInMatch {
         field_name: String,
         values: Vec<String>,
@@ -81,17 +89,36 @@ impl FieldFilter {
             return None;
         }
 
+        // Remove quotes
+        let value_trimmer =
+            |value: &str| -> String { value.trim_matches('"').trim_matches('\'').to_string() };
+
         // Split at first equal sign
         let (field_name, value) = s.split_once('=')?;
 
-        // Remove quotes
-        let value = value.trim_matches('"').trim_matches('\'');
+        debug!("NINJA value: {}", value);
+
+        if value.starts_with('~') {
+            let value = value.trim_start_matches('~');
+            return Some(FieldFilter::FieldContains {
+                field_name: field_name.to_string(),
+                value: value_trimmer(value),
+            });
+        }
+
+        if value.starts_with('@') {
+            let value = value.trim_start_matches('@');
+            return Some(FieldFilter::FieldStartsWith {
+                field_name: field_name.to_string(),
+                value: value_trimmer(value),
+            });
+        }
 
         // If value is inside square brackets, then it's a list of values
         if value.starts_with('[') && value.ends_with(']') {
             let values: Vec<String> = value[1..value.len() - 1]
                 .split(',')
-                .map(|v| v.trim().trim_matches('"').trim_matches('\'').to_string())
+                .map(|v| value_trimmer(v.trim()))
                 .collect();
 
             return if values.is_empty() {
@@ -106,7 +133,7 @@ impl FieldFilter {
 
         Some(FieldFilter::ExactFieldMatch {
             field_name: field_name.to_string(),
-            value: value.to_string(),
+            value: value_trimmer(value),
         })
     }
 }
@@ -152,6 +179,24 @@ pub(crate) async fn list_documents(
                     ),
                     vec![value],
                 ));
+            }
+            FieldFilter::FieldContains { field_name, value } => {
+                basefind = basefind.filter(Expr::cust_with_values(
+                    format!(
+                        r#"lower("collection_document"."f"{}) like $1"#,
+                        field_path_json(&field_name),
+                    ),
+                    vec![format!("%{}%", value.to_lowercase())],
+                ))
+            }
+            FieldFilter::FieldStartsWith { field_name, value } => {
+                basefind = basefind.filter(Expr::cust_with_values(
+                    format!(
+                        r#"lower("collection_document"."f"{}) like $1"#,
+                        field_path_json(&field_name),
+                    ),
+                    vec![format!("{}%", value.to_lowercase())],
+                ))
             }
             FieldFilter::FieldValueInMatch {
                 field_name: _,
@@ -243,6 +288,18 @@ fn select_documents_sql(
                     format!(r#""d"."f"{}=$1"#, field_path_json(&field_name),),
                     vec![value],
                 ));
+            }
+            FieldFilter::FieldContains { field_name, value } => {
+                q = q.and_where(Expr::cust_with_values(
+                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(&field_name),),
+                    vec![format!("%{}%", value.to_lowercase())],
+                ))
+            }
+            FieldFilter::FieldStartsWith { field_name, value } => {
+                q = q.and_where(Expr::cust_with_values(
+                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(&field_name),),
+                    vec![format!("{}%", value.to_lowercase())],
+                ))
             }
             FieldFilter::FieldValueInMatch { field_name, values } => {
                 q = q.and_where(
