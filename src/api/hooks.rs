@@ -267,11 +267,25 @@ struct HookDataN {
     collection_name: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct CronDefaultIntervalHookData {
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CronDefaultIntervalHookData {
     job_name: String,
     collection_name: String,
     document_selector: CronDocumentSelector,
+}
+
+impl CronDefaultIntervalHookData {
+    pub fn job_name(&self) -> &str {
+        self.job_name.as_ref()
+    }
+
+    pub fn collection_name(&self) -> &str {
+        self.collection_name.as_ref()
+    }
+
+    pub fn document_selector(&self) -> &CronDocumentSelector {
+        &self.document_selector
+    }
 }
 
 #[derive(Clone)]
@@ -280,7 +294,9 @@ pub struct HooksN {
     update_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
     event_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn EventCreatingHook + Send + Sync>>>>,
     cron_default_interval_hooks: Arc<
-        RwLock<HashMap<CronDefaultIntervalHookData, Arc<dyn DocumentUpdatingHook + Send + Sync>>>,
+        RwLock<
+            HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
+        >,
     >,
 }
 
@@ -335,7 +351,7 @@ impl HooksN {
         job_name: &str,
         collection_name: &str,
         document_selector: CronDocumentSelector,
-        hook: Arc<dyn DocumentUpdatingHook + Send + Sync>,
+        hook: Arc<dyn CronDefaultIntervalHook + Send + Sync>,
     ) {
         let key = CronDefaultIntervalHookData {
             job_name: job_name.to_string(),
@@ -344,6 +360,20 @@ impl HooksN {
         };
         let mut map = self.cron_default_interval_hooks.write().unwrap();
         map.insert(key, hook);
+    }
+
+    pub fn get_cron_default_interval_hooks(
+        &self,
+    ) -> Vec<(
+        CronDefaultIntervalHookData,
+        Arc<dyn CronDefaultIntervalHook + Send + Sync>,
+    )> {
+        self.cron_default_interval_hooks
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
     }
 }
 

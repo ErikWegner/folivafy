@@ -161,15 +161,17 @@ async fn shutdown_signal() {
 pub async fn serve(
     db: DatabaseConnection,
     mut hooks: Hooks,
+    hooks_n: HooksN,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
-    let mailbt = mail::insert_mail_cron_hook(&mut hooks, &db).await?;
+    let hooks_n = Arc::new(hooks_n);
+    mail::insert_mail_cron_hook(&hooks_n, &db).await?;
     let (requesthooks, cronhooks) = hooks.split_cron_hooks();
     let (user_service, user_service_task) =
         data_service::user_service::UserService::new_from_env().await?;
     let data_service = Arc::new(DataService::new(&db, user_service));
     let (cronbt, _immediate_cron_signal) =
-        crate::cron::setup_cron(db.clone(), cronhooks, cron_interval, data_service.clone());
+        crate::cron::setup_cron(db.clone(), hooks_n, cron_interval, data_service.clone());
     let monitor = Arc::new(HealthMonitor::new());
     // build our application with a route
     let app = api_routes(db, requesthooks, data_service)
@@ -199,7 +201,6 @@ pub async fn serve(
         .await
         .context("error running server")?;
 
-    mailbt.shutdown().await;
     cronbt.shutdown().await;
     user_service_task.shutdown().await;
     debug!("Shutdown complete");

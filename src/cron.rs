@@ -14,7 +14,10 @@ use crate::{
         data_service::DataService,
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
-        hooks::{HookContext, HookContextData, HookSuccessResult, Hooks, RequestContext},
+        hooks::{
+            HookContext, HookContextData, HookCronContext, HookSuccessResult, Hooks, HooksN,
+            RequestContext,
+        },
         types::Pagination,
         ApiErrors,
     },
@@ -33,72 +36,70 @@ struct CronResult {
 
 async fn cron(
     db: sea_orm::DatabaseConnection,
-    hooks: Hooks,
+    hooks: &HooksN,
     data_service: Arc<crate::api::data_service::DataService>,
 ) -> CronResult {
     debug!("Running cron tasks");
     let mut trigger_cron = false;
     let cron_limit = 100;
     let pagination = Pagination::new(cron_limit, 0);
-    for (hookdata, listener) in hooks.get_cron_hooks() {
-        if let crate::api::hooks::HookData::CronDefaultIntervalHook {
-            job_name,
-            collection_name,
-            document_selector,
-        } = hookdata
-        {
-            debug!("Running cron task: {job_name}");
-            let collection = get_collection_by_name(&db, &collection_name).await;
-            if let Some(collection) = collection {
-                let mut counter = cron_limit;
-                let (total, mut items) = super::api::db::list_documents(
-                    &db,
-                    ListDocumentParams {
-                        collection: collection.id,
-                        exact_title: None,
-                        oao_access:
-                            crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
-                        extra_fields: vec!["title".to_string()],
-                        sort_fields: None,
-                        filters: vec![document_selector.clone().into()],
-                        pagination: pagination.clone(),
-                    },
-                )
-                .await
-                .unwrap_or_default();
-                items.reverse();
-                info!("{job_name} found {total} documents, processing up to {cron_limit}");
-                loop {
-                    if counter == 0 {
-                        break;
-                    }
-                    counter -= 1;
+    let l = hooks.get_cron_default_interval_hooks();
+    for (hookdata, listener) in l {
+        let job_name = hookdata.job_name().to_string();
+        let collection_name = hookdata.collection_name();
+        let document_selector = hookdata.document_selector();
 
-                    // for each result-id:
-                    let item = items.pop();
-                    if item.is_none() {
-                        break;
-                    }
-                    let item = item.unwrap();
-                    let id = item["id"].as_str().unwrap_or("").to_string();
-                    let uuid = Uuid::parse_str(&id);
-                    if uuid.is_err() {
-                        error!("{job_name} failed to parse id {id}");
-                        continue;
-                    }
-                    let uuid = uuid.unwrap();
-                    debug!("Running cron task: {job_name} for document {id}");
-                    //     select document for update
-                    let tx_job_name = job_name.clone();
-                    let tx_collection_name = collection_name.clone();
-                    let tx_listener = listener.clone();
-                    let loop_data_service = data_service.clone();
-                    let cr = db
+        debug!("Running cron task: {job_name}");
+        let collection = get_collection_by_name(&db, collection_name).await;
+        if let Some(collection) = collection {
+            let mut counter = cron_limit;
+            let (total, mut items) = super::api::db::list_documents(
+                &db,
+                ListDocumentParams {
+                    collection: collection.id,
+                    exact_title: None,
+                    oao_access: crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
+                    extra_fields: vec!["title".to_string()],
+                    sort_fields: None,
+                    filters: vec![document_selector.clone().into()],
+                    pagination: pagination.clone(),
+                },
+            )
+            .await
+            .unwrap_or_default();
+            items.reverse();
+            info!("{job_name} found {total} documents, processing up to {cron_limit}");
+            loop {
+                if counter == 0 {
+                    break;
+                }
+                counter -= 1;
+
+                // for each result-id:
+                let item = items.pop();
+                if item.is_none() {
+                    break;
+                }
+                let item = item.unwrap();
+                let id = item["id"].as_str().unwrap_or("").to_string();
+                let uuid = Uuid::parse_str(&id);
+                if uuid.is_err() {
+                    error!("{job_name} failed to parse id {id}");
+                    continue;
+                }
+                let uuid = uuid.unwrap();
+                debug!("Running cron task: {job_name} for document {id}");
+                //     select document for update
+                let loop_job_name = job_name.clone();
+                let loop_collection_name = collection_name.clone();
+                let loop_data_service = data_service.clone();
+                let loop_listener = listener.clone();
+                let cr = db
                         .transaction::<_, CronResult, ApiErrors>(|txn| {
                             Box::pin(async move {
                                 let document = select_document_for_update(uuid, txn).await?;
                                 if document.is_none() {
-                                    info!("Document vanished while running cron task: {tx_job_name} for document {id}");
+                                    info!("Document vanished while running cron task: {loop_job_name} for document {id}");
                                     return Ok(CronResult { trigger_cron: false });
                                 }
                                 // TODO: Check document is still matching filters
@@ -106,7 +107,8 @@ async fn cron(
                                 let document = document.unwrap();
                                 let before_document: dto::CollectionDocument = (&document).into();
                                 let after_document: dto::CollectionDocument = (&document).into();
-                                let result = run_hook(&tx_collection_name, before_document, after_document,tx_listener, loop_data_service).await?;
+                                let context = HookCronContext::new(before_document, after_document, loop_data_service);
+                                let result = loop_listener.on_default_interval(&context).await?;
                                 let trigger_cron = result.trigger_cron;
                                 // modified document? update document and save events
                                 check_modifications_and_update(txn, result).await?;
@@ -114,15 +116,12 @@ async fn cron(
                             })
                         })
                         .await;
-                    if let Ok(cr) = cr {
-                        trigger_cron = cr.trigger_cron || trigger_cron;
-                    }
+                if let Ok(cr) = cr {
+                    trigger_cron = cr.trigger_cron || trigger_cron;
                 }
-            } else {
-                error!("Could not find collection: {collection_name}");
             }
         } else {
-            debug!("Unknown hook data type: {:?}", hookdata);
+            error!("Could not find collection: {collection_name}");
         }
     }
     CronResult { trigger_cron }
@@ -130,7 +129,7 @@ async fn cron(
 
 pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
-    hooks: Hooks,
+    hooks: Arc<HooksN>,
     cron_interval: std::time::Duration,
     data_service: Arc<DataService>,
 ) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {
@@ -154,7 +153,7 @@ pub(crate) fn setup_cron(
                 }
                 _ = interval.tick() => {
                     debug!("Cron tick");
-                    let r = cron(loopdb.clone(), hooks.clone(), loop_data_service1.clone()).await;
+                    let r = cron(loopdb.clone(), &hooks, loop_data_service1.clone()).await;
                     if r.trigger_cron {
                         debug!("Triggering cron task");
                         let _ = loop_immediate_cron_signal.send(()).await;
@@ -162,7 +161,7 @@ pub(crate) fn setup_cron(
                 }
                 _ = immediate_cron_recv.recv() => {
                     debug!("Immediate cron signal received");
-                    let r = cron(loopdb.clone(), hooks.clone(), loop_data_service2.clone()).await;
+                    let r = cron(loopdb.clone(), &hooks, loop_data_service2.clone()).await;
                     if r.trigger_cron {
                         debug!("Triggering cron task");
                         let _ = loop_immediate_cron_signal.send(()).await;
