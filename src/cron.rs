@@ -14,7 +14,7 @@ use crate::{
         data_service::DataService,
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
-        hooks::{HookCronContext, HookSuccessResult, HooksN},
+        hooks::{HookCronContext, HookSuccessResult, Hooks},
         types::Pagination,
         ApiErrors,
     },
@@ -33,7 +33,7 @@ struct CronResult {
 
 async fn cron(
     db: sea_orm::DatabaseConnection,
-    hooks: &HooksN,
+    hooks: &Hooks,
     data_service: Arc<crate::api::data_service::DataService>,
 ) -> CronResult {
     debug!("Running cron tasks");
@@ -126,7 +126,7 @@ async fn cron(
 
 pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
-    hooks: Arc<HooksN>,
+    hooks: Arc<Hooks>,
     cron_interval: std::time::Duration,
     data_service: Arc<DataService>,
 ) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {

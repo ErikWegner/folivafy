@@ -17,7 +17,7 @@ use tracing::{debug, error, info};
 use crate::api::{
     db::get_collection_by_name,
     dto::{self, MailMessage},
-    hooks::{self, CronDefaultIntervalHook, HookCronContext, HookResult, HooksN},
+    hooks::{self, CronDefaultIntervalHook, HookCronContext, HookResult, Hooks},
     ApiErrors,
 };
 
@@ -197,11 +197,11 @@ impl CronDefaultIntervalHook for Mailer {
     }
 }
 
-pub(crate) async fn insert_mail_cron_hook(hooks_n: &HooksN, db: &DatabaseConnection) -> Result<()> {
+pub(crate) async fn insert_mail_cron_hook(hooks: &Hooks, db: &DatabaseConnection) -> Result<()> {
     ensure_mail_collection_exists(db).await?;
     let smtp_cfg = SmtpClientConfiguration::from_env().await?;
     let mailer = Arc::new(Mailer::new(smtp_cfg));
-    hooks_n.insert_cron_default_interval_hook(
+    hooks.insert_cron_default_interval_hook(
         "folivafy mailer",
         "folivafy-mail",
         hooks::CronDocumentSelector::ByFieldEqualsValue {

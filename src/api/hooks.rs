@@ -282,7 +282,7 @@ impl CronDefaultIntervalHookData {
 }
 
 #[derive(Clone)]
-pub struct HooksN {
+pub struct Hooks {
     create_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
     update_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
     event_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn EventCreatingHook + Send + Sync>>>>,
@@ -293,7 +293,7 @@ pub struct HooksN {
     >,
 }
 
-impl HooksN {
+impl Hooks {
     pub fn new() -> Self {
         Self {
             create_hooks: Arc::new(RwLock::new(HashMap::new())),
