@@ -303,6 +303,17 @@ impl Hooks {
         }
     }
 
+    pub fn put_create_hook(
+        &self,
+        collection_name: String,
+        hook: Arc<dyn DocumentCreatingHook + Send + Sync>,
+    ) {
+        self.create_hooks
+            .write()
+            .unwrap()
+            .insert(HookData { collection_name }, hook);
+    }
+
     pub fn get_create_hook(
         &self,
         collection_name: &str,
@@ -315,6 +326,17 @@ impl Hooks {
         value.cloned()
     }
 
+    pub fn put_update_hook(
+        &self,
+        collection_name: String,
+        hook: Arc<dyn DocumentUpdatingHook + Send + Sync>,
+    ) {
+        self.update_hooks
+            .write()
+            .unwrap()
+            .insert(HookData { collection_name }, hook);
+    }
+
     pub fn get_update_hook(
         &self,
         collection_name: &str,
@@ -325,6 +347,17 @@ impl Hooks {
         let map = self.update_hooks.read().unwrap();
         let value = map.get(&key);
         value.cloned()
+    }
+
+    pub fn put_event_hook(
+        &self,
+        collection_name: String,
+        hook: Arc<dyn EventCreatingHook + Send + Sync>,
+    ) {
+        self.event_hooks
+            .write()
+            .unwrap()
+            .insert(HookData { collection_name }, hook);
     }
 
     pub fn get_event_hook(

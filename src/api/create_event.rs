@@ -56,7 +56,7 @@ pub(crate) async fn api_create_event(
         );
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
-    let hook = ctx.hooksn.get_event_hook(&collection.name);
+    let hook = ctx.hooks.get_event_hook(&collection.name);
 
     if hook.is_none() {
         debug!("No hook was executed");

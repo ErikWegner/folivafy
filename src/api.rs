@@ -61,7 +61,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
-    hooksn: Arc<Hooks>,
+    hooks: Arc<Hooks>,
     data_service: Arc<DataService>,
 }
 
@@ -209,7 +209,7 @@ pub async fn serve(
 
 async fn api_routes(
     db: DatabaseConnection,
-    hooksn: Arc<Hooks>,
+    hooks: Arc<Hooks>,
     data_service: Arc<DataService>,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
@@ -242,7 +242,7 @@ async fn api_routes(
             .route("/events", post(api_create_event))
             .with_state(ApiContext {
                 db,
-                hooksn,
+                hooks,
                 data_service,
             })
             .layer(jwt_auth.layer().await.unwrap()),
