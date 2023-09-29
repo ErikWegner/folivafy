@@ -1,6 +1,6 @@
 use std::{env, str::FromStr, sync::Arc};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use entity::collection;
 use lazy_static::lazy_static;
@@ -150,7 +150,6 @@ struct Mailer {
 }
 
 impl Mailer {
-    // TODO: init
     fn new(smtp_cfg: SmtpClientConfiguration) -> Self {
         Self { smtp_cfg }
     }

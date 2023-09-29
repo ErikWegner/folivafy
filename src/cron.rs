@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use sea_orm::{DatabaseTransaction, DbErr, EntityTrait, TransactionTrait};
 use std::sync::Arc;
 use tokio::sync::{
-    mpsc::{self, Sender},
+    mpsc::{self},
     oneshot,
 };
 use tracing::{debug, error, info};
@@ -14,10 +14,7 @@ use crate::{
         data_service::DataService,
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
-        hooks::{
-            HookContext, HookContextData, HookCronContext, HookSuccessResult, Hooks, HooksN,
-            RequestContext,
-        },
+        hooks::{HookCronContext, HookSuccessResult, HooksN},
         types::Pagination,
         ApiErrors,
     },
@@ -91,7 +88,7 @@ async fn cron(
                 debug!("Running cron task: {job_name} for document {id}");
                 //     select document for update
                 let loop_job_name = job_name.clone();
-                let loop_collection_name = collection_name.clone();
+                let loop_collection_name = collection_name.to_string();
                 let loop_data_service = data_service.clone();
                 let loop_listener = listener.clone();
                 let cr = db
@@ -99,7 +96,7 @@ async fn cron(
                             Box::pin(async move {
                                 let document = select_document_for_update(uuid, txn).await?;
                                 if document.is_none() {
-                                    info!("Document vanished while running cron task: {loop_job_name} for document {id}");
+                                    info!("Document vanished while running cron task: {loop_job_name} for document {id} in {loop_collection_name}");
                                     return Ok(CronResult { trigger_cron: false });
                                 }
                                 // TODO: Check document is still matching filters
@@ -190,31 +187,6 @@ pub(crate) async fn select_document_for_update(
         ))
         .one(txn)
         .await
-}
-
-async fn run_hook(
-    collection_name: &str,
-    before_document: dto::CollectionDocument,
-    after_document: dto::CollectionDocument,
-    hook_processor: Sender<HookContext>,
-    data_service: Arc<DataService>,
-) -> Result<HookSuccessResult, ApiErrors> {
-    let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-
-    let cdctx = HookContext::new(
-        HookContextData::Cron {
-            before_document,
-            after_document,
-        },
-        RequestContext::new(collection_name, *CRON_USER_ID, CRON_USER_NAME),
-        tx,
-        data_service,
-    );
-    hook_processor
-        .send(cdctx)
-        .await
-        .map_err(|_| ApiErrors::InternalServerError)?;
-    rx.await.map_err(|_| ApiErrors::InternalServerError)?
 }
 
 async fn check_modifications_and_update(

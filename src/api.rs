@@ -50,7 +50,7 @@ use self::{
     create_event::api_create_event,
     data_service::DataService,
     get_document::api_read_document,
-    hooks::{Hooks, HooksN},
+    hooks::HooksN,
     list_collections::api_list_collections,
     list_documents::api_list_document,
     update_document::api_update_document,
@@ -61,9 +61,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
-    #[deprecated]
-    hooks: Hooks,
-    hooksn: HooksN,
+    hooksn: Arc<HooksN>,
     data_service: Arc<DataService>,
 }
 
@@ -160,21 +158,23 @@ async fn shutdown_signal() {
 
 pub async fn serve(
     db: DatabaseConnection,
-    mut hooks: Hooks,
     hooks_n: HooksN,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
     let hooks_n = Arc::new(hooks_n);
     mail::insert_mail_cron_hook(&hooks_n, &db).await?;
-    let (requesthooks, cronhooks) = hooks.split_cron_hooks();
     let (user_service, user_service_task) =
         data_service::user_service::UserService::new_from_env().await?;
     let data_service = Arc::new(DataService::new(&db, user_service));
-    let (cronbt, _immediate_cron_signal) =
-        crate::cron::setup_cron(db.clone(), hooks_n, cron_interval, data_service.clone());
+    let (cronbt, _immediate_cron_signal) = crate::cron::setup_cron(
+        db.clone(),
+        hooks_n.clone(),
+        cron_interval,
+        data_service.clone(),
+    );
     let monitor = Arc::new(HealthMonitor::new());
     // build our application with a route
-    let app = api_routes(db, requesthooks, data_service)
+    let app = api_routes(db, hooks_n, data_service)
         .await?
         .nest("/app", health_routes(monitor))
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
@@ -209,7 +209,7 @@ pub async fn serve(
 
 async fn api_routes(
     db: DatabaseConnection,
-    hooks: Hooks,
+    hooksn: Arc<HooksN>,
     data_service: Arc<DataService>,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
@@ -242,9 +242,8 @@ async fn api_routes(
             .route("/events", post(api_create_event))
             .with_state(ApiContext {
                 db,
-                hooks,
+                hooksn,
                 data_service,
-                hooksn: HooksN::new(),
             })
             .layer(jwt_auth.layer().await.unwrap()),
     ))

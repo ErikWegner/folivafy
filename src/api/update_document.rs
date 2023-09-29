@@ -107,7 +107,7 @@ pub(crate) async fn api_update_document(
                 ));
                 if let Some(ref hook_processor) = hook_processor {
                     let ctx = HookUpdateContext::new(
-                        (&document).into(),
+                        before_document,
                         after_document,
                         ctx.data_service,
                         request_context,

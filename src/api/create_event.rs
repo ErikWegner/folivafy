@@ -28,7 +28,6 @@ pub(crate) async fn api_create_event(
     Json(payload): Json<CreateEventBody>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     let post_payload = payload.clone();
-    let post_user = user.clone();
 
     // Validate the payload
     payload.validate().map_err(ApiErrors::from)?;
@@ -66,11 +65,9 @@ pub(crate) async fn api_create_event(
     let hook = hook.unwrap();
     let post_hook = hook.clone();
 
-    let post_collection = collection.clone();
     let data_service1 = ctx.data_service.clone();
     let data_service2 = ctx.data_service.clone();
 
-    let useruuid = user.subuuid().clone();
     let request_context1 = Arc::new(RequestContext::new(
         &collection.name,
         user.subuuid(),

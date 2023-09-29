@@ -6,7 +6,6 @@ use std::{
 
 use async_trait::async_trait;
 use openapi::models::CollectionItem;
-use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use super::{data_service::DataService, dto, ApiErrors};
@@ -50,20 +49,6 @@ pub enum ItemActionStage {
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum CronDocumentSelector {
     ByFieldEqualsValue { field: String, value: String },
-}
-
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub(crate) enum HookData {
-    ItemHook {
-        collection_name: String,
-        item_action_type: ItemActionType,
-        item_action_stage: ItemActionStage,
-    },
-    CronDefaultIntervalHook {
-        job_name: String,
-        collection_name: String,
-        document_selector: CronDocumentSelector,
-    },
 }
 
 pub struct HookCreateContext {
@@ -172,6 +157,14 @@ impl HookCreatingEventContext {
 
     pub fn context(&self) -> &RequestContext {
         self.context.as_ref()
+    }
+
+    pub fn before_document(&self) -> &dto::CollectionDocument {
+        &self.before_document
+    }
+
+    pub fn after_document(&self) -> &dto::CollectionDocument {
+        &self.after_document
     }
 }
 
@@ -374,126 +367,6 @@ impl HooksN {
             .iter()
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
-    }
-}
-
-#[derive(Clone)]
-#[deprecated(note = "use HooksN instead")]
-pub struct Hooks {
-    hooks: Arc<RwLock<HashMap<HookData, Sender<HookContext>>>>,
-}
-
-impl Default for Hooks {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Hooks {
-    pub fn new() -> Self {
-        Self {
-            hooks: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-
-    pub fn insert(
-        &mut self,
-        collection_name: &str,
-        action: ItemActionType,
-        stage: ItemActionStage,
-        tx: Sender<HookContext>,
-    ) {
-        let hook_data = HookData::ItemHook {
-            collection_name: collection_name.to_string(),
-            item_action_type: action,
-            item_action_stage: stage,
-        };
-        let mut m = self.hooks.write().unwrap();
-        m.insert(hook_data, tx);
-    }
-
-    /// Insert a cron job running at the default interval.
-    pub fn insert_cron_default_interval(
-        &mut self,
-        job_name: &str,
-        collection_name: &str,
-        selector: CronDocumentSelector,
-        tx: Sender<HookContext>,
-    ) {
-        let hook_data = HookData::CronDefaultIntervalHook {
-            job_name: job_name.to_string(),
-            collection_name: collection_name.to_string(),
-            document_selector: selector,
-        };
-        let mut m = self.hooks.write().unwrap();
-        m.insert(hook_data, tx);
-    }
-
-    pub fn get_registered_hook(
-        &self,
-        collection_name: &str,
-        action: ItemActionType,
-        stage: ItemActionStage,
-    ) -> Option<Sender<HookContext>> {
-        let hook_data = HookData::ItemHook {
-            collection_name: collection_name.to_string(),
-            item_action_type: action,
-            item_action_stage: stage,
-        };
-        let a = self.hooks.read().unwrap();
-        let b = a.get(&hook_data);
-        b.cloned()
-    }
-
-    pub fn split_cron_hooks(self) -> (Hooks, Hooks) {
-        let mut a = self.hooks.write().unwrap();
-
-        let mut cronhooks = HashMap::new();
-        let mut requesthooks = HashMap::new();
-        for (k, v) in a.drain() {
-            match k {
-                HookData::ItemHook {
-                    collection_name: _,
-                    item_action_type: _,
-                    item_action_stage: _,
-                } => requesthooks.insert(k, v),
-                HookData::CronDefaultIntervalHook {
-                    job_name: _,
-                    collection_name: _,
-                    document_selector: _,
-                } => cronhooks.insert(k, v),
-            };
-        }
-        (
-            Hooks {
-                hooks: Arc::new(RwLock::new(requesthooks)),
-            },
-            Hooks {
-                hooks: Arc::new(RwLock::new(cronhooks)),
-            },
-        )
-    }
-
-    pub(crate) fn get_cron_hooks(&self) -> HashMap<HookData, Sender<HookContext>> {
-        let a = self.hooks.read().unwrap();
-        let mut hooks = HashMap::new();
-        for (k, v) in a.iter() {
-            match k {
-                HookData::ItemHook {
-                    collection_name: _,
-                    item_action_type: _,
-                    item_action_stage: _,
-                } => {}
-                HookData::CronDefaultIntervalHook {
-                    job_name: _,
-                    collection_name: _,
-                    document_selector: _,
-                } => {
-                    hooks.insert(k.clone(), v.clone());
-                }
-            };
-        }
-        hooks
     }
 }
 
