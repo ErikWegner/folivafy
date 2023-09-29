@@ -256,7 +256,7 @@ pub trait CronDefaultIntervalHook {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct HookDataN {
+struct HookData {
     collection_name: String,
 }
 
@@ -283,9 +283,9 @@ impl CronDefaultIntervalHookData {
 
 #[derive(Clone)]
 pub struct Hooks {
-    create_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
-    update_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
-    event_hooks: Arc<RwLock<HashMap<HookDataN, Arc<dyn EventCreatingHook + Send + Sync>>>>,
+    create_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
+    update_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
+    event_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn EventCreatingHook + Send + Sync>>>>,
     cron_default_interval_hooks: Arc<
         RwLock<
             HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
@@ -307,7 +307,7 @@ impl Hooks {
         &self,
         collection_name: &str,
     ) -> Option<Arc<dyn DocumentCreatingHook + Send + Sync>> {
-        let key = HookDataN {
+        let key = HookData {
             collection_name: collection_name.to_string(),
         };
         let map = self.create_hooks.read().unwrap();
@@ -319,7 +319,7 @@ impl Hooks {
         &self,
         collection_name: &str,
     ) -> Option<Arc<dyn DocumentUpdatingHook + Send + Sync>> {
-        let key = HookDataN {
+        let key = HookData {
             collection_name: collection_name.to_string(),
         };
         let map = self.update_hooks.read().unwrap();
@@ -331,7 +331,7 @@ impl Hooks {
         &self,
         collection_name: &str,
     ) -> Option<Arc<dyn EventCreatingHook + Send + Sync>> {
-        let key = HookDataN {
+        let key = HookData {
             collection_name: collection_name.to_string(),
         };
         let map = self.event_hooks.read().unwrap();
