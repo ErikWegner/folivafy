@@ -1,6 +1,7 @@
-use std::{env, str::FromStr};
+use std::{env, str::FromStr, sync::Arc};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use entity::collection;
 use lazy_static::lazy_static;
 use lettre::{
@@ -11,16 +12,13 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
 };
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, Set};
-use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info};
 
-use crate::{
-    api::{
-        db::get_collection_by_name,
-        dto::{self, MailMessage},
-        hooks::{self, Hooks},
-    },
-    BackgroundTask,
+use crate::api::{
+    db::get_collection_by_name,
+    dto::{self, MailMessage},
+    hooks::{self, CronDefaultIntervalHook, HookCronContext, HookResult, Hooks},
+    ApiErrors,
 };
 
 lazy_static! {
@@ -147,107 +145,72 @@ impl SmtpClientConfiguration {
     }
 }
 
-async fn process_hook(
-    context: &hooks::HookContext,
-    smtp_cfg: &SmtpClientConfiguration,
-) -> Result<dto::CollectionDocument> {
-    match *context.data() {
-        hooks::HookContextData::Cron {
-            before_document: _,
-            ref after_document,
-        } => {
-            let mut maildocument =
-                serde_json::from_value::<MailMessage>(after_document.fields().clone())
-                    .with_context(|| format!("Invalid mail document {}", after_document.id()))?;
-            let email = maildocument
-                .build_mail(smtp_cfg.from_address.as_ref())
-                .context("Prepare email")?;
-            let mailer = smtp_cfg.transport();
+struct Mailer {
+    smtp_cfg: SmtpClientConfiguration,
+}
 
-            // Send the email
-            match mailer.send(email).await {
-                Ok(_) => {
-                    debug!("Email sent successfully!");
-                    maildocument.set_sent();
-                    Ok(dto::CollectionDocument::new(
-                        *after_document.id(),
-                        serde_json::to_value(maildocument).unwrap(),
-                    ))
-                }
-                Err(e) => bail!("Could not send email: {:?}", e),
+impl Mailer {
+    fn new(smtp_cfg: SmtpClientConfiguration) -> Self {
+        Self { smtp_cfg }
+    }
+}
+
+#[async_trait]
+impl CronDefaultIntervalHook for Mailer {
+    async fn on_default_interval(&self, context: &HookCronContext) -> HookResult {
+        let document_id = context.after_document().id();
+        let mut maildocument =
+            serde_json::from_value::<MailMessage>(context.after_document().fields().clone())
+                .map_err(|e| {
+                    error!("Cannot read mail message ({document_id}) from store: {}", e);
+                    ApiErrors::InternalServerError
+                })?;
+        let email = maildocument
+            .build_mail(self.smtp_cfg.from_address.as_ref())
+            .map_err(|e| {
+                error!("Cannot build message from {document_id}: {}", e);
+                ApiErrors::InternalServerError
+            })?;
+        let mailer = self.smtp_cfg.transport();
+
+        // Send the email
+        match mailer.send(email).await {
+            Ok(_) => {
+                debug!("Email {document_id} sent successfully!");
+                maildocument.set_sent();
+                let o = dto::CollectionDocument::new(
+                    *document_id,
+                    serde_json::to_value(maildocument).unwrap(),
+                );
+                Ok(hooks::HookSuccessResult {
+                    document: hooks::DocumentResult::Store(o),
+                    events: vec![],
+                    mails: vec![],
+                    trigger_cron: false,
+                })
             }
-        }
-        _ => {
-            error!("Unsupported hook type");
-            bail!("Unsupported hook type");
+            Err(e) => {
+                error!("Could not send email: {:?}", e);
+                Err(ApiErrors::InternalServerError)
+            }
         }
     }
 }
 
-pub(crate) async fn insert_mail_cron_hook(
-    hooks: &mut Hooks,
-    db: &DatabaseConnection,
-) -> Result<BackgroundTask> {
+pub(crate) async fn insert_mail_cron_hook(hooks: &Hooks, db: &DatabaseConnection) -> Result<()> {
     ensure_mail_collection_exists(db).await?;
-    let (shutdown_mail_signal, mut shutdown_mail_recv) = oneshot::channel::<()>();
-    let (tx, mut rx) = mpsc::channel::<hooks::HookContext>(1);
-
     let smtp_cfg = SmtpClientConfiguration::from_env().await?;
-    let join_handle = tokio::spawn(async move {
-        debug!("Mail job started");
-        loop {
-            tokio::select! {
-                _ = &mut shutdown_mail_recv => {
-                    debug!("Mail job shutdown signal received");
-                    break;
-                }
-                r = rx.recv() => {
-                    if let Some(ctx) = r {
-                        debug!("Mail job hook received");
-                        let phr = process_hook(&ctx, &smtp_cfg).await;
-                        ctx.complete(
-                            match phr {
-                                Err(mailerr) => {
-                                    error!("Error occured {:?}", mailerr);
-                                    Ok(
-                                        hooks::HookSuccessResult {
-                                            document: hooks::DocumentResult::NoUpdate,
-                                            events: vec![],
-                                            mails: vec![],
-                                            trigger_cron: false,
-                                        }
-                                    )
-                                },
-                                Ok(o) => Ok(
-                                    hooks::HookSuccessResult {
-                                        document: hooks::DocumentResult::Store(o),
-                                        events: vec![],
-                                        mails: vec![],
-                                        trigger_cron: false,
-                                    }
-                                )
-                            }
-                        );
-                    }
-                }
-            }
-        }
-        debug!("Mail job stopped");
-    });
-    hooks.insert_cron_default_interval(
+    let mailer = Arc::new(Mailer::new(smtp_cfg));
+    hooks.insert_cron_default_interval_hook(
         "folivafy mailer",
         "folivafy-mail",
         hooks::CronDocumentSelector::ByFieldEqualsValue {
             field: "status".to_string(),
             value: "Pending".to_string(),
         },
-        tx,
+        mailer,
     );
-    Ok(BackgroundTask::new(
-        "folivafy mailer",
-        join_handle,
-        shutdown_mail_signal,
-    ))
+    Ok(())
 }
 
 async fn ensure_mail_collection_exists(db: &DatabaseConnection) -> Result<(), DbErr> {

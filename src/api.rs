@@ -61,7 +61,7 @@ pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 #[derive(Clone)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
-    hooks: Hooks,
+    hooks: Arc<Hooks>,
     data_service: Arc<DataService>,
 }
 
@@ -158,19 +158,23 @@ async fn shutdown_signal() {
 
 pub async fn serve(
     db: DatabaseConnection,
-    mut hooks: Hooks,
+    hooks: Hooks,
     cron_interval: std::time::Duration,
 ) -> anyhow::Result<()> {
-    let mailbt = mail::insert_mail_cron_hook(&mut hooks, &db).await?;
-    let (requesthooks, cronhooks) = hooks.split_cron_hooks();
+    let hooks = Arc::new(hooks);
+    mail::insert_mail_cron_hook(&hooks, &db).await?;
     let (user_service, user_service_task) =
         data_service::user_service::UserService::new_from_env().await?;
     let data_service = Arc::new(DataService::new(&db, user_service));
-    let (cronbt, _immediate_cron_signal) =
-        crate::cron::setup_cron(db.clone(), cronhooks, cron_interval, data_service.clone());
+    let (cronbt, _immediate_cron_signal) = crate::cron::setup_cron(
+        db.clone(),
+        hooks.clone(),
+        cron_interval,
+        data_service.clone(),
+    );
     let monitor = Arc::new(HealthMonitor::new());
     // build our application with a route
-    let app = api_routes(db, requesthooks, data_service)
+    let app = api_routes(db, hooks, data_service)
         .await?
         .nest("/app", health_routes(monitor))
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
@@ -197,7 +201,6 @@ pub async fn serve(
         .await
         .context("error running server")?;
 
-    mailbt.shutdown().await;
     cronbt.shutdown().await;
     user_service_task.shutdown().await;
     debug!("Shutdown complete");
@@ -206,7 +209,7 @@ pub async fn serve(
 
 async fn api_routes(
     db: DatabaseConnection,
-    hooks: Hooks,
+    hooks: Arc<Hooks>,
     data_service: Arc<DataService>,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;

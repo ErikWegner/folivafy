@@ -1,24 +1,25 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
-
 use jwt_authorizer::JwtClaims;
 use openapi::models::CreateEventBody;
 use sea_orm::{TransactionError, TransactionTrait};
-use tokio::sync::oneshot;
+use std::sync::Arc;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
     db::{get_collection_by_name, save_document_events_mails},
     dto,
-    hooks::{
-        DocumentResult, HookContext, HookContextData, ItemActionStage, ItemActionType,
-        RequestContext,
-    },
+    hooks::{DocumentResult, RequestContext},
     select_document_for_update,
 };
 
-use super::{auth::User, dto::Event, hooks::HookSuccessResult, ApiContext, ApiErrors};
+use super::{
+    auth::User,
+    dto::Event,
+    hooks::{HookCreatedEventContext, HookCreatingEventContext},
+    ApiContext, ApiErrors,
+};
 
 #[debug_handler]
 pub(crate) async fn api_create_event(
@@ -27,7 +28,6 @@ pub(crate) async fn api_create_event(
     Json(payload): Json<CreateEventBody>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     let post_payload = payload.clone();
-    let post_user = user.clone();
 
     // Validate the payload
     payload.validate().map_err(ApiErrors::from)?;
@@ -56,22 +56,24 @@ pub(crate) async fn api_create_event(
         );
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
-    let hook_transmitter = ctx.hooks.get_registered_hook(
-        collection_name.as_ref(),
-        ItemActionType::AppendEvent {
-            category: payload.category,
-        },
-        ItemActionStage::Before,
-    );
-    let after_hook = ctx.hooks.get_registered_hook(
-        collection_name.as_ref(),
-        ItemActionType::AppendEvent {
-            category: payload.category,
-        },
-        ItemActionStage::After,
-    );
-    let post_collection = collection.clone();
+    let hook = ctx.hooks.get_event_hook(&collection.name);
+
+    if hook.is_none() {
+        debug!("No hook was executed");
+        return Err(ApiErrors::BadRequest("Event not accepted".to_string()));
+    }
+    let hook = hook.unwrap();
+    let post_hook = hook.clone();
+
     let data_service1 = ctx.data_service.clone();
+    let data_service2 = ctx.data_service.clone();
+
+    let request_context1 = Arc::new(RequestContext::new(
+        &collection.name,
+        user.subuuid(),
+        user.preferred_username(),
+    ));
+    let request_context2 = request_context1.clone();
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
@@ -85,35 +87,15 @@ pub(crate) async fn api_create_event(
                 let before_document: dto::CollectionDocument = (&document).into();
                 let after_document: dto::CollectionDocument = (&document).into();
 
-                if hook_transmitter.is_none() {
-                    debug!("No hook was executed");
-                    return Err(ApiErrors::BadRequest("Event not accepted".to_string()));
-                }
-                let hook_transmitter = hook_transmitter.unwrap();
-
-                let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-                let cdctx = HookContext::new(
-                    HookContextData::EventAdding {
-                        after_document,
-                        before_document,
-                        collection: (&collection).into(),
-                        event: Event::new(document.id, payload.category, payload.e.clone()),
-                    },
-                    RequestContext::new(
-                        &collection.name,
-                        user.subuuid(),
-                        user.preferred_username().clone(),
-                    ),
-                    tx,
+                let cdctx = HookCreatingEventContext::new(
+                    Event::new(document.id, payload.category, payload.e.clone()),
+                    after_document,
+                    before_document,
                     data_service1,
+                    request_context1,
                 );
 
-                hook_transmitter
-                    .send(cdctx)
-                    .await
-                    .map_err(|_e| ApiErrors::InternalServerError)?;
-
-                let result = rx.await.map_err(|_e| ApiErrors::InternalServerError)??;
+                let result = hook.on_creating(&cdctx).await?;
                 let events = result.events;
                 let mails = result.mails;
                 if events.is_empty() {
@@ -148,35 +130,21 @@ pub(crate) async fn api_create_event(
         .map(|res| {
             // Start thread
             tokio::spawn(async move {
-                if let Some(hook) = after_hook {
-                    let (tx, rx) = oneshot::channel::<Result<HookSuccessResult, ApiErrors>>();
-                    let cdctx = HookContext::new(
-                        HookContextData::EventAdded {
-                            collection: (&post_collection).into(),
-                            event: Event::new(
-                                unchecked_document_id,
-                                post_payload.category,
-                                post_payload.e.clone(),
-                            ),
-                        },
-                        RequestContext::new(
-                            &collection_name,
-                            post_user.subuuid(),
-                            post_user.preferred_username(),
-                        ),
-                        tx,
-                        ctx.data_service,
-                    );
+                let cdctx = HookCreatedEventContext::new(
+                    Event::new(
+                        unchecked_document_id,
+                        post_payload.category,
+                        post_payload.e.clone(),
+                    ),
+                    data_service2,
+                    request_context2,
+                );
 
-                    let _ = hook.send(cdctx).await;
-                    let _ = rx.await.ok().map(|i| i.ok()).map(|r| {
-                        if let Some(result) = r {
-                            if !result.events.is_empty() {
-                                error!("Not implemented");
-                            }
-                        }
-                    });
-                }
+                let _ = post_hook.on_created(&cdctx).await.ok().map(|r| {
+                    if !r.events.is_empty() {
+                        error!("Not implemented");
+                    }
+                });
             });
             res
         })

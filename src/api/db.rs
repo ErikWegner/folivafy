@@ -184,7 +184,7 @@ pub(crate) async fn list_documents(
                 basefind = basefind.filter(Expr::cust_with_values(
                     format!(
                         r#"lower("collection_document"."f"{}) like $1"#,
-                        field_path_json(&field_name),
+                        field_path_json(field_name),
                     ),
                     vec![format!("%{}%", value.to_lowercase())],
                 ))
@@ -193,7 +193,7 @@ pub(crate) async fn list_documents(
                 basefind = basefind.filter(Expr::cust_with_values(
                     format!(
                         r#"lower("collection_document"."f"{}) like $1"#,
-                        field_path_json(&field_name),
+                        field_path_json(field_name),
                     ),
                     vec![format!("{}%", value.to_lowercase())],
                 ))
