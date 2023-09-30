@@ -26,6 +26,17 @@ pub struct HookSuccessResult {
     pub trigger_cron: bool,
 }
 
+impl HookSuccessResult {
+    pub fn empty() -> Self {
+        Self {
+            document: DocumentResult::NoUpdate,
+            events: vec![],
+            mails: vec![],
+            trigger_cron: false,
+        }
+    }
+}
+
 impl Debug for HookSuccessResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HookSuccessResult").finish()
@@ -400,6 +411,12 @@ impl Hooks {
             .iter()
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
+    }
+}
+
+impl Default for Hooks {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

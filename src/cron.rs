@@ -25,6 +25,8 @@ lazy_static! {
     pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
         .expect("System Timer Uuid is not valid");
 }
+
+#[allow(dead_code)]
 static CRON_USER_NAME: &str = "System Timer";
 
 struct CronResult {
