@@ -16,6 +16,10 @@ COLADMIN_SECRET=q3RRoqv6tQNP8PRVJq0WdQOU1WKmbU6X
 SHAPES_EDITOR_CLIENT=inttest_shapes_editor
 SHAPES_EDITOR_SECRET=Ha7hcGzlHHYQc0rMS9vtlaecDHunTG8I
 
+# Account with role Remove for Shapes collection
+SHAPES_REMOVER_CLIENT=inttest_shapes_remover
+SHAPES_REMOVER_SECRET=xcBNeaS7z2I8RzAX0feMiGx5qkVXFkxP
+
 # Account with role Editor for Fluids collection
 FLUIDS_EDITOR_CLIENT=inttest_fluids_editor
 FLUIDS_EDITOR_SECRET=Zjn8HoTjeedDtDJsYpIk6ZtCdhogHd2J
@@ -57,16 +61,16 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-export USERDATA_CLIENT_ID=clientname
-export USERDATA_CLIENT_SECRET=clientsecret
-export USERDATA_TOKEN_URL=https://identity/token/url
-export USERDATA_USERINFO_URL=https://identity/users/{id}
+export USERDATA_CLIENT_ID=folivafy
+export USERDATA_CLIENT_SECRET=1ivuNiYQraHhw7h3Q2PJJlnxkODMdGI6
+export USERDATA_TOKEN_URL=http://localhost:8101/realms/folivafy/protocol/openid-connect/token
+export USERDATA_USERINFO_URL=http://localhost:8101/admin/realms/folivafy/users/{id}
 export DATABASE_URL=postgresql://inttest_role:inttest_pwd@db/inttest
 ./target/debug/migration
 
 # Start binary in background
 rm nohup.out
-nohup /bin/bash -c "RUST_LOG=debug FOLIVAFY_DATABASE=$DATABASE_URL ./target/debug/folivafy" &
+nohup /bin/bash -c "RUST_LOG=debug,hyper=info FOLIVAFY_ENABLE_DELETION=(shapes,1,1) FOLIVAFY_DATABASE=$DATABASE_URL ./target/debug/folivafy" &
 serverPID=$!
 sleep 0.5
 
@@ -389,6 +393,142 @@ then
 fi
 
 
+echo "- User can create d12 shape document"
+authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "dd326434-c1f4-4b07-a933-298bd3eb45dd","f": {"title": "d12", "price": 144}}' \
+  $API/collections/shapes)
+if [ "$RESP" != "Document saved" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to save rectangle document!\n$RESP"
+fi
+
+echo "- Check that list of shapes contains d12"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Rectangle Circle Triangle Hexagon d12" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing d12!\n$FIELDS\n$RESP"
+fi
+
+
+echo "- Check reader can access document d12"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/dd326434-c1f4-4b07-a933-298bd3eb45dd)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to read d12!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.id, .f.title' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "dd326434-c1f4-4b07-a933-298bd3eb45dd d12" ]
+then
+      echo -e "${RED}Failure:${NC} d12 document!\n$FIELDS\n$RESP"
+fi
+
+
+echo "- Reader cannot delete shape"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 2,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} reader is allowed to delete d12!\n$RESP"
+fi
+
+
+echo "- Editor cannot delete shape"
+authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 2,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} editor is allowed to delete d12!\n$RESP"
+fi
+
+
+echo "- Remover can delete shape"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 2,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Done" ]
+then
+      echo -e "${RED}Failure:${NC} Remover is not allowed to delete d12!\n$RESP"
+fi
+
+
+echo "- Remover cannot delete shape twice"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 2,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Document already deleted" ]
+then
+      echo -e "${RED}Failure:${NC} Remover is allowed to delete d12 twice!\n$RESP"
+fi
+
+echo "- Check that list of shapes no longer contains d12"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Rectangle Circle Triangle Hexagon" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents after removing d12!\n$FIELDS\n$RESP"
+fi
+
+
+echo "- Check reader can no longer access document d12"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/dd326434-c1f4-4b07-a933-298bd3eb45dd)
+if [ "$RESP" != "Document dd326434-c1f4-4b07-a933-298bd3eb45dd not found" ]
+then
+      echo -e "${RED}Failure:${NC} user found d12!\n$RESP"
+fi
+
+
+echo "- Check editor can no longer access document d12"
+authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/dd326434-c1f4-4b07-a933-298bd3eb45dd)
+if [ "$RESP" != "Unauthorized" ] # Editor has no read permission
+then
+      echo -e "${RED}Failure:${NC} editor found d12!\n$RESP"
+fi
+
+
+echo "- Check remover can no longer access document d12"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/dd326434-c1f4-4b07-a933-298bd3eb45dd)
+if [ "$RESP" != "Document dd326434-c1f4-4b07-a933-298bd3eb45dd not found" ]
+then
+      echo -e "${RED}Failure:${NC} remover found d12!\n$RESP"
+fi
+
 #####################################################
 ##
 ##  Owner access only collection
@@ -438,7 +578,7 @@ then
 fi
 
 
-echo "- Access denied for user $NO_ROLE without letters reader role"
+echo "- Access denied for user $NO_ROLE_CLIENT without letters reader role"
 authorize_client $NO_ROLE_CLIENT $NO_ROLE_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters)
 if [ "$RESP" != "Unauthorized" ]
@@ -615,8 +755,8 @@ if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to read square!\n$RESP"
 fi
-CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
-if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"},"e":[{"id":9,"category":1,"e":{"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}},{"id":1,"category":1,"e":{"new":true,"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}}]}' ]
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))' | jq -c -r '.|=(.e[]|=(del(.id)))')
+if [ "$CONTENT" != '{"id":"ea25fa9d-4650-41ae-a1fa-00bd226b648f","f":{"area":3,"title":"Square"},"e":[{"category":1,"e":{"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}},{"category":1,"e":{"new":true,"user":{"id":"98ebb628-4a46-4274-a9f0-eb7c6f385540","name":"service-account-inttest_shapes_editor"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} square content!\n$RESP\n$CONTENT"
 fi
@@ -639,8 +779,8 @@ if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to read Alpaca letter 1!\n$RESP"
 fi
-CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
-if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"id":10,"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"id":6,"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))' | jq -c -r '.|=(.e[]|=(del(.id)))')
+if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} Alpaca letter 1 content (2)!\n$RESP\n$CONTENT"
 fi
@@ -660,8 +800,8 @@ then
 fi
 authorize_client $LETTERS_ALPACA_USER_CLIENT $LETTERS_ALPACA_USER_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/letters/ff901d16-a533-4ad7-9e75-d69407440804)
-CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))')
-if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"id":10,"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"id":6,"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
+CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))' | jq -c -r '.|=(.e[]|=(del(.id)))')
+if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} Alpaca letter 1 content (3)!\n$RESP\n$CONTENT"
 fi

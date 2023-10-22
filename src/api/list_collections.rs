@@ -6,9 +6,10 @@ use openapi::models::CollectionsList;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
 use tracing::warn;
 
-use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
-
-use super::{types::Pagination, ApiContext, ApiErrors};
+use crate::{
+    api::{auth::User, types::Pagination, ApiContext, ApiErrors},
+    axumext::extractors::ValidatedQueryParams,
+};
 
 #[debug_handler]
 pub(crate) async fn api_list_collections(

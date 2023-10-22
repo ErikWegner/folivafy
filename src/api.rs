@@ -57,6 +57,7 @@ use self::{
 };
 
 pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
+pub static CATEGORY_DOCUMENT_DELETE: i32 = 2;
 
 #[derive(Clone)]
 pub(crate) struct ApiContext {

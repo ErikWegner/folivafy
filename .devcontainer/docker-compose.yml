@@ -38,7 +38,7 @@ services:
     # (Adding the "ports" property to this file will not forward from a Codespace.)
 
   keycloak:
-    image: quay.io/keycloak/keycloak:21.0.2
+    image: quay.io/keycloak/keycloak:22.0.4
     command:
       - start-dev
       - --import-realm

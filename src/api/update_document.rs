@@ -13,21 +13,19 @@ use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
-    auth::User,
-    db::save_document_events_mails,
+    auth,
+    db::{get_collection_by_name, save_document_events_mails},
     dto,
     hooks::{HookUpdateContext, RequestContext},
-    select_document_for_update,
+    select_document_for_update, ApiContext, ApiErrors,
 };
-use entity::collection_document::Entity as Documents;
-
-use super::{db::get_collection_by_name, ApiContext, ApiErrors};
+use entity::{collection_document::Entity as Documents, DELETED_AT_FIELD};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
     State(ctx): State<ApiContext>,
     Path(collection_name): Path<String>,
-    JwtClaims(user): JwtClaims<User>,
+    JwtClaims(user): JwtClaims<auth::User>,
     Json(payload): Json<CollectionItem>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     // Validate the payload
@@ -68,6 +66,19 @@ pub(crate) async fn api_update_document(
             } else {
                 Some(doc)
             }
+        })
+        .and_then(|doc| {
+            let f = doc.f.get(DELETED_AT_FIELD);
+            if let Some(v) = f {
+                if !v.is_null() {
+                    if let Some(s) = v.as_str() {
+                        if !s.is_empty() {
+                            return None;
+                        }
+                    }
+                }
+            }
+            Some(doc)
         });
 
     if document.is_none() {
@@ -102,8 +113,7 @@ pub(crate) async fn api_update_document(
                 let mut mails: Vec<dto::MailMessage> = vec![];
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
-                    user.subuuid(),
-                    user.preferred_username(),
+                    dto::User::read_from(&user),
                 ));
                 if let Some(ref hook_processor) = hook_processor {
                     let ctx = HookUpdateContext::new(

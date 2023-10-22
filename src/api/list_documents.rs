@@ -5,6 +5,7 @@ use axum::{
     Json,
 };
 
+use entity::DELETED_AT_FIELD;
 use jwt_authorizer::JwtClaims;
 use lazy_static::lazy_static;
 use openapi::models::{CollectionItem, CollectionItemsList};
@@ -15,12 +16,14 @@ use serde::Deserialize;
 use tracing::warn;
 use validator::Validate;
 
-use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
-
-use super::{
-    db::{get_collection_by_name, list_documents, CollectionDocumentVisibility, FieldFilter},
-    types::Pagination,
-    ApiContext, ApiErrors,
+use crate::{
+    api::{
+        auth::User,
+        db::{get_collection_by_name, list_documents, CollectionDocumentVisibility, FieldFilter},
+        types::Pagination,
+        ApiContext, ApiErrors,
+    },
+    axumext::extractors::ValidatedQueryParams,
 };
 
 lazy_static! {
@@ -96,6 +99,13 @@ pub(crate) async fn api_list_document(
 
     */
 
+    let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
+        field_name: DELETED_AT_FIELD.to_string(),
+    };
+    let mut request_filters = parse_pfilter(list_params.pfilter);
+    let mut filters = vec![exclude_deleted_documents_filter];
+    filters.append(&mut request_filters);
+
     let (total, items) = list_documents(
         &ctx.db,
         crate::api::db::ListDocumentParams {
@@ -104,7 +114,7 @@ pub(crate) async fn api_list_document(
             oao_access,
             extra_fields,
             sort_fields: list_params.sort_fields,
-            filters: parse_pfilter(list_params.pfilter),
+            filters,
             pagination: pagination.clone(),
         },
     )

@@ -7,7 +7,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::BackgroundTask;
+use crate::{api::data_service::get_token, BackgroundTask};
 
 use super::ClientCredentials;
 
@@ -81,7 +81,7 @@ impl UserService {
                         if skip > 0 {
                             skip -= 1;
                         } else {
-                            let token_response = super::get_token(&thread_credentials).await;
+                            let token_response = get_token(&thread_credentials).await;
                             if let Ok(token_response) = token_response {
                                 {
                                     let mut token = thread_auth_token.write().unwrap();

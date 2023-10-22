@@ -52,7 +52,7 @@ async fn cron(
         let collection = get_collection_by_name(&db, collection_name).await;
         if let Some(collection) = collection {
             let mut counter = cron_limit;
-            let (total, mut items) = super::api::db::list_documents(
+            let (total, mut items) = crate::api::db::list_documents(
                 &db,
                 ListDocumentParams {
                     collection: collection.id,

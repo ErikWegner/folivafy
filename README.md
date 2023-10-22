@@ -69,6 +69,19 @@ Run with: `mailtutan`
 Use a `.env` file and/or set the environment variables to override the `.env`
 file settings.
 
+### Two stage deletion
+
+By default, documents cannot be deleted. To enable deletion of documents,
+a provided handler can be registered for the desired collection.
+
+The value for `FOLIVAFY_ENABLE_DELETION` is a comma separated list. Each
+item in the list contains the name of the collection, the number of days
+for the first stage and the number of additional days for the second
+stage. These values are also comma separated and surrounded by parentheses.
+
+The user needs the permissions `C_<NAME-OF-COLLECTION>_READER` and 
+`C_<NAME-OF-COLLECTION>_REMOVER` to delete items.
+
 ### Example file
 
 ```
@@ -87,5 +100,6 @@ USERDATA_USERINFO_URL=https://identity/users/{id}
 # Optional settings
 PORT=3000 # listen on all interfaces on this port
 FOLIVAFY_CRON_INTERVAL=5 # minutes
+FOLIVAFY_ENABLE_DELETION=(collection-name,31,62),(other-collection,5,40)
 ```
 
