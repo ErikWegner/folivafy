@@ -1,5 +1,6 @@
 use std::time::SystemTime;
 
+use crate::api::{auth, db::DELETED_AT_FIELD, CATEGORY_DOCUMENT_UPDATES};
 use anyhow::Context;
 use lettre::{
     message::{MultiPart, SinglePart},
@@ -71,6 +72,18 @@ impl CollectionDocument {
     pub fn set_field(&mut self, key: &str, value: serde_json::Value) {
         self.fields[key] = value;
     }
+
+    pub fn is_deleted(&self) -> bool {
+        let field = self.fields.get(DELETED_AT_FIELD);
+        if let Some(field) = field {
+            let s = field.as_str();
+            if let Some(s) = s {
+                return !s.is_empty();
+            }
+        }
+
+        false
+    }
 }
 
 impl From<&entity::collection_document::Model> for CollectionDocument {
@@ -102,7 +115,7 @@ pub struct ExistingEvent {
 
 impl ExistingEvent {
     pub fn is_create_event(&self) -> bool {
-        self.category == super::CATEGORY_DOCUMENT_UPDATES
+        self.category == CATEGORY_DOCUMENT_UPDATES
             && self
                 .payload
                 .get("new")
@@ -290,5 +303,37 @@ impl MailMessageBuilder {
 impl std::hash::Hash for Event {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.payload.to_string().hash(state);
+    }
+}
+
+#[derive(Debug)]
+pub struct User {
+    id: Uuid,
+    name: String,
+    roles: Vec<String>,
+}
+
+impl User {
+    pub(crate) fn read_from(auth_user: &auth::User) -> Self {
+        Self {
+            id: auth_user.subuuid(),
+            name: auth_user.preferred_username().to_string(),
+            roles: auth_user.roles().iter().map(|r| r.to_string()).collect(),
+        }
+    }
+
+    /// Returns the id of this [`User`].
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    /// Returns a reference to the name of this [`User`].
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    /// Check if the user has the specified role
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.contains(&role.to_string())
     }
 }

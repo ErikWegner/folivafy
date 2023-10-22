@@ -7,9 +7,7 @@ use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::{error, info, warn};
 use validator::Validate;
 
-use crate::api::auth::User;
-
-use super::{ApiContext, ApiErrors};
+use crate::api::{auth::User, ApiContext, ApiErrors};
 
 #[debug_handler]
 pub(crate) async fn api_create_collection(

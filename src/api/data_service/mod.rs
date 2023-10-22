@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use self::user_service::User;
 
-use super::dto::{self, ExistingEvent};
+use crate::api::dto::{self, ExistingEvent};
 
 mod document_service;
 mod event_service;

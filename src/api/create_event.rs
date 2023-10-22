@@ -8,23 +8,17 @@ use tracing::{debug, error, warn};
 use validator::Validate;
 
 use crate::api::{
+    auth,
     db::{get_collection_by_name, save_document_events_mails},
-    dto,
-    hooks::{DocumentResult, RequestContext},
-    select_document_for_update,
-};
-
-use super::{
-    auth::User,
-    dto::Event,
-    hooks::{HookCreatedEventContext, HookCreatingEventContext},
-    ApiContext, ApiErrors,
+    dto::{self, Event},
+    hooks::{DocumentResult, HookCreatedEventContext, HookCreatingEventContext, RequestContext},
+    select_document_for_update, ApiContext, ApiErrors,
 };
 
 #[debug_handler]
 pub(crate) async fn api_create_event(
     State(ctx): State<ApiContext>,
-    JwtClaims(user): JwtClaims<User>,
+    JwtClaims(user): JwtClaims<auth::User>,
     Json(payload): Json<CreateEventBody>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     let post_payload = payload.clone();
@@ -56,7 +50,7 @@ pub(crate) async fn api_create_event(
         );
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
-    let hook = ctx.hooks.get_event_hook(&collection.name);
+    let hook = ctx.hooks.get_event_hook(&collection.name, payload.category);
 
     if hook.is_none() {
         debug!("No hook was executed");
@@ -70,8 +64,7 @@ pub(crate) async fn api_create_event(
 
     let request_context1 = Arc::new(RequestContext::new(
         &collection.name,
-        user.subuuid(),
-        user.preferred_username(),
+        dto::User::read_from(&user),
     ));
     let request_context2 = request_context1.clone();
 
@@ -128,7 +121,7 @@ pub(crate) async fn api_create_event(
             TransactionError::Transaction(t) => t,
         })
         .map(|res| {
-            // Start thread
+            // Start thread for background task
             tokio::spawn(async move {
                 let cdctx = HookCreatedEventContext::new(
                     Event::new(
@@ -141,6 +134,11 @@ pub(crate) async fn api_create_event(
                 );
 
                 let _ = post_hook.on_created(&cdctx).await.ok().map(|r| {
+                    match r.document {
+                        DocumentResult::Store(_) => todo!("Document update not implemented!"),
+                        DocumentResult::NoUpdate => {}
+                        DocumentResult::Err(_) => todo!("Document update not implemented!"),
+                    }
                     if !r.events.is_empty() {
                         error!("Not implemented");
                     }

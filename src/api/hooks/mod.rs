@@ -1,3 +1,5 @@
+pub mod staged_delete;
+
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -5,10 +7,15 @@ use std::{
 };
 
 use async_trait::async_trait;
+use chrono::Duration;
 use openapi::models::CollectionItem;
 use uuid::Uuid;
 
-use super::{data_service::DataService, dto, ApiErrors};
+use crate::api::{
+    data_service::DataService,
+    dto::{self, User},
+    ApiErrors,
+};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -46,20 +53,9 @@ impl Debug for HookSuccessResult {
 pub type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub enum ItemActionType {
-    AppendEvent { category: i32 },
-    CronDefaultInterval,
-}
-
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
-pub enum ItemActionStage {
-    Before,
-    After,
-}
-
-#[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum CronDocumentSelector {
     ByFieldEqualsValue { field: String, value: String },
+    ByDateFieldOlderThan { field: String, value: Duration },
 }
 
 pub struct HookCreateContext {
@@ -267,8 +263,14 @@ pub trait CronDefaultIntervalHook {
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct HookData {
+struct HookCollection {
     collection_name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct HookCollectionCategory {
+    collection_name: String,
+    category: i32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -294,9 +296,10 @@ impl CronDefaultIntervalHookData {
 
 #[derive(Clone)]
 pub struct Hooks {
-    create_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
-    update_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
-    event_hooks: Arc<RwLock<HashMap<HookData, Arc<dyn EventCreatingHook + Send + Sync>>>>,
+    create_hooks: Arc<RwLock<HashMap<HookCollection, Arc<dyn DocumentCreatingHook + Send + Sync>>>>,
+    update_hooks: Arc<RwLock<HashMap<HookCollection, Arc<dyn DocumentUpdatingHook + Send + Sync>>>>,
+    event_hooks:
+        Arc<RwLock<HashMap<HookCollectionCategory, Arc<dyn EventCreatingHook + Send + Sync>>>>,
     cron_default_interval_hooks: Arc<
         RwLock<
             HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
@@ -322,14 +325,14 @@ impl Hooks {
         self.create_hooks
             .write()
             .unwrap()
-            .insert(HookData { collection_name }, hook);
+            .insert(HookCollection { collection_name }, hook);
     }
 
     pub fn get_create_hook(
         &self,
         collection_name: &str,
     ) -> Option<Arc<dyn DocumentCreatingHook + Send + Sync>> {
-        let key = HookData {
+        let key = HookCollection {
             collection_name: collection_name.to_string(),
         };
         let map = self.create_hooks.read().unwrap();
@@ -345,14 +348,14 @@ impl Hooks {
         self.update_hooks
             .write()
             .unwrap()
-            .insert(HookData { collection_name }, hook);
+            .insert(HookCollection { collection_name }, hook);
     }
 
     pub fn get_update_hook(
         &self,
         collection_name: &str,
     ) -> Option<Arc<dyn DocumentUpdatingHook + Send + Sync>> {
-        let key = HookData {
+        let key = HookCollection {
             collection_name: collection_name.to_string(),
         };
         let map = self.update_hooks.read().unwrap();
@@ -363,20 +366,26 @@ impl Hooks {
     pub fn put_event_hook(
         &self,
         collection_name: String,
+        category: i32,
         hook: Arc<dyn EventCreatingHook + Send + Sync>,
     ) {
-        self.event_hooks
-            .write()
-            .unwrap()
-            .insert(HookData { collection_name }, hook);
+        self.event_hooks.write().unwrap().insert(
+            HookCollectionCategory {
+                collection_name,
+                category,
+            },
+            hook,
+        );
     }
 
     pub fn get_event_hook(
         &self,
         collection_name: &str,
+        category: i32,
     ) -> Option<Arc<dyn EventCreatingHook + Send + Sync>> {
-        let key = HookData {
+        let key = HookCollectionCategory {
             collection_name: collection_name.to_string(),
+            category,
         };
         let map = self.event_hooks.read().unwrap();
         let value = map.get(&key);
@@ -424,16 +433,14 @@ impl Default for Hooks {
 pub struct RequestContext {
     #[allow(dead_code)]
     collection_name: String,
-    user_id: Uuid,
-    user_name: String,
+    user: User,
 }
 
 impl RequestContext {
-    pub fn new(collection_name: &str, user_id: Uuid, user_name: &str) -> Self {
+    pub fn new(collection_name: &str, user: User) -> Self {
         Self {
             collection_name: collection_name.to_string(),
-            user_id,
-            user_name: user_name.to_string(),
+            user,
         }
     }
 
@@ -443,11 +450,15 @@ impl RequestContext {
     }
 
     pub fn user_id(&self) -> Uuid {
-        self.user_id
+        self.user.id()
     }
 
     pub fn user_name(&self) -> &str {
-        self.user_name.as_ref()
+        self.user.name()
+    }
+
+    pub fn user(&self) -> &User {
+        &self.user
     }
 }
 

@@ -1,15 +1,20 @@
 use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
 use entity::collection::Model;
+pub(crate) use entity::{DELETED_AT_FIELD, DELETED_BY_FIELD};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
     Statement,
 };
-use sea_query::{Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr};
+use sea_query::{
+    Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr, Value,
+};
+use std::ops::Sub;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-use super::{
+use crate::api::{
     dto::{self, Event, MailMessage},
     hooks::CronDocumentSelector,
     types::Pagination,
@@ -81,6 +86,13 @@ pub(crate) enum FieldFilter {
         field_name: String,
         values: Vec<String>,
     },
+    FieldIsNull {
+        field_name: String,
+    },
+    DateFieldLessThan {
+        field_name: String,
+        value: DateTime<Utc>,
+    },
 }
 
 impl FieldFilter {
@@ -95,8 +107,6 @@ impl FieldFilter {
 
         // Split at first equal sign
         let (field_name, value) = s.split_once('=')?;
-
-        debug!("NINJA value: {}", value);
 
         if value.starts_with('~') {
             let value = value.trim_start_matches('~');
@@ -147,6 +157,12 @@ impl From<CronDocumentSelector> for FieldFilter {
                     value,
                 }
             }
+            CronDocumentSelector::ByDateFieldOlderThan { field, value } => {
+                FieldFilter::DateFieldLessThan {
+                    field_name: field,
+                    value: chrono::Utc::now().sub(value),
+                }
+            }
         }
     }
 }
@@ -167,7 +183,11 @@ pub(crate) async fn list_documents(
     params: ListDocumentParams,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind = Documents::find()
-        .filter(entity::collection_document::Column::CollectionId.eq(params.collection));
+        .filter(entity::collection_document::Column::CollectionId.eq(params.collection))
+        .filter(Expr::cust(format!(
+            r#""collection_document"."f"{} is null"#,
+            field_path_json(DELETED_AT_FIELD),
+        )));
 
     for filter in &params.filters {
         match filter {
@@ -202,6 +222,21 @@ pub(crate) async fn list_documents(
                 field_name: _,
                 values: _,
             } => {}
+            FieldFilter::DateFieldLessThan { field_name, value } => {
+                basefind = basefind.filter(Expr::cust_with_values(
+                    format!(
+                        r#""collection_document"."f"{} < $1"#,
+                        field_path_json(field_name),
+                    ),
+                    vec![Value::ChronoDateTimeUtc(Some(Box::new(*value)))],
+                ))
+            }
+            FieldFilter::FieldIsNull { field_name } => {
+                basefind = basefind.filter(Expr::cust(format!(
+                    r#""collection_document"."f"{} is null"#,
+                    field_path_json(field_name),
+                )))
+            }
         }
     }
 
@@ -219,6 +254,11 @@ pub(crate) async fn list_documents(
         }
         CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => {}
     }
+
+    basefind = basefind.filter(Expr::cust(format!(
+        r#"lower("collection_document"."f"{}) is null"#,
+        field_path_json(DELETED_AT_FIELD),
+    )));
 
     let total = basefind
         .clone()
@@ -308,6 +348,21 @@ fn select_documents_sql(
                         field_path_json(&field_name),
                     )))
                     .is_in(values),
+                );
+            }
+            FieldFilter::DateFieldLessThan { field_name, value } => {
+                q = q.and_where(Expr::cust_with_values(
+                    format!(r#""d"."f"{} < $1"#, field_path_json(&field_name),),
+                    vec![format!("{}%", value)],
+                ))
+            }
+            FieldFilter::FieldIsNull { field_name } => {
+                q = q.and_where(
+                    Expr::expr(Expr::cust(format!(
+                        r#""d"."f"{}"#,
+                        field_path_json(&field_name),
+                    )))
+                    .is_null(),
                 );
             }
         }
@@ -434,7 +489,7 @@ pub(crate) async fn save_document_events_mails(
         };
         let res = dbevent.save(txn).await.context("Saving event")?;
 
-        debug!("Event {:?} saved", res.id);
+        debug!("Event {} saved", res.id.unwrap());
     }
 
     debug!("Trying to store {} mail(s) in queue", mails.len());
@@ -514,7 +569,7 @@ mod tests {
             vec![
                 ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
                 ("\"d\".\"f\"->'price'".to_string(), Order::Desc),
-                ("\"d\".\"f\"->'length'".to_string(), Order::Asc)
+                ("\"d\".\"f\"->'length'".to_string(), Order::Asc),
             ]
         );
     }
@@ -533,7 +588,7 @@ mod tests {
             vec![
                 ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
                 ("\"d\".\"f\"->>'price'".to_string(), Order::Desc),
-                ("\"d\".\"f\"->>'length'".to_string(), Order::Desc)
+                ("\"d\".\"f\"->>'length'".to_string(), Order::Desc),
             ]
         );
     }
@@ -552,7 +607,7 @@ mod tests {
             vec![
                 ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
                 ("\"d\".\"f\"->'company'->>'title'".to_string(), Order::Desc),
-                ("\"d\".\"f\"->'supplier'->>'city'".to_string(), Order::Asc)
+                ("\"d\".\"f\"->'supplier'->>'city'".to_string(), Order::Asc),
             ]
         );
     }
@@ -571,7 +626,7 @@ mod tests {
             vec![
                 ("\"d\".\"f\"->>'title'".to_string(), Order::Asc),
                 ("\"d\".\"f\"->'item'->'price'".to_string(), Order::Desc),
-                ("\"d\".\"f\"->'m'->'length'".to_string(), Order::Asc)
+                ("\"d\".\"f\"->'m'->'length'".to_string(), Order::Asc),
             ]
         );
     }

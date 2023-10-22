@@ -12,14 +12,18 @@ use std::sync::Arc;
 use tracing::{debug, error, warn};
 use validator::Validate;
 
-use crate::api::{auth::User, db::save_document_events_mails, hooks::RequestContext, ApiErrors};
-
-use super::{db::get_collection_by_name, dto, hooks::HookCreateContext, ApiContext};
+use crate::api::{
+    auth,
+    db::{get_collection_by_name, save_document_events_mails},
+    dto,
+    hooks::{HookCreateContext, RequestContext},
+    ApiContext, ApiErrors,
+};
 
 #[debug_handler]
 pub(crate) async fn api_create_document(
     State(ctx): State<ApiContext>,
-    JwtClaims(user): JwtClaims<User>,
+    JwtClaims(user): JwtClaims<auth::User>,
     Path(collection_name): Path<String>,
     Json(payload): Json<CollectionItem>,
 ) -> Result<(StatusCode, String), ApiErrors> {
@@ -57,8 +61,7 @@ pub(crate) async fn api_create_document(
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
-            user.subuuid(),
-            user.preferred_username(),
+            dto::User::read_from(&user),
         ));
 
         let ctx = HookCreateContext::new((payload).into(), ctx.data_service, request_context);

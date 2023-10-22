@@ -3,7 +3,7 @@ use std::env;
 use anyhow::Context;
 
 use dotenvy::dotenv;
-use folivafy::{api::hooks::Hooks, migrate};
+use folivafy::{api::hooks::Hooks, migrate, register_staged_delete_handler};
 use sea_orm::{ConnectOptions, Database};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -37,7 +37,8 @@ async fn main() -> anyhow::Result<()> {
                 .with_context(|| "could not parse FOLIVAFY_CRON_INTERVAL")?,
         ),
     );
-    folivafy::api::serve(db, Hooks::new(), cron_interval).await?;
+    let hooks = register_staged_delete_handler(Hooks::new())?;
+    folivafy::api::serve(db, hooks, cron_interval).await?;
 
     Ok(())
 }

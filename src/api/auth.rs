@@ -66,6 +66,14 @@ impl User {
     pub(crate) fn preferred_username(&self) -> &str {
         self.preferred_username.as_ref()
     }
+
+    pub(crate) fn roles(&self) -> Vec<&str> {
+        self.realm_access
+            .roles
+            .iter()
+            .map(|role| role.as_str())
+            .collect()
+    }
 }
 
 /// Workaround for  https://github.com/Keats/jsonwebtoken/issues/252 not handling RSA-OAEP

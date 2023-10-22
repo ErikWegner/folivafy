@@ -3,17 +3,15 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::event::Entity as Events;
 use entity::{collection_document::Entity as Documents, event};
+use entity::{event::Entity as Events, DELETED_AT_FIELD};
 use jwt_authorizer::JwtClaims;
 use openapi::models::{CollectionItemDetails, CollectionItemEvent};
 use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use sqlx::types::chrono::DateTime;
 use tracing::warn;
 
-use crate::api::auth::User;
-
-use super::{db::get_collection_by_name, ApiContext, ApiErrors};
+use crate::api::{auth::User, db::get_collection_by_name, ApiContext, ApiErrors};
 
 #[debug_handler]
 pub(crate) async fn api_read_document(
@@ -45,6 +43,19 @@ pub(crate) async fn api_read_document(
             } else {
                 Some(doc)
             }
+        })
+        .and_then(|doc| {
+            let f = doc.f.get(DELETED_AT_FIELD);
+            if let Some(v) = f {
+                if !v.is_null() {
+                    if let Some(s) = v.as_str() {
+                        if !s.is_empty() {
+                            return None;
+                        }
+                    }
+                }
+            }
+            Some(doc)
         });
 
     if document.is_none() {
