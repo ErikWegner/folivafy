@@ -225,7 +225,7 @@ pub(crate) async fn list_documents(
             FieldFilter::DateFieldLessThan { field_name, value } => {
                 basefind = basefind.filter(Expr::cust_with_values(
                     format!(
-                        r#""collection_document"."f"{} < $1"#,
+                        r#"("collection_document"."f"{})::timestamp < $1"#,
                         field_path_json(field_name),
                     ),
                     vec![Value::ChronoDateTimeUtc(Some(Box::new(*value)))],
