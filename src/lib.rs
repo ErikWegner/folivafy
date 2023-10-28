@@ -47,6 +47,15 @@ pub async fn migrate(db: &DatabaseConnection) -> Result<(), anyhow::Error> {
         .context("Database migration failed")
 }
 
+pub async fn danger_drop_database_tables(db: &DatabaseConnection) -> Result<(), anyhow::Error> {
+    Migrator::down(db, Some(1))
+        .await
+        .context("Database migration failed #1")?;
+    Migrator::down(db, Some(1))
+        .await
+        .context("Database migration failed #2")
+}
+
 pub fn register_staged_delete_handler(mut hooks: Hooks) -> Result<Hooks, anyhow::Error> {
     debug!("register_staged_delete_handler");
     let rv = std::env::var("FOLIVAFY_ENABLE_DELETION");
