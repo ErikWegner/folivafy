@@ -11,11 +11,9 @@ use chrono::Duration;
 use openapi::models::CollectionItem;
 use uuid::Uuid;
 
-use crate::api::{
-    data_service::DataService,
-    dto::{self, User},
-    ApiErrors,
-};
+use crate::api::{data_service::DataService, dto, ApiErrors};
+
+use super::dto::UserWithRoles;
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -26,8 +24,51 @@ pub enum DocumentResult {
     Err(ApiErrors),
 }
 
+#[derive(Debug)]
+pub enum StoreNewDocumentCollection {
+    Name(String),
+    Id(Uuid),
+}
+
+#[derive(Debug)]
+pub enum StoreNewDocumentOwner {
+    User(dto::User),
+    Callee,
+}
+
+#[derive(Debug)]
+pub struct StoreNewDocument {
+    pub owner: StoreNewDocumentOwner,
+    pub collection: StoreNewDocumentCollection,
+    pub document: dto::CollectionDocument,
+}
+
+#[derive(Debug)]
+pub enum StoreDocument {
+    New(StoreNewDocument),
+    Update { document: dto::CollectionDocument },
+}
+
+impl StoreDocument {
+    pub fn as_new(n: StoreNewDocument) -> Self {
+        StoreDocument::New(n)
+    }
+
+    pub fn as_update(document: dto::CollectionDocument) -> Self {
+        StoreDocument::Update { document }
+    }
+}
+
 pub struct HookSuccessResult {
     pub document: DocumentResult,
+    pub events: Vec<dto::Event>,
+    pub mails: Vec<dto::MailMessage>,
+    pub trigger_cron: bool,
+}
+
+#[derive(Debug)]
+pub struct MultiDocumentsSuccessResult {
+    pub documents: Vec<StoreDocument>,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
     pub trigger_cron: bool,
@@ -50,6 +91,7 @@ impl Debug for HookSuccessResult {
     }
 }
 
+pub type EventHookResult = Result<MultiDocumentsSuccessResult, ApiErrors>;
 pub type HookResult = Result<HookSuccessResult, ApiErrors>;
 
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
@@ -253,7 +295,7 @@ pub trait DocumentUpdatingHook {
 
 #[async_trait]
 pub trait EventCreatingHook {
-    async fn on_creating(&self, context: &HookCreatingEventContext) -> HookResult;
+    async fn on_creating(&self, context: &HookCreatingEventContext) -> EventHookResult;
     async fn on_created(&self, context: &HookCreatedEventContext) -> HookResult;
 }
 
@@ -433,11 +475,11 @@ impl Default for Hooks {
 pub struct RequestContext {
     #[allow(dead_code)]
     collection_name: String,
-    user: User,
+    user: UserWithRoles,
 }
 
 impl RequestContext {
-    pub fn new(collection_name: &str, user: User) -> Self {
+    pub fn new(collection_name: &str, user: UserWithRoles) -> Self {
         Self {
             collection_name: collection_name.to_string(),
             user,
@@ -457,7 +499,7 @@ impl RequestContext {
         self.user.name()
     }
 
-    pub fn user(&self) -> &User {
+    pub fn user(&self) -> &UserWithRoles {
         &self.user
     }
 }

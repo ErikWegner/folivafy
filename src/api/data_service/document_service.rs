@@ -31,4 +31,14 @@ impl DocumentService {
         document.as_ref()?;
         Some((&document.unwrap()).into())
     }
+
+    pub(crate) async fn get_collection_by_name(
+        &self,
+        db: &DatabaseConnection,
+        collection_name: &str,
+    ) -> Option<dto::Collection> {
+        crate::api::db::get_collection_by_name(db, collection_name)
+            .await
+            .map(|m| (&m).into())
+    }
 }

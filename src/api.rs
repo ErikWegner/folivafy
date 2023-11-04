@@ -26,8 +26,9 @@ use std::{
 
 use anyhow::Context;
 use axum::{
+    body::Full,
     http::StatusCode,
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -71,6 +72,8 @@ pub enum ApiErrors {
     #[error("Internal server error")]
     InternalServerError,
     #[error("Bad request: {0}")]
+    BadRequestJson(String),
+    #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Not found: {0}")]
     NotFound(String),
@@ -84,15 +87,22 @@ impl IntoResponse for ApiErrors {
             ApiErrors::PermissionDenied => (
                 StatusCode::UNAUTHORIZED,
                 ApiErrors::PermissionDenied.to_string(),
-            ),
+            )
+                .into_response(),
             ApiErrors::InternalServerError => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal Server Error".to_string(),
-            ),
-            ApiErrors::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            ApiErrors::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
+            )
+                .into_response(),
+            ApiErrors::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
+            ApiErrors::BadRequestJson(jsonstring) => Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .header("Content-Type", "application/json")
+                .body(Full::from(jsonstring))
+                .unwrap()
+                .into_response(),
+            ApiErrors::NotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
         }
-        .into_response()
     }
 }
 

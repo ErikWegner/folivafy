@@ -113,7 +113,7 @@ pub(crate) async fn api_update_document(
                 let mut mails: Vec<dto::MailMessage> = vec![];
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
-                    dto::User::read_from(&user),
+                    dto::UserWithRoles::read_from(&user),
                 ));
                 if let Some(ref hook_processor) = hook_processor {
                     let ctx = HookUpdateContext::new(
@@ -151,9 +151,10 @@ pub(crate) async fn api_update_document(
                     ),
                 );
 
+                let dtouser = dto::User::read_from(&user);
                 save_document_events_mails(
                     txn,
-                    &user.subuuid(),
+                    &dtouser,
                     Some(after_document),
                     None,
                     events,

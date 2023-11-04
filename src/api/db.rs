@@ -15,6 +15,7 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::api::{
+    create_document::create_document_event,
     dto::{self, Event, MailMessage},
     hooks::CronDocumentSelector,
     types::Pagination,
@@ -22,6 +23,10 @@ use crate::api::{
 };
 use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
+
+use super::hooks::{
+    StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
+};
 
 pub(crate) async fn get_collection_by_name(
     db: &DatabaseConnection,
@@ -436,33 +441,77 @@ fn field_path_json(field_name: &str) -> String {
 }
 
 pub(crate) struct InsertDocumentData {
-    pub(crate) owner: Uuid,
     pub(crate) collection_id: Uuid,
 }
 
 pub(crate) async fn save_document_events_mails(
     txn: &DatabaseTransaction,
-    user_id: &Uuid,
+    user: &dto::User,
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
+    let mut documents = Vec::with_capacity(1);
     if let Some(document) = document {
+        debug!("Mapping document");
+        documents.push(match insert {
+            Some(insert_data) => StoreDocument::as_new(StoreNewDocument {
+                owner: StoreNewDocumentOwner::User(user.clone()),
+                collection: StoreNewDocumentCollection::Id(insert_data.collection_id),
+                document,
+            }),
+            None => StoreDocument::Update { document },
+        });
+    };
+    save_documents_events_mails(txn, user, documents, events, mails).await
+}
+
+pub(crate) async fn save_documents_events_mails(
+    txn: &DatabaseTransaction,
+    user: &dto::User,
+    documents: Vec<StoreDocument>,
+    events: Vec<Event>,
+    mails: Vec<MailMessage>,
+) -> anyhow::Result<()> {
+    let mut document_created_events = Vec::with_capacity(documents.len());
+    for document in documents {
         debug!("Saving document");
-        match insert {
-            Some(insert_data) => {
+        match document {
+            StoreDocument::New(n) => {
+                let collection_id = match n.collection {
+                    crate::api::hooks::StoreNewDocumentCollection::Name(ref collection_name) => {
+                        entity::collection::Entity::find()
+                            .filter(entity::collection::Column::Name.eq(collection_name))
+                            .one(txn)
+                            .await?
+                            .ok_or_else(|| {
+                                error!("Could not find collection {collection_name}");
+                                ApiErrors::InternalServerError
+                            })?
+                            .id
+                    }
+                    crate::api::hooks::StoreNewDocumentCollection::Id(id) => id,
+                };
+                let owner = match n.owner {
+                    StoreNewDocumentOwner::User(ref u) => u,
+                    StoreNewDocumentOwner::Callee => user,
+                };
+
+                let document_created_event = create_document_event(*(n.document.id()), owner);
+                document_created_events.push(document_created_event);
+
                 entity::collection_document::ActiveModel {
-                    id: Set(*document.id()),
-                    owner: Set(insert_data.owner),
-                    collection_id: Set(insert_data.collection_id),
-                    f: Set(document.fields().clone()),
+                    id: Set(*n.document.id()),
+                    owner: Set(owner.id()),
+                    collection_id: Set(collection_id),
+                    f: Set(n.document.fields().clone()),
                 }
                 .insert(txn)
                 .await
                 .context("Saving new document")?;
             }
-            None => {
+            StoreDocument::Update { document } => {
                 entity::collection_document::ActiveModel {
                     id: Set(*document.id()),
                     owner: NotSet,
@@ -476,15 +525,17 @@ pub(crate) async fn save_document_events_mails(
         };
     }
 
-    debug!("Try to create {} event(s)", events.len());
-    for event in events {
+    let all_events: Vec<dto::Event> = document_created_events.into_iter().chain(events).collect();
+
+    debug!("Try to create {} event(s)", all_events.len());
+    for event in all_events {
         // Create the event in the database
         let dbevent = entity::event::ActiveModel {
             id: NotSet,
             category_id: Set(event.category()),
             timestamp: NotSet,
             document_id: Set(event.document_id()),
-            user: Set(*user_id),
+            user: Set(user.id()),
             payload: Set(event.payload().clone()),
         };
         let res = dbevent.save(txn).await.context("Saving event")?;

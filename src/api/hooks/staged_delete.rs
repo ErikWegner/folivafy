@@ -1,18 +1,21 @@
-use crate::api::db::{DELETED_AT_FIELD, DELETED_BY_FIELD};
-use crate::api::{
-    dto::User,
-    hooks::{
-        CronDefaultIntervalHook, CronDocumentSelector, DocumentResult, EventCreatingHook,
-        HookCreatedEventContext, HookCreatingEventContext, HookCronContext, HookResult,
-        HookSuccessResult, Hooks,
-    },
-    ApiErrors, CATEGORY_DOCUMENT_DELETE,
-};
 use async_trait::async_trait;
 use chrono::Duration;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{debug, info};
+
+use crate::api::{
+    db::{DELETED_AT_FIELD, DELETED_BY_FIELD},
+    dto::UserWithRoles,
+    hooks::StoreDocument,
+    ApiErrors, CATEGORY_DOCUMENT_DELETE,
+};
+
+use super::{
+    CronDefaultIntervalHook, CronDocumentSelector, EventCreatingHook, EventHookResult,
+    HookCreatedEventContext, HookCreatingEventContext, HookCronContext, HookResult,
+    HookSuccessResult, Hooks, MultiDocumentsSuccessResult,
+};
 
 pub fn add_staged_delete_hook(
     hooks: &mut Hooks,
@@ -36,7 +39,7 @@ struct StagedDelete {}
 // CreateEventHook: sets the deleted date
 #[async_trait]
 impl EventCreatingHook for StagedDelete {
-    async fn on_creating(&self, context: &HookCreatingEventContext) -> HookResult {
+    async fn on_creating(&self, context: &HookCreatingEventContext) -> EventHookResult {
         debug!(
             "Try to set delete flag to document {} {:?})",
             context.before_document.id(),
@@ -70,8 +73,8 @@ impl EventCreatingHook for StagedDelete {
                 "title": context.context().user_name(),
             }),
         );
-        Ok(HookSuccessResult {
-            document: DocumentResult::Store(after_document),
+        Ok(MultiDocumentsSuccessResult {
+            documents: vec![StoreDocument::as_update(after_document)],
             events: vec![context.event().clone()],
             mails: vec![],
             trigger_cron: false,
@@ -92,7 +95,7 @@ impl CronDefaultIntervalHook for StagedDelete {
     }
 }
 
-fn has_remover_role(user: &User, collection_name: &str) -> bool {
+fn has_remover_role(user: &UserWithRoles, collection_name: &str) -> bool {
     let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
     user.has_role(&role_name)
 }

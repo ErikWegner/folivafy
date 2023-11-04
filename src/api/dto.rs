@@ -306,14 +306,48 @@ impl std::hash::Hash for Event {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct User {
+    id: Uuid,
+    name: String,
+}
+
+impl User {
+    pub fn new(id: Uuid, name: String) -> Self {
+        Self { id, name }
+    }
+
+    pub(crate) fn read_from(auth_user: &auth::User) -> Self {
+        Self {
+            id: auth_user.subuuid(),
+            name: auth_user.preferred_username().to_string(),
+        }
+    }
+
+    pub fn read_from_user_with_roles(user: &UserWithRoles) -> Self {
+        Self {
+            id: user.id,
+            name: user.name.clone(),
+        }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+}
+
+#[derive(Debug)]
+pub struct UserWithRoles {
     id: Uuid,
     name: String,
     roles: Vec<String>,
 }
 
-impl User {
+impl UserWithRoles {
     pub(crate) fn read_from(auth_user: &auth::User) -> Self {
         Self {
             id: auth_user.subuuid(),
