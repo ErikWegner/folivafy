@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::api::{
     auth,
-    db::{get_collection_by_name, save_document_events_mails},
+    db::{get_collection_by_name, save_documents_events_mails},
     dto::{self, Event},
     hooks::{DocumentResult, HookCreatedEventContext, HookCreatingEventContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
@@ -64,7 +64,7 @@ pub(crate) async fn api_create_event(
 
     let request_context1 = Arc::new(RequestContext::new(
         &collection.name,
-        dto::User::read_from(&user),
+        dto::UserWithRoles::read_from(&user),
     ));
     let request_context2 = request_context1.clone();
 
@@ -96,16 +96,8 @@ pub(crate) async fn api_create_event(
                     return Err(ApiErrors::PermissionDenied);
                 }
 
-                let document = match result.document {
-                    DocumentResult::Store(d) => Some(d),
-                    DocumentResult::NoUpdate => None,
-                    DocumentResult::Err(e) => {
-                        error!("Error while updating document: {:?}", e);
-                        return Err(ApiErrors::InternalServerError);
-                    }
-                };
-
-                save_document_events_mails(txn, &user.subuuid(), document, None, events, mails)
+                let dtouser = dto::User::read_from(&user);
+                save_documents_events_mails(txn, &dtouser, result.documents, events, mails)
                     .await
                     .map_err(|e| {
                         error!("Error while creating event: {:?}", e);

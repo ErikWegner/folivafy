@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lazy_static::lazy_static;
-use sea_orm::{DatabaseTransaction, DbErr, EntityTrait, TransactionTrait};
+use sea_orm::{DatabaseTransaction, TransactionTrait};
 use std::sync::Arc;
 use tokio::sync::{
     mpsc::{self},
@@ -15,6 +15,7 @@ use crate::{
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
         hooks::{HookCronContext, HookSuccessResult, Hooks},
+        select_document_for_update,
         types::Pagination,
         ApiErrors,
     },
@@ -176,21 +177,6 @@ pub(crate) fn setup_cron(
     )
 }
 
-use entity::collection_document::Entity as Documents;
-pub(crate) async fn select_document_for_update(
-    unchecked_document_id: uuid::Uuid,
-    txn: &DatabaseTransaction,
-) -> Result<Option<entity::collection_document::Model>, DbErr> {
-    Documents::find()
-        .from_raw_sql(sea_orm::Statement::from_sql_and_values(
-            sea_orm::DbBackend::Postgres,
-            r#"SELECT * FROM "collection_document" WHERE "id" = $1 FOR UPDATE"#,
-            [unchecked_document_id.into()],
-        ))
-        .one(txn)
-        .await
-}
-
 async fn check_modifications_and_update(
     txn: &DatabaseTransaction,
     result: HookSuccessResult,
@@ -201,18 +187,12 @@ async fn check_modifications_and_update(
         crate::api::hooks::DocumentResult::NoUpdate => {}
         crate::api::hooks::DocumentResult::Err(e) => return Err(e),
     }
-    save_document_events_mails(
-        txn,
-        &CRON_USER_ID,
-        document,
-        None,
-        result.events,
-        result.mails,
-    )
-    .await
-    .map_err(|e| {
-        error!("Update document error: {:?}", e);
-        ApiErrors::InternalServerError
-    })?;
+    let cron_user = dto::User::new(*CRON_USER_ID, CRON_USER_NAME.to_string());
+    save_document_events_mails(txn, &cron_user, document, None, result.events, result.mails)
+        .await
+        .map_err(|e| {
+            error!("Update document error: {:?}", e);
+            ApiErrors::InternalServerError
+        })?;
     Ok(())
 }

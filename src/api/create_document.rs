@@ -10,6 +10,7 @@ use sea_orm::{DbErr, RuntimeErr, TransactionError, TransactionTrait};
 use serde_json::json;
 use std::sync::Arc;
 use tracing::{debug, error, warn};
+use uuid::Uuid;
 use validator::Validate;
 
 use crate::api::{
@@ -61,17 +62,19 @@ pub(crate) async fn api_create_document(
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
-            dto::User::read_from(&user),
+            dto::UserWithRoles::read_from(&user),
         ));
 
         let ctx = HookCreateContext::new((payload).into(), ctx.data_service, request_context);
         let hook_result = hook.on_creating(&ctx).await?;
         match hook_result.document {
             crate::api::hooks::DocumentResult::Store(document) => {
+                debug!("Received document: {:?}", document);
                 after_document = document;
             }
             crate::api::hooks::DocumentResult::NoUpdate => {
-                return Err(ApiErrors::BadRequest("Not accepted for storage".into()))
+                debug!("Not accepted for storage");
+                return Err(ApiErrors::BadRequest("Not accepted for storage".into()));
             }
             crate::api::hooks::DocumentResult::Err(err) => return Err(err),
         }
@@ -83,28 +86,12 @@ pub(crate) async fn api_create_document(
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
                 let document_id = *after_document.id();
-                events.insert(
-                    0,
-                    dto::Event::new(
-                        document_id,
-                        crate::api::CATEGORY_DOCUMENT_UPDATES,
-                        json!({
-                            "user": {
-                                "id": user.subuuid(),
-                                "name": user.preferred_username(),
-                            },
-                            "new": true,
-                        }),
-                    ),
-                );
+                let dtouser = dto::User::read_from(&user);
                 save_document_events_mails(
                     txn,
-                    &user.subuuid(),
+                    &dtouser,
                     Some(after_document),
-                    Some(crate::api::db::InsertDocumentData {
-                        collection_id,
-                        owner: user.subuuid(),
-                    }),
+                    Some(crate::api::db::InsertDocumentData { collection_id }),
                     events,
                     mails,
                 )
@@ -135,4 +122,22 @@ pub(crate) async fn api_create_document(
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
             TransactionError::Transaction(t) => t,
         })
+}
+
+pub(crate) fn create_document_event(document_id: Uuid, user: &dto::User) -> dto::Event {
+    debug!(
+        "create_document_event: document_id: {:?}, user: {:?}",
+        document_id, user
+    );
+    dto::Event::new(
+        document_id,
+        crate::api::CATEGORY_DOCUMENT_UPDATES,
+        json!({
+            "user": {
+                "id": user.id(),
+                "name": user.name(),
+            },
+            "new": true,
+        }),
+    )
 }

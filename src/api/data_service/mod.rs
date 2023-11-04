@@ -64,6 +64,12 @@ impl DataService {
             .get_document(&self.db, collection_name, document_id)
             .await
     }
+
+    pub async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection> {
+        self.document_service
+            .get_collection_by_name(&self.db, collection_name)
+            .await
+    }
 }
 
 pub(crate) async fn get_token(client_credentials: &ClientCredentials) -> anyhow::Result<String> {
