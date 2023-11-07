@@ -102,14 +102,14 @@ pub enum CronDocumentSelector {
 
 pub struct HookCreateContext {
     document: dto::CollectionDocument,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
     context: Arc<RequestContext>,
 }
 
 impl HookCreateContext {
     pub fn new(
         document: dto::CollectionDocument,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
         context: Arc<RequestContext>,
     ) -> Self {
         Self {
@@ -123,7 +123,7 @@ impl HookCreateContext {
         &self.document
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 
@@ -135,7 +135,7 @@ impl HookCreateContext {
 pub struct HookUpdateContext {
     before_document: dto::CollectionDocument,
     after_document: dto::CollectionDocument,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
     context: Arc<RequestContext>,
 }
 
@@ -143,7 +143,7 @@ impl HookUpdateContext {
     pub fn new(
         before_document: dto::CollectionDocument,
         after_document: dto::CollectionDocument,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
         context: Arc<RequestContext>,
     ) -> Self {
         Self {
@@ -162,7 +162,7 @@ impl HookUpdateContext {
         &self.after_document
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 
@@ -175,7 +175,7 @@ pub struct HookCreatingEventContext {
     event: dto::Event,
     before_document: dto::CollectionDocument,
     after_document: dto::CollectionDocument,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
     context: Arc<RequestContext>,
 }
 
@@ -184,7 +184,7 @@ impl HookCreatingEventContext {
         event: dto::Event,
         before_document: dto::CollectionDocument,
         after_document: dto::CollectionDocument,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
         context: Arc<RequestContext>,
     ) -> Self {
         Self {
@@ -200,7 +200,7 @@ impl HookCreatingEventContext {
         &self.event
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 
@@ -219,14 +219,14 @@ impl HookCreatingEventContext {
 
 pub struct HookCreatedEventContext {
     event: dto::Event,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
     context: Arc<RequestContext>,
 }
 
 impl HookCreatedEventContext {
     pub fn new(
         event: dto::Event,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
         context: Arc<RequestContext>,
     ) -> Self {
         Self {
@@ -240,7 +240,7 @@ impl HookCreatedEventContext {
         &self.event
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 
@@ -252,14 +252,14 @@ impl HookCreatedEventContext {
 pub struct HookCronContext {
     before_document: dto::CollectionDocument,
     after_document: dto::CollectionDocument,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
 }
 
 impl HookCronContext {
     pub fn new(
         before_document: dto::CollectionDocument,
         after_document: dto::CollectionDocument,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
     ) -> Self {
         Self {
             before_document,
@@ -276,7 +276,7 @@ impl HookCronContext {
         &self.after_document
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 }
@@ -559,7 +559,7 @@ pub struct HookContext {
     data: Arc<HookContextData>,
     context: Arc<RequestContext>,
     tx: tokio::sync::oneshot::Sender<HookResult>,
-    data_service: Arc<DataService>,
+    data_service: Arc<dyn DataService>,
 }
 
 impl HookContext {
@@ -567,7 +567,7 @@ impl HookContext {
         data: HookContextData,
         context: RequestContext,
         tx: tokio::sync::oneshot::Sender<HookResult>,
-        data_service: Arc<DataService>,
+        data_service: Arc<dyn DataService>,
     ) -> Self {
         Self {
             data: Arc::new(data),
@@ -589,7 +589,7 @@ impl HookContext {
         self.data.clone()
     }
 
-    pub fn data_service(&self) -> &DataService {
+    pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
     }
 }

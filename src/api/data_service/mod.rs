@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use async_trait::async_trait;
 use reqwest::StatusCode;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
@@ -25,14 +26,26 @@ pub struct TokenResponse {
     pub access_token: String,
 }
 
-pub struct DataService {
+#[async_trait]
+pub trait DataService: Sync + Send {
+    async fn get_document_events(&self, document_id: Uuid) -> anyhow::Result<Vec<ExistingEvent>>;
+    async fn get_user_by_id(&self, user_id: Uuid) -> anyhow::Result<User>;
+    async fn get_document(
+        &self,
+        collection_name: &str,
+        document_id: Uuid,
+    ) -> Option<dto::CollectionDocument>;
+    async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection>;
+}
+
+pub(crate) struct FolivafyDataService {
     db: DatabaseConnection,
     document_service: document_service::DocumentService,
     event_service: event_service::DocumentEventService,
     user_service: user_service::UserService,
 }
 
-impl DataService {
+impl FolivafyDataService {
     pub(crate) fn new(db: &DatabaseConnection, user_service: user_service::UserService) -> Self {
         Self {
             db: db.clone(),
@@ -41,21 +54,21 @@ impl DataService {
             user_service,
         }
     }
+}
 
-    pub async fn get_document_events(
-        &self,
-        document_id: Uuid,
-    ) -> anyhow::Result<Vec<ExistingEvent>> {
+#[async_trait]
+impl DataService for FolivafyDataService {
+    async fn get_document_events(&self, document_id: Uuid) -> anyhow::Result<Vec<ExistingEvent>> {
         self.event_service
             .get_document_events_newest_first(&self.db, document_id)
             .await
     }
 
-    pub async fn get_user_by_id(&self, user_id: Uuid) -> anyhow::Result<User> {
+    async fn get_user_by_id(&self, user_id: Uuid) -> anyhow::Result<User> {
         self.user_service.get_user_by_id(user_id).await
     }
 
-    pub async fn get_document(
+    async fn get_document(
         &self,
         collection_name: &str,
         document_id: Uuid,
@@ -65,7 +78,7 @@ impl DataService {
             .await
     }
 
-    pub async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection> {
+    async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection> {
         self.document_service
             .get_collection_by_name(&self.db, collection_name)
             .await

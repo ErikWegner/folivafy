@@ -32,7 +32,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use jwt_authorizer::{JwtAuthorizer, Validation};
+use jwt_authorizer::{authorizer::IntoLayer, Authorizer, JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
 use thiserror::Error;
@@ -49,7 +49,7 @@ use self::{
     create_collection::api_create_collection,
     create_document::api_create_document,
     create_event::api_create_event,
-    data_service::DataService,
+    data_service::FolivafyDataService,
     get_document::api_read_document,
     hooks::Hooks,
     list_collections::api_list_collections,
@@ -64,7 +64,7 @@ pub static CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
-    data_service: Arc<DataService>,
+    data_service: Arc<FolivafyDataService>,
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -176,7 +176,7 @@ pub async fn serve(
     mail::insert_mail_cron_hook(&hooks, &db).await?;
     let (user_service, user_service_task) =
         data_service::user_service::UserService::new_from_env().await?;
-    let data_service = Arc::new(DataService::new(&db, user_service));
+    let data_service = Arc::new(FolivafyDataService::new(&db, user_service));
     let (cronbt, _immediate_cron_signal) = crate::cron::setup_cron(
         db.clone(),
         hooks.clone(),
@@ -221,7 +221,7 @@ pub async fn serve(
 async fn api_routes(
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
-    data_service: Arc<DataService>,
+    data_service: Arc<FolivafyDataService>,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
@@ -230,8 +230,10 @@ async fn api_routes(
 
     let pem_text = cert_loader(&issuer, danger_accept_invalid_certs).await?;
     let validation = Validation::new().iss(&[issuer]).leeway(5);
-    let jwt_auth: JwtAuthorizer<User> =
-        JwtAuthorizer::from_rsa_pem_text(pem_text.as_str()).validation(validation);
+    let jwt_auth: Authorizer<User> = JwtAuthorizer::from_rsa_pem_text(pem_text.as_str())
+        .validation(validation)
+        .build()
+        .await?;
 
     Ok(Router::new().nest(
         "/api",
@@ -256,7 +258,7 @@ async fn api_routes(
                 hooks,
                 data_service,
             })
-            .layer(jwt_auth.layer().await.unwrap()),
+            .layer(jwt_auth.into_layer()),
     ))
 }
 

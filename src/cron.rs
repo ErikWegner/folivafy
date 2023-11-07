@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{
-        data_service::DataService,
+        data_service::FolivafyDataService,
         db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
         dto,
         hooks::{HookCronContext, HookSuccessResult, Hooks},
@@ -37,7 +37,7 @@ struct CronResult {
 async fn cron(
     db: sea_orm::DatabaseConnection,
     hooks: &Hooks,
-    data_service: Arc<crate::api::data_service::DataService>,
+    data_service: Arc<crate::api::data_service::FolivafyDataService>,
 ) -> CronResult {
     debug!("Running cron tasks");
     let mut trigger_cron = false;
@@ -131,7 +131,7 @@ pub(crate) fn setup_cron(
     db: sea_orm::DatabaseConnection,
     hooks: Arc<Hooks>,
     cron_interval: std::time::Duration,
-    data_service: Arc<DataService>,
+    data_service: Arc<FolivafyDataService>,
 ) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {
     let mut interval = tokio::time::interval(cron_interval);
     debug!("cron_interval: {:?}", cron_interval);

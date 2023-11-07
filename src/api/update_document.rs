@@ -123,6 +123,7 @@ pub(crate) async fn api_update_document(
                         request_context,
                     );
                     let hook_result = hook_processor.on_updating(&ctx).await?;
+                    drop(ctx);
 
                     match hook_result.document {
                         crate::api::hooks::DocumentResult::Store(document) => {
