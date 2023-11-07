@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tracing::debug;
 use uuid::Uuid;
 
-use self::user_service::User;
+pub use self::user_service::User;
 
 use crate::api::dto::{self, ExistingEvent};
 
