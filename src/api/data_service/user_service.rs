@@ -11,7 +11,7 @@ use crate::{api::data_service::get_token, BackgroundTask};
 
 use super::ClientCredentials;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct User {
     id: String,
     email: Option<String>,
@@ -22,6 +22,20 @@ pub struct User {
 }
 
 impl User {
+    pub fn new(
+        id: String,
+        email: Option<String>,
+        first_name: Option<String>,
+        last_name: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            email,
+            first_name,
+            last_name,
+        }
+    }
+
     pub fn email(&self) -> Option<String> {
         self.email.as_ref().cloned()
     }
