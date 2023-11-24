@@ -3,15 +3,18 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::{collection_document::Entity as Documents, event};
-use entity::{event::Entity as Events, DELETED_AT_FIELD};
+use entity::event::Entity as Events;
 use jwt_authorizer::JwtClaims;
 use openapi::models::{CollectionItemDetails, CollectionItemEvent};
 use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use sqlx::types::chrono::DateTime;
 use tracing::warn;
 
-use crate::api::{auth::User, db::get_collection_by_name, ApiContext, ApiErrors};
+use crate::api::{
+    auth::User,
+    db::{get_accessible_document, get_collection_by_name},
+    ApiContext, ApiErrors,
+};
 
 #[debug_handler]
 pub(crate) async fn api_read_document(
@@ -33,30 +36,7 @@ pub(crate) async fn api_read_document(
     }
 
     let collection = collection.unwrap();
-    let document = Documents::find_by_id(uuid)
-        .one(&ctx.db)
-        .await?
-        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
-        .and_then(|doc| {
-            if collection.oao && doc.owner != user.subuuid() {
-                None
-            } else {
-                Some(doc)
-            }
-        })
-        .and_then(|doc| {
-            let f = doc.f.get(DELETED_AT_FIELD);
-            if let Some(v) = f {
-                if !v.is_null() {
-                    if let Some(s) = v.as_str() {
-                        if !s.is_empty() {
-                            return None;
-                        }
-                    }
-                }
-            }
-            Some(doc)
-        });
+    let document = get_accessible_document(&ctx, &user, uuid, &collection).await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(

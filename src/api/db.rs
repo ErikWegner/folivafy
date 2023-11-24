@@ -14,15 +14,17 @@ use std::ops::Sub;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+use crate::api::auth::User;
 use crate::api::{
     create_document::create_document_event,
     dto::{self, Event, MailMessage},
     hooks::CronDocumentSelector,
     types::Pagination,
-    ApiErrors,
+    ApiContext, ApiErrors,
 };
 use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
+use std::result;
 
 use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
@@ -777,4 +779,36 @@ mod tests {
             )
         );
     }
+}
+
+pub(crate) async fn get_accessible_document(
+    ctx: &ApiContext,
+    user: &User,
+    uuid: Uuid,
+    collection: &Model,
+) -> result::Result<Option<entity::collection_document::Model>, ApiErrors> {
+    Ok(Documents::find_by_id(uuid)
+        .one(&ctx.db)
+        .await?
+        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
+        .and_then(|doc| {
+            if collection.oao && doc.owner != user.subuuid() {
+                None
+            } else {
+                Some(doc)
+            }
+        })
+        .and_then(|doc| {
+            let f = doc.f.get(DELETED_AT_FIELD);
+            if let Some(v) = f {
+                if !v.is_null() {
+                    if let Some(s) = v.as_str() {
+                        if !s.is_empty() {
+                            return None;
+                        }
+                    }
+                }
+            }
+            Some(doc)
+        }))
 }

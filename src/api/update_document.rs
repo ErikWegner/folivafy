@@ -6,7 +6,7 @@ use axum::{
 use axum_macros::debug_handler;
 use jwt_authorizer::JwtClaims;
 use openapi::models::CollectionItem;
-use sea_orm::{prelude::Uuid, EntityTrait, TransactionError, TransactionTrait};
+use sea_orm::{prelude::Uuid, TransactionError, TransactionTrait};
 use serde_json::json;
 use std::sync::Arc;
 use tracing::{debug, error, warn};
@@ -14,12 +14,11 @@ use validator::Validate;
 
 use crate::api::{
     auth,
-    db::{get_collection_by_name, save_document_events_mails},
+    db::{get_accessible_document, get_collection_by_name, save_document_events_mails},
     dto,
     hooks::{HookUpdateContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
-use entity::{collection_document::Entity as Documents, DELETED_AT_FIELD};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
@@ -56,30 +55,7 @@ pub(crate) async fn api_update_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
-    let document = Documents::find_by_id(uuid)
-        .one(&ctx.db)
-        .await?
-        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
-        .and_then(|doc| {
-            if collection.oao && doc.owner != user.subuuid() {
-                None
-            } else {
-                Some(doc)
-            }
-        })
-        .and_then(|doc| {
-            let f = doc.f.get(DELETED_AT_FIELD);
-            if let Some(v) = f {
-                if !v.is_null() {
-                    if let Some(s) = v.as_str() {
-                        if !s.is_empty() {
-                            return None;
-                        }
-                    }
-                }
-            }
-            Some(doc)
-        });
+    let document = get_accessible_document(&ctx, &user, uuid, &collection).await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(
