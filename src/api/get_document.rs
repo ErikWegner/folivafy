@@ -46,8 +46,8 @@ pub(crate) async fn api_read_document(
     let document = document.unwrap();
 
     let events = Events::find()
-        .filter(event::Column::DocumentId.eq(Uuid::parse_str(document_id.as_ref()).ok()))
-        .order_by_desc(event::Column::Id)
+        .filter(entity::event::Column::DocumentId.eq(Uuid::parse_str(document_id.as_ref()).ok()))
+        .order_by_desc(entity::event::Column::Id)
         .all(&ctx.db)
         .await?
         .into_iter()

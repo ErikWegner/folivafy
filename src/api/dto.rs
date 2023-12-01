@@ -114,6 +114,22 @@ pub struct ExistingEvent {
 }
 
 impl ExistingEvent {
+    pub fn new(
+        document_id: uuid::Uuid,
+        category: i32,
+        payload: serde_json::Value,
+        user_id: Uuid,
+        timestamp: i64,
+    ) -> Self {
+        Self {
+            document_id,
+            category,
+            payload,
+            user_id,
+            timestamp,
+        }
+    }
+
     pub fn is_create_event(&self) -> bool {
         self.category == CATEGORY_DOCUMENT_UPDATES
             && self
