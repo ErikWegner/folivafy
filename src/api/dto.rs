@@ -44,6 +44,45 @@ impl From<&entity::collection::Model> for Collection {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Grant {
+    realm: String,
+    grant_id: Uuid,
+    view: bool,
+}
+
+impl Grant {
+    pub fn new(realm: String, grant_id: Uuid, view: bool) -> Self {
+        Self {
+            realm,
+            grant_id,
+            view,
+        }
+    }
+
+    pub fn realm(&self) -> &str {
+        self.realm.as_ref()
+    }
+
+    pub fn grant_id(&self) -> Uuid {
+        self.grant_id
+    }
+
+    pub fn view(&self) -> bool {
+        self.view
+    }
+}
+
+impl From<&entity::grant::Model> for Grant {
+    fn from(value: &entity::grant::Model) -> Self {
+        Self {
+            realm: value.realm.clone(),
+            grant_id: value.grant,
+            view: value.view,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CollectionDocument {
     id: Uuid,
     fields: serde_json::Value,

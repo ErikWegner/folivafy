@@ -229,7 +229,10 @@ async fn api_routes(
         .eq_ignore_ascii_case("true");
 
     let pem_text = cert_loader(&issuer, danger_accept_invalid_certs).await?;
-    let validation = Validation::new().iss(&[issuer]).leeway(5);
+    let validation = Validation::new()
+        .iss(&[issuer])
+        .aud(&["folivafy"])
+        .leeway(5);
     let jwt_auth: Authorizer<User> = JwtAuthorizer::from_rsa_pem_text(pem_text.as_str())
         .validation(validation)
         .build()

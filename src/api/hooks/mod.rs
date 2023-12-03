@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
-use super::dto::UserWithRoles;
+use super::dto::{Grant, UserWithRoles};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -59,8 +59,14 @@ impl StoreDocument {
     }
 }
 
+pub enum GrantUpdates {
+    None,
+    Replace(Vec<Grant>),
+}
+
 pub struct HookSuccessResult {
     pub document: DocumentResult,
+    pub grant_updates: GrantUpdates,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
     pub trigger_cron: bool,
@@ -78,6 +84,7 @@ impl HookSuccessResult {
     pub fn empty() -> Self {
         Self {
             document: DocumentResult::NoUpdate,
+            grant_updates: GrantUpdates::None,
             events: vec![],
             mails: vec![],
             trigger_cron: false,
