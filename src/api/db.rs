@@ -300,7 +300,7 @@ pub(crate) async fn list_documents(
 fn select_documents_sql(
     collection: &Uuid,
     extra_fields: Vec<String>,
-    oao_access: &CollectionDocumentVisibility,
+    _oao_access: &CollectionDocumentVisibility,
     exact_title: &Option<String>,
     sort_fields: Option<String>,
     filters: Vec<FieldFilter>,
@@ -325,9 +325,10 @@ fn select_documents_sql(
         )
         .and_where(Expr::col(DocumentsColumns::CollectionId).eq(*collection));
 
-    if let Some(user_id) = oao_access.get_userid_for_sql_clause() {
-        q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
-    }
+    // TODO: restore code
+    // if let Some(user_id) = oao_access.get_userid_for_sql_clause() {
+    //     q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
+    // }
 
     for filter in filters {
         match filter {
