@@ -60,17 +60,17 @@ pub(crate) async fn get_collection_by_name(
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum CollectionDocumentVisibility {
-    PublicAndUserIsReader,
-    PrivateAndUserIs(Uuid),
     PrivateAndUserCanAccessAllDocuments,
+    PrivateAndUserIs(Uuid),
+    PublicAndUserIsReader,
 }
 
 impl CollectionDocumentVisibility {
-    pub(crate) fn get_userid(&self) -> Option<Uuid> {
+    pub(crate) fn get_userid_for_sql_clause(&self) -> Option<Uuid> {
         match self {
-            CollectionDocumentVisibility::PublicAndUserIsReader => None,
-            CollectionDocumentVisibility::PrivateAndUserIs(userid) => Some(*userid),
             CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => None,
+            CollectionDocumentVisibility::PrivateAndUserIs(userid) => Some(*userid),
+            CollectionDocumentVisibility::PublicAndUserIsReader => None,
         }
     }
 }
@@ -254,13 +254,14 @@ pub(crate) async fn list_documents(
         ));
     }
 
-    match params.oao_access {
-        CollectionDocumentVisibility::PublicAndUserIsReader => {}
-        CollectionDocumentVisibility::PrivateAndUserIs(uuid) => {
-            basefind = basefind.filter(entity::collection_document::Column::Owner.eq(uuid));
-        }
-        CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => {}
-    }
+    // TODO: restore code
+    // match params.oao_access {
+    //     CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => {}
+    //     CollectionDocumentVisibility::PrivateAndUserIs(uuid) => {
+    //         basefind = basefind.filter(entity::collection_document::Column::Owner.eq(uuid));
+    //     }
+    //     CollectionDocumentVisibility::PublicAndUserIsReader => {}
+    // }
 
     basefind = basefind.filter(Expr::cust(format!(
         r#"lower("collection_document"."f"{}) is null"#,
@@ -324,7 +325,7 @@ fn select_documents_sql(
         )
         .and_where(Expr::col(DocumentsColumns::CollectionId).eq(*collection));
 
-    if let Some(user_id) = oao_access.get_userid() {
+    if let Some(user_id) = oao_access.get_userid_for_sql_clause() {
         q = q.and_where(Expr::col(DocumentsColumns::Owner).eq(user_id));
     }
 
@@ -783,7 +784,7 @@ mod tests {
 
 pub(crate) async fn get_accessible_document(
     ctx: &ApiContext,
-    user: &User,
+    _user: &User,
     uuid: Uuid,
     collection: &Model,
 ) -> result::Result<Option<entity::collection_document::Model>, ApiErrors> {
@@ -791,13 +792,14 @@ pub(crate) async fn get_accessible_document(
         .one(&ctx.db)
         .await?
         .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
-        .and_then(|doc| {
-            if collection.oao && doc.owner != user.subuuid() {
-                None
-            } else {
-                Some(doc)
-            }
-        })
+        // TODO: restore code
+        // .and_then(|doc| {
+        //     if collection.oao && doc.owner != user.subuuid() {
+        //         None
+        //     } else {
+        //         Some(doc)
+        //     }
+        // })
         .and_then(|doc| {
             let f = doc.f.get(DELETED_AT_FIELD);
             if let Some(v) = f {
