@@ -48,7 +48,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(DeriveIden)]
-enum Grant {
+pub enum Grant {
     Table,
     Id,
     DocumentId,

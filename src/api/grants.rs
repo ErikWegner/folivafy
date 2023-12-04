@@ -1,3 +1,4 @@
+use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use super::{db::CollectionDocumentVisibility, dto::Grant};
@@ -17,11 +18,10 @@ pub(crate) fn default_document_grants(
     }
 }
 
+#[derive(TypedBuilder)]
 pub(crate) struct DefaultUserGrantsParameters {
     visibility: CollectionDocumentVisibility,
     collection_uuid: Uuid,
-    user_id: Uuid,
-    user_is_all_reader: bool,
 }
 
 pub(crate) fn default_user_grants(params: DefaultUserGrantsParameters) -> Vec<Grant> {
@@ -107,8 +107,6 @@ mod tests {
         let grants = default_user_grants(DefaultUserGrantsParameters {
             visibility,
             collection_uuid,
-            user_id,
-            user_is_all_reader,
         });
 
         // Assert
@@ -134,8 +132,6 @@ mod tests {
         let grants = default_user_grants(DefaultUserGrantsParameters {
             visibility,
             collection_uuid,
-            user_id,
-            user_is_all_reader,
         });
 
         // Assert
@@ -161,8 +157,6 @@ mod tests {
         let grants = default_user_grants(DefaultUserGrantsParameters {
             visibility,
             collection_uuid,
-            user_id,
-            user_is_all_reader,
         });
 
         // Assert
@@ -188,8 +182,6 @@ mod tests {
         let grants = default_user_grants(DefaultUserGrantsParameters {
             visibility,
             collection_uuid,
-            user_id,
-            user_is_all_reader,
         });
 
         // Assert

@@ -6,6 +6,7 @@ mod m20231203_180149_grants;
 
 pub struct Migrator;
 pub use m20220101_000001_basic::CollectionDocument;
+pub use m20231203_180149_grants::Grant;
 
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
