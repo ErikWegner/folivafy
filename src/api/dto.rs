@@ -59,6 +59,22 @@ impl Grant {
         }
     }
 
+    pub fn author_grant(user_id: Uuid) -> Self {
+        Self {
+            realm: "author".to_string(),
+            grant_id: user_id,
+            view: true,
+        }
+    }
+
+    pub fn read_collection(collection_id: Uuid) -> Self {
+        Self {
+            realm: "read-collection".to_string(),
+            grant_id: collection_id,
+            view: true,
+        }
+    }
+
     pub fn realm(&self) -> &str {
         self.realm.as_ref()
     }

@@ -6,6 +6,7 @@ pub mod data_service;
 pub(crate) mod db;
 pub mod dto;
 mod get_document;
+mod grants;
 pub mod hooks;
 mod list_collections;
 mod list_documents;

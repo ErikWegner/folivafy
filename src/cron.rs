@@ -188,11 +188,19 @@ async fn check_modifications_and_update(
         crate::api::hooks::DocumentResult::Err(e) => return Err(e),
     }
     let cron_user = dto::User::new(*CRON_USER_ID, CRON_USER_NAME.to_string());
-    save_document_events_mails(txn, &cron_user, document, None, result.events, result.mails)
-        .await
-        .map_err(|e| {
-            error!("Update document error: {:?}", e);
-            ApiErrors::InternalServerError
-        })?;
+    save_document_events_mails(
+        txn,
+        &cron_user,
+        document,
+        None,
+        result.events, // TODO: update grants
+        vec![],
+        result.mails,
+    )
+    .await
+    .map_err(|e| {
+        error!("Update document error: {:?}", e);
+        ApiErrors::InternalServerError
+    })?;
     Ok(())
 }

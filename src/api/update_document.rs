@@ -135,6 +135,8 @@ pub(crate) async fn api_update_document(
                     Some(after_document),
                     None,
                     events,
+                    // TODO: update grants
+                    vec![],
                     mails,
                 )
                 .await

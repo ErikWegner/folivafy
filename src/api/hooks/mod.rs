@@ -59,14 +59,14 @@ impl StoreDocument {
     }
 }
 
-pub enum GrantUpdates {
-    None,
+pub enum GrantSettings {
+    Default,
     Replace(Vec<Grant>),
 }
 
 pub struct HookSuccessResult {
     pub document: DocumentResult,
-    pub grant_updates: GrantUpdates,
+    pub grants: GrantSettings,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
     pub trigger_cron: bool,
@@ -84,7 +84,7 @@ impl HookSuccessResult {
     pub fn empty() -> Self {
         Self {
             document: DocumentResult::NoUpdate,
-            grant_updates: GrantUpdates::None,
+            grants: GrantSettings::Default,
             events: vec![],
             mails: vec![],
             trigger_cron: false,

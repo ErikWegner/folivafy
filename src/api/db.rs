@@ -26,6 +26,7 @@ use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
 use std::result;
 
+use super::dto::Grant;
 use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
@@ -454,6 +455,7 @@ pub(crate) async fn save_document_events_mails(
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
+    grants: Vec<Grant>,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     let mut documents = Vec::with_capacity(1);

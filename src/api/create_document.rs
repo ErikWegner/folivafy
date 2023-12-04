@@ -21,6 +21,8 @@ use crate::api::{
     ApiContext, ApiErrors,
 };
 
+use super::{dto::Grant, grants::default_grants};
+
 #[debug_handler]
 pub(crate) async fn api_create_document(
     State(ctx): State<ApiContext>,
@@ -59,6 +61,7 @@ pub(crate) async fn api_create_document(
     let mut after_document: dto::CollectionDocument = (payload.clone()).into();
     let mut events: Vec<dto::Event> = vec![];
     let mut mails: Vec<dto::MailMessage> = vec![];
+    let mut grants: Vec<Grant> = vec![];
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
@@ -79,7 +82,19 @@ pub(crate) async fn api_create_document(
             crate::api::hooks::DocumentResult::Err(err) => return Err(err),
         }
         events.extend(hook_result.events);
+        grants.extend(match hook_result.grants {
+            crate::api::hooks::GrantSettings::Default => {
+                default_grants(collection.oao, collection_id, user.subuuid())
+            }
+            crate::api::hooks::GrantSettings::Replace(g) => g,
+        });
         mails.extend(hook_result.mails);
+    } else {
+        grants.extend(default_grants(
+            collection.oao,
+            collection_id,
+            user.subuuid(),
+        ));
     };
 
     ctx.db
@@ -93,6 +108,7 @@ pub(crate) async fn api_create_document(
                     Some(after_document),
                     Some(crate::api::db::InsertDocumentData { collection_id }),
                     events,
+                    grants,
                     mails,
                 )
                 .await
