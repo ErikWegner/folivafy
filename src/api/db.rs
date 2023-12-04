@@ -4,6 +4,8 @@ use entity::collection::Model;
 pub(crate) use entity::{DELETED_AT_FIELD, DELETED_BY_FIELD};
 use migration::CollectionDocument;
 use migration::Grant;
+use sea_orm::QuerySelect;
+use sea_orm::RelationTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
@@ -256,15 +258,11 @@ pub(crate) async fn list_documents(
             [title],
         ));
     }
-
-    // TODO: restore code
-    // match params.oao_access {
-    //     CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => {}
-    //     CollectionDocumentVisibility::PrivateAndUserIs(uuid) => {
-    //         basefind = basefind.filter(entity::collection_document::Column::Owner.eq(uuid));
-    //     }
-    //     CollectionDocumentVisibility::PublicAndUserIsReader => {}
-    // }
+    basefind = basefind.join(
+        JoinType::Join,
+        entity::collection_document::Relation::Grant.def(),
+    );
+    basefind = basefind.filter(grants_conditions(&params.user_grants));
 
     basefind = basefind.filter(Expr::cust(format!(
         r#"lower("collection_document"."f"{}) is null"#,
@@ -284,6 +282,7 @@ pub(crate) async fn list_documents(
         &params.exact_title,
         params.sort_fields,
         params.filters,
+        params.user_grants,
     )
     .limit(params.pagination.limit().into())
     .offset(params.pagination.offset().into())
@@ -298,17 +297,20 @@ pub(crate) async fn list_documents(
 
     Ok((total, items))
 }
-fn select_documents_sql(
-    collection: &Uuid,
-    extra_fields: Vec<String>,
-    exact_title: &Option<String>,
-    sort_fields: Option<String>,
-    filters: Vec<FieldFilter>,
-) -> SelectStatement {
-    todo!("deprecated")
+
+fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
+    let mut grant_conditions = Cond::any();
+    for user_grant in user_grants {
+        grant_conditions = grant_conditions.add(
+            Cond::all()
+                .add(Expr::col((Grant::Table, Grant::Realm)).eq(user_grant.realm()))
+                .add(Expr::col((Grant::Table, Grant::Grant)).eq(user_grant.grant_id())),
+        );
+    }
+    grant_conditions
 }
 
-fn select_documents_sql_refactoring(
+fn select_documents_sql(
     collection: &Uuid,
     extra_fields: Vec<String>,
     exact_title: &Option<String>,
@@ -322,10 +324,11 @@ fn select_documents_sql_refactoring(
             SimpleExpr::Tuple(extra_fields.into_iter().map(|s| s.into()).collect()),
         ))
         .to_owned();
+    let documents_alias = Alias::new("d");
     let mut b = Query::select();
     let mut q = b
-        .from_as(Documents, Alias::new("d"))
-        .column(DocumentsColumns::Id)
+        .from_as(Documents, documents_alias.clone())
+        .column((documents_alias.clone(), DocumentsColumns::Id))
         // .order_by_expr(Expr::cust(r#""d"."f"->>'created'"#), Order::Asc)
         .expr_as(Expr::cust(r#""t"."new_f""#), Alias::new("f"))
         .join_lateral(
@@ -337,19 +340,11 @@ fn select_documents_sql_refactoring(
         .join(
             JoinType::Join,
             Grant::Table,
-            Expr::col((CollectionDocument::Table, CollectionDocument::Id))
+            Expr::col((documents_alias, CollectionDocument::Id))
                 .equals((Grant::Table, Grant::DocumentId)),
         )
         .and_where(Expr::col(DocumentsColumns::CollectionId).eq(*collection));
-    let mut grant_conditions = Cond::any();
-    for user_grant in user_grants {
-        grant_conditions = grant_conditions.add(
-            Cond::all()
-                .add(Expr::col((Grant::Table, Grant::Realm)).eq(user_grant.realm()))
-                .add(Expr::col((Grant::Table, Grant::Grant)).eq(user_grant.grant_id())),
-        );
-    }
-    q = q.cond_where(grant_conditions);
+    q = q.cond_where(grants_conditions(&user_grants));
 
     for filter in filters {
         match filter {
@@ -725,7 +720,7 @@ mod tests {
         );
 
         // Act
-        let sql = select_documents_sql_refactoring(
+        let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
             &None,
@@ -768,7 +763,7 @@ mod tests {
         );
 
         // Act
-        let sql = select_documents_sql_refactoring(
+        let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
             &None,
@@ -806,7 +801,7 @@ mod tests {
         );
 
         // Act
-        let sql = select_documents_sql_refactoring(
+        let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
             &None,
