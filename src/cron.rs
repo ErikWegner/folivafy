@@ -58,7 +58,7 @@ async fn cron(
                 ListDocumentParams {
                     collection: collection.id,
                     exact_title: None,
-                    oao_access: crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
+                    user_grants: todo!(),
                     extra_fields: vec!["title".to_string()],
                     sort_fields: None,
                     filters: vec![document_selector.clone().into()],

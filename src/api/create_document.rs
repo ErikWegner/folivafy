@@ -21,7 +21,7 @@ use crate::api::{
     ApiContext, ApiErrors,
 };
 
-use super::{dto::Grant, grants::default_grants};
+use super::{dto::Grant, grants::default_document_grants};
 
 #[debug_handler]
 pub(crate) async fn api_create_document(
@@ -84,13 +84,13 @@ pub(crate) async fn api_create_document(
         events.extend(hook_result.events);
         grants.extend(match hook_result.grants {
             crate::api::hooks::GrantSettings::Default => {
-                default_grants(collection.oao, collection_id, user.subuuid())
+                default_document_grants(collection.oao, collection_id, user.subuuid())
             }
             crate::api::hooks::GrantSettings::Replace(g) => g,
         });
         mails.extend(hook_result.mails);
     } else {
-        grants.extend(default_grants(
+        grants.extend(default_document_grants(
             collection.oao,
             collection_id,
             user.subuuid(),

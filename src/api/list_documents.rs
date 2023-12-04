@@ -26,6 +26,8 @@ use crate::{
     axumext::extractors::ValidatedQueryParams,
 };
 
+use super::grants::default_document_grants;
+
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
     static ref RE_SORT_FIELDS: Regex = Regex::new(
@@ -71,6 +73,9 @@ pub(crate) async fn api_list_document(
         return Err(ApiErrors::PermissionDenied);
     }
 
+    // TODO: allow override
+    let user_grants = default_document_grants(collection.oao, collection.id, user.subuuid());
+
     let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
     let title = "title".to_string();
     if !extra_fields.contains(&title) {
@@ -87,18 +92,6 @@ pub(crate) async fn api_list_document(
         CollectionDocumentVisibility::PublicAndUserIsReader
     };
 
-    // Call hook to set additional filters
-    /*
-       Wenn bestimmte Collection (Abteilungsfilter)
-       - Frage ab, zu welchen Abteilungen der Benutzer gehört
-       - Feld "org_unit" enthält eine der Abteilung
-
-       - oder -
-       - Feld signatur1.id = id des Benutzers
-       - Feld signatur2.id = id des Benutzers
-
-    */
-
     let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
         field_name: DELETED_AT_FIELD.to_string(),
     };
@@ -111,7 +104,7 @@ pub(crate) async fn api_list_document(
         crate::api::db::ListDocumentParams {
             collection: collection.id,
             exact_title: list_params.exact_title,
-            oao_access,
+            user_grants,
             extra_fields,
             sort_fields: list_params.sort_fields,
             filters,

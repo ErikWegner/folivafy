@@ -179,7 +179,7 @@ impl From<CronDocumentSelector> for FieldFilter {
 pub(crate) struct ListDocumentParams {
     pub(crate) collection: Uuid,
     pub(crate) exact_title: Option<String>,
-    pub(crate) oao_access: CollectionDocumentVisibility,
+    pub(crate) user_grants: Vec<Grant>,
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
     pub(crate) filters: Vec<FieldFilter>,
@@ -279,7 +279,6 @@ pub(crate) async fn list_documents(
     let sql = select_documents_sql(
         &params.collection,
         params.extra_fields,
-        &params.oao_access,
         &params.exact_title,
         params.sort_fields,
         params.filters,
@@ -301,7 +300,6 @@ pub(crate) async fn list_documents(
 fn select_documents_sql(
     collection: &Uuid,
     extra_fields: Vec<String>,
-    _oao_access: &CollectionDocumentVisibility,
     exact_title: &Option<String>,
     sort_fields: Option<String>,
     filters: Vec<FieldFilter>,
@@ -699,7 +697,6 @@ mod tests {
         let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
-            &CollectionDocumentVisibility::PrivateAndUserIs(userid),
             &None,
             Some(sort_fields),
             vec![],
@@ -736,7 +733,6 @@ mod tests {
         let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
-            &CollectionDocumentVisibility::PublicAndUserIsReader,
             &None,
             Some(sort_fields),
             filters,
@@ -768,7 +764,6 @@ mod tests {
         let sql = select_documents_sql(
             &collection,
             vec!["title".to_string()],
-            &CollectionDocumentVisibility::PrivateAndUserIs(userid),
             &None,
             Some(sort_fields),
             filters,

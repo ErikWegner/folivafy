@@ -67,6 +67,14 @@ impl Grant {
         }
     }
 
+    pub fn read_all_collection(collection_id: Uuid) -> Self {
+        Self {
+            realm: "read-all-collection".to_string(),
+            grant_id: collection_id,
+            view: true,
+        }
+    }
+
     pub fn read_collection(collection_id: Uuid) -> Self {
         Self {
             realm: "read-collection".to_string(),
