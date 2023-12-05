@@ -4,6 +4,7 @@ use entity::collection::Model;
 pub(crate) use entity::{DELETED_AT_FIELD, DELETED_BY_FIELD};
 use migration::CollectionDocument;
 use migration::Grant;
+use sea_orm::QueryResult;
 use sea_orm::QuerySelect;
 use sea_orm::RelationTrait;
 use sea_orm::{
@@ -11,12 +12,17 @@ use sea_orm::{
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
     Statement,
 };
+use sea_query::query;
 use sea_query::Cond;
+use sea_query::Func;
+use sea_query::Iden;
 use sea_query::{
     Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr, Value,
 };
+use sqlx::postgres::types::Oid;
 use std::ops::Sub;
 use tracing::{debug, error, info};
+use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 use crate::api::auth::User;
@@ -179,20 +185,21 @@ impl From<CronDocumentSelector> for FieldFilter {
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct ListDocumentParams {
+#[derive(Debug, Clone, TypedBuilder)]
+pub(crate) struct DbListDocumentParams {
     pub(crate) collection: Uuid,
     pub(crate) exact_title: Option<String>,
     pub(crate) user_grants: Vec<dto::Grant>,
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
     pub(crate) filters: Vec<FieldFilter>,
+    #[builder(default)]
     pub(crate) pagination: Pagination,
 }
 
 pub(crate) async fn list_documents(
     db: &DatabaseConnection,
-    params: ListDocumentParams,
+    params: &DbListDocumentParams,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
     let mut basefind = Documents::find()
         .filter(entity::collection_document::Column::CollectionId.eq(params.collection))
@@ -269,24 +276,18 @@ pub(crate) async fn list_documents(
         field_path_json(DELETED_AT_FIELD),
     )));
 
-    let total = basefind
-        .clone()
-        .count(db)
-        .await
-        .map_err(ApiErrors::from)
-        .map(|t| u32::try_from(t).unwrap_or_default())?;
+    let count_sql = count_documents_sql(params);
+    let count_stmt = db.get_database_backend().build(&count_sql);
+    let query_res: Option<QueryResult> = db.query_one(count_stmt).await?;
+    let query_res = query_res.unwrap();
+    let total = query_res
+        .try_get_by(0)
+        .map(|count: i64| u32::try_from(count).unwrap_or(std::u32::MAX))?;
 
-    let sql = select_documents_sql(
-        &params.collection,
-        params.extra_fields,
-        &params.exact_title,
-        params.sort_fields,
-        params.filters,
-        params.user_grants,
-    )
-    .limit(params.pagination.limit().into())
-    .offset(params.pagination.offset().into())
-    .to_owned();
+    let sql = select_documents_sql(params)
+        .limit(params.pagination.limit().into())
+        .offset(params.pagination.offset().into())
+        .to_owned();
     let builder = db.get_database_backend();
     let stmt: Statement = builder.build(&sql);
 
@@ -310,43 +311,32 @@ fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
     grant_conditions
 }
 
-fn select_documents_sql(
-    collection: &Uuid,
-    extra_fields: Vec<String>,
-    exact_title: &Option<String>,
-    sort_fields: Option<String>,
-    filters: Vec<FieldFilter>,
-    user_grants: Vec<dto::Grant>,
-) -> SelectStatement {
-    let j: SelectStatement = Query::select()
-        .expr(Expr::cust_with_expr(
-            r#"jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in $1"#,
-            SimpleExpr::Tuple(extra_fields.into_iter().map(|s| s.into()).collect()),
-        ))
-        .to_owned();
+struct SortField(String);
+impl Iden for SortField {
+    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
+        write!(s, "{}", self.0).unwrap();
+    }
+
+    fn prepare(&self, s: &mut dyn std::fmt::Write, q: sea_query::Quote) {
+        self.unquoted(s);
+    }
+}
+
+fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
     let mut q = b
         .from_as(Documents, documents_alias.clone())
-        .column((documents_alias.clone(), DocumentsColumns::Id))
-        // .order_by_expr(Expr::cust(r#""d"."f"->>'created'"#), Order::Asc)
-        .expr_as(Expr::cust(r#""t"."new_f""#), Alias::new("f"))
-        .join_lateral(
-            JoinType::InnerJoin,
-            j,
-            sea_orm::IntoIdentity::into_identity("t"),
-            Condition::all(),
-        )
         .join(
             JoinType::Join,
             Grant::Table,
-            Expr::col((documents_alias, CollectionDocument::Id))
+            Expr::col((documents_alias.clone(), CollectionDocument::Id))
                 .equals((Grant::Table, Grant::DocumentId)),
         )
-        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(*collection));
-    q = q.cond_where(grants_conditions(&user_grants));
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+    q = q.cond_where(grants_conditions(&params.user_grants));
 
-    for filter in filters {
+    for filter in &params.filters {
         match filter {
             FieldFilter::ExactFieldMatch { field_name, value } => {
                 q = q.and_where(Expr::cust_with_values(
@@ -393,15 +383,56 @@ fn select_documents_sql(
         }
     }
 
-    if let Some(title) = exact_title {
+    if let Some(title) = &params.exact_title {
         q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
     }
 
-    let sort_fields = sort_fields_parser(sort_fields);
+    (q.to_owned(), documents_alias)
+}
+
+fn count_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
+    let (mut q, alias) = base_documents_sql(params);
+    q.expr(Func::count(Expr::cust_with_expr(
+        "DISTINCT $1",
+        Expr::col((alias, CollectionDocument::Id)),
+    )))
+    .to_owned()
+}
+
+fn select_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
+    let j: SelectStatement = Query::select()
+        .expr(Expr::cust_with_expr(
+            r#"jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in $1"#,
+            SimpleExpr::Tuple(params.extra_fields.iter().cloned().map(|s| s.into()).collect()),
+        ))
+        .to_owned();
+    let (mut id_select, documents_alias) = base_documents_sql(params);
+    id_select
+        .distinct()
+        .column((documents_alias, DocumentsColumns::Id));
+
+    let documents_alias = Alias::new("d");
+    let mut document_select = Query::select();
+    document_select
+        .column((documents_alias.clone(), CollectionDocument::Id))
+        .from_as(CollectionDocument::Table, documents_alias.clone())
+        .expr_as(Expr::cust(r#""t"."new_f""#), Alias::new("f"))
+        .join_lateral(
+            JoinType::InnerJoin,
+            j,
+            sea_orm::IntoIdentity::into_identity("t"),
+            Condition::all(),
+        )
+        .and_where(
+            Expr::col((documents_alias.clone(), CollectionDocument::Id)).in_subquery(id_select),
+        );
+
+    let sort_fields = sort_fields_parser((params.sort_fields.as_ref()).map(|s| s.clone()));
     for sort_field in sort_fields {
-        q = q.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
+        document_select.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
     }
-    q.to_owned()
+
+    document_select.to_owned()
 }
 
 fn sort_fields_parser(fields: Option<String>) -> Vec<(String, Order)> {
@@ -707,6 +738,102 @@ mod tests {
     }
 
     #[test]
+    fn test_count_documents_query1() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let userid = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let grants = default_user_grants(
+            DefaultUserGrantsParameters::builder()
+                .visibility(CollectionDocumentVisibility::PrivateAndUserIs(userid))
+                .collection_uuid(collection)
+                .build(),
+        );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(vec![])
+            .user_grants(grants)
+            .build();
+
+        // Act
+        let sql = count_documents_sql(&params).to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}')"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_count_documents_query2() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let grants = default_user_grants(
+            DefaultUserGrantsParameters::builder()
+                .visibility(CollectionDocumentVisibility::PublicAndUserIsReader)
+                .collection_uuid(collection)
+                .build(),
+        );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(vec![])
+            .user_grants(grants)
+            .build();
+
+        // Act
+        let sql = count_documents_sql(&params).to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}')"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_count_documents_query3() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let grants = default_user_grants(
+            DefaultUserGrantsParameters::builder()
+                .visibility(CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments)
+                .collection_uuid(collection)
+                .build(),
+        );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(vec![])
+            .user_grants(grants)
+            .build();
+
+        // Act
+        let sql = count_documents_sql(&params).to_string(PostgresQueryBuilder);
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-all-collection' AND "grant"."grant" = '{collection}')"#
+            )
+        );
+    }
+
+    #[test]
     fn test_select_documents_sql_basic_query() {
         // Arrange
         let collection = Uuid::new_v4();
@@ -718,23 +845,23 @@ mod tests {
                 .collection_uuid(collection)
                 .build(),
         );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(vec![])
+            .user_grants(grants)
+            .build();
 
         // Act
-        let sql = select_documents_sql(
-            &collection,
-            vec!["title".to_string()],
-            &None,
-            Some(sort_fields),
-            vec![],
-            grants,
-        )
-        .to_string(PostgresQueryBuilder);
+        let sql = select_documents_sql(&params).to_string(PostgresQueryBuilder);
 
         // Assert
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE JOIN "grant" ON "collection_document"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}')) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -743,7 +870,6 @@ mod tests {
     fn test_select_documents_sql_query2() {
         // Arrange
         let collection = Uuid::new_v4();
-        let _userid = Uuid::new_v4();
         let sort_fields = "created+".to_string();
         let filters = vec![
             FieldFilter::ExactFieldMatch {
@@ -761,23 +887,23 @@ mod tests {
                 .collection_uuid(collection)
                 .build(),
         );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(filters)
+            .user_grants(grants)
+            .build();
 
         // Act
-        let sql = select_documents_sql(
-            &collection,
-            vec!["title".to_string()],
-            &None,
-            Some(sort_fields),
-            filters,
-            grants,
-        )
-        .to_string(PostgresQueryBuilder);
+        let sql = select_documents_sql(&params).to_string(PostgresQueryBuilder);
 
         // Assert
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE JOIN "grant" ON "collection_document"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->'wf1'->>'seq') IN ('1', '2') ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->'wf1'->>'seq') IN ('1', '2')) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -799,23 +925,23 @@ mod tests {
                 .collection_uuid(collection)
                 .build(),
         );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(filters)
+            .user_grants(grants)
+            .build();
 
         // Act
-        let sql = select_documents_sql(
-            &collection,
-            vec!["title".to_string()],
-            &None,
-            Some(sort_fields),
-            filters,
-            grants,
-        )
-        .to_string(PostgresQueryBuilder);
+        let sql = select_documents_sql(&params).to_string(PostgresQueryBuilder);
 
         // Assert
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE JOIN "grant" ON "collection_document"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101') ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }

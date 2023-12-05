@@ -26,7 +26,10 @@ use crate::{
     axumext::extractors::ValidatedQueryParams,
 };
 
-use super::grants::default_document_grants;
+use super::{
+    db::DbListDocumentParams,
+    grants::{default_document_grants, default_user_grants, DefaultUserGrantsParameters},
+};
 
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
@@ -73,9 +76,6 @@ pub(crate) async fn api_list_document(
         return Err(ApiErrors::PermissionDenied);
     }
 
-    // TODO: allow override
-    let user_grants = default_document_grants(collection.oao, collection.id, user.subuuid());
-
     let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
     let title = "title".to_string();
     if !extra_fields.contains(&title) {
@@ -91,6 +91,13 @@ pub(crate) async fn api_list_document(
     } else {
         CollectionDocumentVisibility::PublicAndUserIsReader
     };
+    // TODO: allow override
+    let user_grants = default_user_grants(
+        DefaultUserGrantsParameters::builder()
+            .collection_uuid(collection.id)
+            .visibility(oao_access)
+            .build(),
+    );
 
     let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
         field_name: DELETED_AT_FIELD.to_string(),
@@ -99,20 +106,19 @@ pub(crate) async fn api_list_document(
     let mut filters = vec![exclude_deleted_documents_filter];
     filters.append(&mut request_filters);
 
-    let (total, items) = list_documents(
-        &ctx.db,
-        crate::api::db::ListDocumentParams {
-            collection: collection.id,
-            exact_title: list_params.exact_title,
-            user_grants,
-            extra_fields,
-            sort_fields: list_params.sort_fields,
-            filters,
-            pagination: pagination.clone(),
-        },
-    )
-    .await
-    .map_err(ApiErrors::from)?;
+    let db_params = DbListDocumentParams::builder()
+        .collection(collection.id)
+        .exact_title(list_params.exact_title)
+        .user_grants(user_grants)
+        .extra_fields(extra_fields)
+        .sort_fields(list_params.sort_fields)
+        .filters(filters)
+        .pagination(pagination.clone())
+        .build();
+
+    let (total, items) = list_documents(&ctx.db, &db_params)
+        .await
+        .map_err(ApiErrors::from)?;
 
     let items = items
         .into_iter()

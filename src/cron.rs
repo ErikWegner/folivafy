@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     api::{
         data_service::FolivafyDataService,
-        db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
+        db::{get_collection_by_name, save_document_events_mails, DbListDocumentParams},
         dto,
         hooks::{HookCronContext, HookSuccessResult, Hooks},
         select_document_for_update,
@@ -53,20 +53,18 @@ async fn cron(
         let collection = get_collection_by_name(&db, collection_name).await;
         if let Some(collection) = collection {
             let mut counter = cron_limit;
-            let (total, mut items) = crate::api::db::list_documents(
-                &db,
-                ListDocumentParams {
-                    collection: collection.id,
-                    exact_title: None,
-                    user_grants: todo!(),
-                    extra_fields: vec!["title".to_string()],
-                    sort_fields: None,
-                    filters: vec![document_selector.clone().into()],
-                    pagination: pagination.clone(),
-                },
-            )
-            .await
-            .unwrap_or_default();
+            let dbparams = DbListDocumentParams::builder()
+                .collection(collection.id)
+                .exact_title(None)
+                .user_grants(todo!())
+                .extra_fields(vec!["title".to_string()])
+                .sort_fields(None)
+                .filters(vec![document_selector.clone().into()])
+                .pagination(pagination.clone())
+                .build();
+            let (total, mut items) = crate::api::db::list_documents(&db, &dbparams)
+                .await
+                .unwrap_or_default();
             items.reverse();
             info!("{job_name} found {total} documents, processing up to {cron_limit}");
             loop {
