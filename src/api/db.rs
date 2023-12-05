@@ -6,20 +6,15 @@ use migration::CollectionDocument;
 use migration::Grant;
 use sea_orm::QueryResult;
 use sea_orm::QuerySelect;
-use sea_orm::RelationTrait;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
     Statement,
 };
-use sea_query::query;
 use sea_query::Cond;
 use sea_query::Func;
 use sea_query::Iden;
-use sea_query::{
-    Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr, Value,
-};
-use sqlx::postgres::types::Oid;
+use sea_query::{Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr};
 use std::ops::Sub;
 use tracing::{debug, error, info};
 use typed_builder::TypedBuilder;
@@ -201,81 +196,6 @@ pub(crate) async fn list_documents(
     db: &DatabaseConnection,
     params: &DbListDocumentParams,
 ) -> Result<(u32, Vec<JsonValue>), ApiErrors> {
-    let mut basefind = Documents::find()
-        .filter(entity::collection_document::Column::CollectionId.eq(params.collection))
-        .filter(Expr::cust(format!(
-            r#""collection_document"."f"{} is null"#,
-            field_path_json(DELETED_AT_FIELD),
-        )));
-
-    for filter in &params.filters {
-        match filter {
-            FieldFilter::ExactFieldMatch { field_name, value } => {
-                basefind = basefind.filter(Expr::cust_with_values(
-                    format!(
-                        r#""collection_document"."f"{}=$1"#,
-                        field_path_json(field_name),
-                    ),
-                    vec![value],
-                ));
-            }
-            FieldFilter::FieldContains { field_name, value } => {
-                basefind = basefind.filter(Expr::cust_with_values(
-                    format!(
-                        r#"lower("collection_document"."f"{}) like $1"#,
-                        field_path_json(field_name),
-                    ),
-                    vec![format!("%{}%", value.to_lowercase())],
-                ))
-            }
-            FieldFilter::FieldStartsWith { field_name, value } => {
-                basefind = basefind.filter(Expr::cust_with_values(
-                    format!(
-                        r#"lower("collection_document"."f"{}) like $1"#,
-                        field_path_json(field_name),
-                    ),
-                    vec![format!("{}%", value.to_lowercase())],
-                ))
-            }
-            FieldFilter::FieldValueInMatch {
-                field_name: _,
-                values: _,
-            } => {}
-            FieldFilter::DateFieldLessThan { field_name, value } => {
-                basefind = basefind.filter(Expr::cust_with_values(
-                    format!(
-                        r#"("collection_document"."f"{})::timestamp < $1"#,
-                        field_path_json(field_name),
-                    ),
-                    vec![Value::ChronoDateTimeUtc(Some(Box::new(*value)))],
-                ))
-            }
-            FieldFilter::FieldIsNull { field_name } => {
-                basefind = basefind.filter(Expr::cust(format!(
-                    r#""collection_document"."f"{} is null"#,
-                    field_path_json(field_name),
-                )))
-            }
-        }
-    }
-
-    if let Some(ref title) = params.exact_title {
-        basefind = basefind.filter(sea_query::Expr::cust_with_values(
-            r#""f"->>'title' = $1"#,
-            [title],
-        ));
-    }
-    basefind = basefind.join(
-        JoinType::Join,
-        entity::collection_document::Relation::Grant.def(),
-    );
-    basefind = basefind.filter(grants_conditions(&params.user_grants));
-
-    basefind = basefind.filter(Expr::cust(format!(
-        r#"lower("collection_document"."f"{}) is null"#,
-        field_path_json(DELETED_AT_FIELD),
-    )));
-
     let count_sql = count_documents_sql(params);
     let count_stmt = db.get_database_backend().build(&count_sql);
     let query_res: Option<QueryResult> = db.query_one(count_stmt).await?;
@@ -382,6 +302,11 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
             }
         }
     }
+
+    q = q.and_where(Expr::cust(format!(
+        r#""d"."f"{} is null"#,
+        field_path_json(DELETED_AT_FIELD),
+    )));
 
     if let Some(title) = &params.exact_title {
         q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
@@ -501,7 +426,7 @@ pub(crate) async fn save_document_events_mails(
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
-    grants: Vec<dto::Grant>,
+    grants: Vec<dto::GrantForDocument>,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     let mut documents = Vec::with_capacity(1);
@@ -516,7 +441,7 @@ pub(crate) async fn save_document_events_mails(
             None => StoreDocument::Update { document },
         });
     };
-    save_documents_events_mails(txn, user, documents, events, mails).await
+    save_documents_events_mails(txn, user, documents, events, grants, mails).await
 }
 
 pub(crate) async fn save_documents_events_mails(
@@ -524,6 +449,7 @@ pub(crate) async fn save_documents_events_mails(
     user: &dto::User,
     documents: Vec<StoreDocument>,
     events: Vec<Event>,
+    grants: Vec<dto::GrantForDocument>,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     let mut document_created_events = Vec::with_capacity(documents.len());
@@ -578,6 +504,36 @@ pub(crate) async fn save_documents_events_mails(
     }
 
     let all_events: Vec<dto::Event> = document_created_events.into_iter().chain(events).collect();
+
+    debug!("Try to update {} grant(s)", grants.len());
+    let mut related_grants = Vec::new();
+    grants.iter().for_each(|g| {
+        let document_id = g.document_id();
+        if !related_grants.contains(&document_id) {
+            related_grants.push(document_id);
+        }
+    });
+    debug!("Removing grants for documents {:?}", related_grants);
+    entity::grant::Entity::delete_many()
+        .filter(entity::grant::Column::DocumentId.is_in(related_grants))
+        .exec(txn)
+        .await?;
+    for grant_for_document in grants {
+        let document_id = grant_for_document.document_id();
+        let grant = grant_for_document.grant();
+        let dbgrant = entity::grant::ActiveModel {
+            id: NotSet,
+            document_id: Set(document_id),
+            realm: Set(grant.realm().into()),
+            grant: Set(grant.grant_id()),
+            view: Set(grant.view()),
+        };
+        let res = dbgrant
+            .save(txn)
+            .await
+            .with_context(|| format!("Saving grant {:?}", grant_for_document))?;
+        debug!("Grant {:?} saved ({})", grant_for_document, res.id.unwrap());
+    }
 
     debug!("Try to create {} event(s)", all_events.len());
     for event in all_events {

@@ -106,6 +106,26 @@ impl From<&entity::grant::Model> for Grant {
     }
 }
 
+#[derive(Debug)]
+pub struct GrantForDocument {
+    grant: Grant,
+    document_id: Uuid,
+}
+
+impl GrantForDocument {
+    pub fn new(grant: Grant, document_id: Uuid) -> Self {
+        Self { grant, document_id }
+    }
+
+    pub fn grant(&self) -> &Grant {
+        &self.grant
+    }
+
+    pub fn document_id(&self) -> Uuid {
+        self.document_id
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CollectionDocument {
     id: Uuid,

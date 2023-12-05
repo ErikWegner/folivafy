@@ -97,12 +97,20 @@ pub(crate) async fn api_create_event(
                 }
 
                 let dtouser = dto::User::read_from(&user);
-                save_documents_events_mails(txn, &dtouser, result.documents, events, mails)
-                    .await
-                    .map_err(|e| {
-                        error!("Error while creating event: {:?}", e);
-                        ApiErrors::InternalServerError
-                    })?;
+                save_documents_events_mails(
+                    txn,
+                    &dtouser,
+                    result.documents,
+                    events,
+                    // TODO
+                    vec![],
+                    mails,
+                )
+                .await
+                .map_err(|e| {
+                    error!("Error while creating event: {:?}", e);
+                    ApiErrors::InternalServerError
+                })?;
 
                 Ok((StatusCode::CREATED, "Done".to_string()))
             })

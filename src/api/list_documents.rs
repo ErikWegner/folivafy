@@ -28,7 +28,7 @@ use crate::{
 
 use super::{
     db::DbListDocumentParams,
-    grants::{default_document_grants, default_user_grants, DefaultUserGrantsParameters},
+    grants::{default_user_grants, DefaultUserGrantsParameters},
 };
 
 lazy_static! {

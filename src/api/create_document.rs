@@ -16,7 +16,7 @@ use validator::Validate;
 use crate::api::{
     auth,
     db::{get_collection_by_name, save_document_events_mails},
-    dto,
+    dto::{self, GrantForDocument},
     hooks::{HookCreateContext, RequestContext},
     ApiContext, ApiErrors,
 };
@@ -108,7 +108,10 @@ pub(crate) async fn api_create_document(
                     Some(after_document),
                     Some(crate::api::db::InsertDocumentData { collection_id }),
                     events,
-                    grants,
+                    grants
+                        .into_iter()
+                        .map(|g| GrantForDocument::new(g, document_id))
+                        .collect(),
                     mails,
                 )
                 .await
