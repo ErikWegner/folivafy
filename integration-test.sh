@@ -262,7 +262,7 @@ fi
 
 echo "- Can list shapes with additional fields"
 authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
-RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?extraFields=price)
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?sort=title-\&extraFields=price)
 if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
@@ -345,7 +345,7 @@ then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t, .g' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Triangle 3 Hexagon 6 Rectangle  Circle " ]
+if [ "$FIELDS" != "Triangle 3 Hexagon 6 Circle  Rectangle " ]
 then
       echo -e "${RED}Failure:${NC} list of documents with sort fields failed!\n$FIELDS\n$RESP"
 fi
@@ -359,7 +359,7 @@ then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t, .g' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Rectangle  Circle  Hexagon 6 Triangle 3" ]
+if [ "$FIELDS" != "Circle  Rectangle  Hexagon 6 Triangle 3" ]
 then
       echo -e "${RED}Failure:${NC} list of documents with sort fields failed!\n$FIELDS\n$RESP"
 fi
@@ -373,7 +373,7 @@ then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Rectangle Circle" ]
+if [ "$FIELDS" != "Circle Rectangle" ]
 then
       echo -e "${RED}Failure:${NC} list of documents containing a filter value!\n$FIELDS\n$RESP"
 fi
@@ -414,7 +414,7 @@ then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '.items[].f.title' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Rectangle Circle Triangle Hexagon d12" ]
+if [ "$FIELDS" != "Circle Triangle Hexagon d12 Rectangle" ]
 then
       echo -e "${RED}Failure:${NC} list of documents is missing d12!\n$FIELDS\n$RESP"
 fi
@@ -497,7 +497,7 @@ then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '.items[].f.title' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Rectangle Circle Triangle Hexagon" ]
+if [ "$FIELDS" != "Circle Triangle Hexagon Rectangle" ]
 then
       echo -e "${RED}Failure:${NC} list of documents after removing d12!\n$FIELDS\n$RESP"
 fi
