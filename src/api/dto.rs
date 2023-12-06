@@ -96,6 +96,12 @@ impl Grant {
     }
 }
 
+impl PartialEq<&entity::grant::Model> for &Grant {
+    fn eq(&self, other: &&entity::grant::Model) -> bool {
+        self.realm == other.realm && self.grant_id == other.grant && self.view == other.view
+    }
+}
+
 impl From<&entity::grant::Model> for Grant {
     fn from(value: &entity::grant::Model) -> Self {
         Self {

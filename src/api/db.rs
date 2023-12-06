@@ -4,6 +4,7 @@ use entity::collection::Model;
 pub(crate) use entity::{DELETED_AT_FIELD, DELETED_BY_FIELD};
 use migration::CollectionDocument;
 use migration::Grant;
+use sea_orm::ModelTrait;
 use sea_orm::QueryResult;
 use sea_orm::QuerySelect;
 use sea_orm::{
@@ -20,7 +21,6 @@ use tracing::{debug, error, info};
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use crate::api::auth::User;
 use crate::api::{
     create_document::create_document_event,
     dto::{self, Event, MailMessage},
@@ -905,33 +905,47 @@ mod tests {
 
 pub(crate) async fn get_accessible_document(
     ctx: &ApiContext,
-    _user: &User,
-    uuid: Uuid,
+    user_grants: &Vec<dto::Grant>,
+    user_id: Uuid,
     collection: &Model,
+    document_uuid: Uuid,
 ) -> result::Result<Option<entity::collection_document::Model>, ApiErrors> {
-    Ok(Documents::find_by_id(uuid)
+    let doc = Documents::find_by_id(document_uuid)
         .one(&ctx.db)
         .await?
-        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc))
-        // TODO: restore code
-        // .and_then(|doc| {
-        //     if collection.oao && doc.owner != user.subuuid() {
-        //         None
-        //     } else {
-        //         Some(doc)
-        //     }
-        // })
-        .and_then(|doc| {
-            let f = doc.f.get(DELETED_AT_FIELD);
-            if let Some(v) = f {
-                if !v.is_null() {
-                    if let Some(s) = v.as_str() {
-                        if !s.is_empty() {
-                            return None;
-                        }
-                    }
-                }
-            }
-            Some(doc)
-        }))
+        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc));
+    if doc.is_none() {
+        debug!("Document ({document_uuid}) not found",);
+        return Ok(None);
+    }
+    let doc = doc.unwrap();
+
+    // Load referenced document grants:
+    let document_grants = doc
+        .find_related(entity::grant::Entity)
+        .all(&ctx.db)
+        .await
+        .map_err(|e| {
+            error!("Error loading document ({document_uuid}) grants: {}", e);
+            ApiErrors::InternalServerError
+        })?;
+
+    // Compare user grants with document grants
+    let intersection = user_grants.iter().any(|user_grant| {
+        document_grants
+            .iter()
+            .any(|document_grant| user_grant == document_grant)
+    });
+    if !intersection {
+        info!("User {user_id} does not have access to document ({document_uuid})",);
+        return Ok(None);
+    }
+
+    // Do not provide document if it has been deleted
+    if doc.is_deleted() {
+        debug!("Document ({document_uuid}) is deleted",);
+        return Ok(None);
+    }
+
+    Ok(Some(doc))
 }

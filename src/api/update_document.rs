@@ -14,11 +14,16 @@ use validator::Validate;
 
 use crate::api::{
     auth,
-    db::{get_accessible_document, get_collection_by_name, save_document_events_mails},
+    db::{
+        get_accessible_document, get_collection_by_name, save_document_events_mails,
+        CollectionDocumentVisibility,
+    },
     dto,
     hooks::{HookUpdateContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
+
+use super::grants::{default_user_grants, DefaultUserGrantsParameters};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
@@ -31,7 +36,7 @@ pub(crate) async fn api_update_document(
     payload.validate().map_err(ApiErrors::from)?;
 
     let document_id = payload.id.to_string();
-    let uuid = Uuid::parse_str(&document_id)
+    let document_uuid = Uuid::parse_str(&document_id)
         .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
@@ -55,7 +60,31 @@ pub(crate) async fn api_update_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
-    let document = get_accessible_document(&ctx, &user, uuid, &collection).await?;
+    let oao_access = if collection.oao {
+        if user.can_access_all_documents(&collection_name) {
+            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
+        } else {
+            CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
+        }
+    } else {
+        CollectionDocumentVisibility::PublicAndUserIsReader
+    };
+    // TODO: allow override
+    let user_grants = default_user_grants(
+        DefaultUserGrantsParameters::builder()
+            .collection_uuid(collection.id)
+            .visibility(oao_access)
+            .build(),
+    );
+
+    let document = get_accessible_document(
+        &ctx,
+        &user_grants,
+        user.subuuid(),
+        &collection,
+        document_uuid,
+    )
+    .await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(
@@ -68,7 +97,7 @@ pub(crate) async fn api_update_document(
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
-                let document = select_document_for_update(uuid, txn)
+                let document = select_document_for_update(document_uuid, txn)
                     .await?
                     .and_then(|doc| {
                         if collection.oao && doc.owner != user.subuuid() {
@@ -78,7 +107,7 @@ pub(crate) async fn api_update_document(
                         }
                     });
                 if document.is_none() {
-                    debug!("Document {} not found", uuid);
+                    debug!("Document {} not found", document_uuid);
                     return Err(ApiErrors::PermissionDenied);
                 }
                 let document = document.unwrap();
@@ -117,7 +146,7 @@ pub(crate) async fn api_update_document(
                 events.insert(
                     0,
                     dto::Event::new(
-                        uuid,
+                        document_uuid,
                         crate::api::CATEGORY_DOCUMENT_UPDATES,
                         json!({
                             "user": {
