@@ -1,3 +1,4 @@
+pub mod grants;
 pub mod staged_delete;
 
 use std::{
@@ -354,6 +355,7 @@ pub struct Hooks {
             HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
         >,
     >,
+    grant_hooks: Arc<RwLock<HashMap<String, Arc<dyn grants::GrantHook + Send + Sync>>>>,
 }
 
 impl Hooks {
@@ -363,6 +365,7 @@ impl Hooks {
             update_hooks: Arc::new(RwLock::new(HashMap::new())),
             event_hooks: Arc::new(RwLock::new(HashMap::new())),
             cron_default_interval_hooks: Arc::new(RwLock::new(HashMap::new())),
+            grant_hooks: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
