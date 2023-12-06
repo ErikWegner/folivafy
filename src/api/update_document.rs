@@ -16,9 +16,10 @@ use crate::api::{
     auth,
     db::{
         get_accessible_document, get_collection_by_name, save_document_events_mails,
-        CollectionDocumentVisibility,
+        CollectionDocumentVisibility, DbGrantUpdate,
     },
-    dto,
+    dto::{self, GrantForDocument},
+    grants::default_document_grants,
     hooks::{HookUpdateContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
@@ -106,6 +107,7 @@ pub(crate) async fn api_update_document(
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];
                 let mut mails: Vec<dto::MailMessage> = vec![];
+                let mut dbgrants: DbGrantUpdate = DbGrantUpdate::Keep;
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
                     dto::UserWithRoles::read_from(&user),
@@ -131,6 +133,18 @@ pub(crate) async fn api_update_document(
                     }
                     events.extend(hook_result.events);
                     mails.extend(hook_result.mails);
+                    dbgrants = match hook_result.grants {
+                        crate::api::hooks::GrantSettings::Default => DbGrantUpdate::Replace(
+                            default_document_grants(collection.oao, collection.id, user.subuuid())
+                                .into_iter()
+                                .map(|g| GrantForDocument::new(g, document.id))
+                                .collect(),
+                        ),
+                        crate::api::hooks::GrantSettings::Replace(grants) => {
+                            DbGrantUpdate::Replace(grants)
+                        }
+                        crate::api::hooks::GrantSettings::NoChange => DbGrantUpdate::Keep,
+                    }
                 }
 
                 events.insert(
@@ -154,8 +168,7 @@ pub(crate) async fn api_update_document(
                     Some(after_document),
                     None,
                     events,
-                    // TODO: update grants
-                    vec![],
+                    dbgrants,
                     mails,
                 )
                 .await

@@ -12,8 +12,10 @@ use uuid::Uuid;
 use crate::{
     api::{
         data_service::FolivafyDataService,
-        db::{get_collection_by_name, save_document_events_mails, DbListDocumentParams},
-        dto,
+        db::{
+            get_collection_by_name, save_document_events_mails, DbGrantUpdate, DbListDocumentParams,
+        },
+        dto::{self, GrantForDocument},
         hooks::{HookCronContext, HookSuccessResult, Hooks},
         select_document_for_update,
         types::Pagination,
@@ -185,14 +187,22 @@ async fn check_modifications_and_update(
         crate::api::hooks::DocumentResult::NoUpdate => {}
         crate::api::hooks::DocumentResult::Err(e) => return Err(e),
     }
+    let dbgrants = match result.grants {
+        crate::api::hooks::GrantSettings::Default => {
+            error!("GrantSettings::Default is not supported during cron task");
+            return Err(ApiErrors::InternalServerError);
+        }
+        crate::api::hooks::GrantSettings::NoChange => DbGrantUpdate::Keep,
+        crate::api::hooks::GrantSettings::Replace(grants) => DbGrantUpdate::Replace(grants),
+    };
     let cron_user = dto::User::new(*CRON_USER_ID, CRON_USER_NAME.to_string());
     save_document_events_mails(
         txn,
         &cron_user,
         document,
         None,
-        result.events, // TODO: update grants
-        vec![],
+        result.events,
+        dbgrants,
         result.mails,
     )
     .await

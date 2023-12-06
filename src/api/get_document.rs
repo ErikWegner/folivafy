@@ -12,16 +12,11 @@ use tracing::warn;
 
 use crate::api::{
     auth::User,
-    db::{get_accessible_document, get_collection_by_name, CollectionDocumentVisibility},
-    dto,
-    grants::{default_user_grants, DefaultUserGrantsParameters},
+    db::{get_accessible_document, get_collection_by_name},
     ApiContext, ApiErrors,
 };
 
-use super::{
-    grants::{hook_or_default_user_grants, GrantCollection},
-    hooks::grants::HookUserGrantContext,
-};
+use super::grants::{hook_or_default_user_grants, GrantCollection};
 
 #[debug_handler]
 pub(crate) async fn api_read_document(

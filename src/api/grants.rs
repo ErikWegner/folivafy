@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use super::{
     auth::User,
-    data_service::{self, DataService},
+    data_service::DataService,
     db::CollectionDocumentVisibility,
     dto::{self, Grant},
     hooks::{grants::HookUserGrantContext, Hooks},

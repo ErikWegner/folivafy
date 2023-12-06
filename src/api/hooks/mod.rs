@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
-use super::dto::{Grant, UserWithRoles};
+use super::dto::{Grant, GrantForDocument, UserWithRoles};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -62,7 +62,14 @@ impl StoreDocument {
 
 pub enum GrantSettings {
     Default,
-    Replace(Vec<Grant>),
+    NoChange,
+    Replace(Vec<GrantForDocument>),
+}
+
+#[derive(Debug)]
+pub enum GrantSettingsOnEvents {
+    NoChange,
+    Replace(Vec<GrantForDocument>),
 }
 
 pub struct HookSuccessResult {
@@ -78,6 +85,7 @@ pub struct MultiDocumentsSuccessResult {
     pub documents: Vec<StoreDocument>,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
+    pub grants: GrantSettingsOnEvents,
     pub trigger_cron: bool,
 }
 

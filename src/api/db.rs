@@ -32,6 +32,7 @@ use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
 use std::result;
 
+use super::hooks::GrantSettingsOnEvents;
 use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
@@ -420,13 +421,27 @@ pub(crate) struct InsertDocumentData {
     pub(crate) collection_id: Uuid,
 }
 
+pub(crate) enum DbGrantUpdate {
+    Keep,
+    Replace(Vec<dto::GrantForDocument>),
+}
+
+impl From<GrantSettingsOnEvents> for DbGrantUpdate {
+    fn from(value: GrantSettingsOnEvents) -> Self {
+        match value {
+            GrantSettingsOnEvents::NoChange => Self::Keep,
+            GrantSettingsOnEvents::Replace(grants) => Self::Replace(grants),
+        }
+    }
+}
+
 pub(crate) async fn save_document_events_mails(
     txn: &DatabaseTransaction,
     user: &dto::User,
     document: Option<dto::CollectionDocument>,
     insert: Option<InsertDocumentData>,
     events: Vec<Event>,
-    grants: Vec<dto::GrantForDocument>,
+    grants: DbGrantUpdate,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     let mut documents = Vec::with_capacity(1);
@@ -449,7 +464,7 @@ pub(crate) async fn save_documents_events_mails(
     user: &dto::User,
     documents: Vec<StoreDocument>,
     events: Vec<Event>,
-    grants: Vec<dto::GrantForDocument>,
+    grants: DbGrantUpdate,
     mails: Vec<MailMessage>,
 ) -> anyhow::Result<()> {
     let mut document_created_events = Vec::with_capacity(documents.len());
@@ -505,34 +520,39 @@ pub(crate) async fn save_documents_events_mails(
 
     let all_events: Vec<dto::Event> = document_created_events.into_iter().chain(events).collect();
 
-    debug!("Try to update {} grant(s)", grants.len());
-    let mut related_grants = Vec::new();
-    grants.iter().for_each(|g| {
-        let document_id = g.document_id();
-        if !related_grants.contains(&document_id) {
-            related_grants.push(document_id);
+    match grants {
+        DbGrantUpdate::Keep => debug!("No grants changed"),
+        DbGrantUpdate::Replace(grants) => {
+            debug!("Try to update {} grant(s)", grants.len());
+            let mut related_grants = Vec::new();
+            grants.iter().for_each(|g| {
+                let document_id = g.document_id();
+                if !related_grants.contains(&document_id) {
+                    related_grants.push(document_id);
+                }
+            });
+            debug!("Removing grants for documents {:?}", related_grants);
+            entity::grant::Entity::delete_many()
+                .filter(entity::grant::Column::DocumentId.is_in(related_grants))
+                .exec(txn)
+                .await?;
+            for grant_for_document in grants {
+                let document_id = grant_for_document.document_id();
+                let grant = grant_for_document.grant();
+                let dbgrant = entity::grant::ActiveModel {
+                    id: NotSet,
+                    document_id: Set(document_id),
+                    realm: Set(grant.realm().into()),
+                    grant: Set(grant.grant_id()),
+                    view: Set(grant.view()),
+                };
+                let res = dbgrant
+                    .save(txn)
+                    .await
+                    .with_context(|| format!("Saving grant {:?}", grant_for_document))?;
+                debug!("Grant {:?} saved ({})", grant_for_document, res.id.unwrap());
+            }
         }
-    });
-    debug!("Removing grants for documents {:?}", related_grants);
-    entity::grant::Entity::delete_many()
-        .filter(entity::grant::Column::DocumentId.is_in(related_grants))
-        .exec(txn)
-        .await?;
-    for grant_for_document in grants {
-        let document_id = grant_for_document.document_id();
-        let grant = grant_for_document.grant();
-        let dbgrant = entity::grant::ActiveModel {
-            id: NotSet,
-            document_id: Set(document_id),
-            realm: Set(grant.realm().into()),
-            grant: Set(grant.grant_id()),
-            view: Set(grant.view()),
-        };
-        let res = dbgrant
-            .save(txn)
-            .await
-            .with_context(|| format!("Saving grant {:?}", grant_for_document))?;
-        debug!("Grant {:?} saved ({})", grant_for_document, res.id.unwrap());
     }
 
     debug!("Try to create {} event(s)", all_events.len());

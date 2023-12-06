@@ -78,6 +78,7 @@ impl EventCreatingHook for StagedDelete {
             events: vec![context.event().clone()],
             mails: vec![],
             trigger_cron: false,
+            grants: crate::api::hooks::GrantSettingsOnEvents::NoChange,
         })
     }
 

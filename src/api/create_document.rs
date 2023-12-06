@@ -21,7 +21,7 @@ use crate::api::{
     ApiContext, ApiErrors,
 };
 
-use super::{dto::Grant, grants::default_document_grants};
+use super::grants::default_document_grants;
 
 #[debug_handler]
 pub(crate) async fn api_create_document(
@@ -59,9 +59,10 @@ pub(crate) async fn api_create_document(
     let collection_id = collection.id;
     let hook_processor = ctx.hooks.get_create_hook(&collection.name);
     let mut after_document: dto::CollectionDocument = (payload.clone()).into();
+    let document_id = *after_document.id();
     let mut events: Vec<dto::Event> = vec![];
     let mut mails: Vec<dto::MailMessage> = vec![];
-    let mut grants: Vec<Grant> = vec![];
+    let mut grants: Vec<GrantForDocument> = vec![];
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
@@ -85,22 +86,29 @@ pub(crate) async fn api_create_document(
         grants.extend(match hook_result.grants {
             crate::api::hooks::GrantSettings::Default => {
                 default_document_grants(collection.oao, collection_id, user.subuuid())
+                    .into_iter()
+                    .map(|g| GrantForDocument::new(g, document_id))
+                    .collect()
             }
             crate::api::hooks::GrantSettings::Replace(g) => g,
+            crate::api::hooks::GrantSettings::NoChange => {
+                error!("Hook did not provide grants");
+                return Err(ApiErrors::InternalServerError);
+            }
         });
         mails.extend(hook_result.mails);
     } else {
-        grants.extend(default_document_grants(
-            collection.oao,
-            collection_id,
-            user.subuuid(),
-        ));
+        grants.extend(
+            default_document_grants(collection.oao, collection_id, user.subuuid())
+                .into_iter()
+                .map(|g| GrantForDocument::new(g, document_id))
+                .collect::<Vec<_>>(),
+        );
     };
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
-                let document_id = *after_document.id();
                 let dtouser = dto::User::read_from(&user);
                 save_document_events_mails(
                     txn,
@@ -108,10 +116,7 @@ pub(crate) async fn api_create_document(
                     Some(after_document),
                     Some(crate::api::db::InsertDocumentData { collection_id }),
                     events,
-                    grants
-                        .into_iter()
-                        .map(|g| GrantForDocument::new(g, document_id))
-                        .collect(),
+                    crate::api::db::DbGrantUpdate::Replace(grants),
                     mails,
                 )
                 .await
