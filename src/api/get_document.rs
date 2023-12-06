@@ -13,8 +13,14 @@ use tracing::warn;
 use crate::api::{
     auth::User,
     db::{get_accessible_document, get_collection_by_name, CollectionDocumentVisibility},
+    dto,
     grants::{default_user_grants, DefaultUserGrantsParameters},
     ApiContext, ApiErrors,
+};
+
+use super::{
+    grants::{hook_or_default_user_grants, GrantCollection},
+    hooks::grants::HookUserGrantContext,
 };
 
 #[debug_handler]
@@ -37,22 +43,11 @@ pub(crate) async fn api_read_document(
     }
 
     let collection = collection.unwrap();
-    let oao_access = if collection.oao {
-        if user.can_access_all_documents(&collection_name) {
-            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
-        } else {
-            CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
-        }
-    } else {
-        CollectionDocumentVisibility::PublicAndUserIsReader
-    };
-    // TODO: allow override
-    let user_grants = default_user_grants(
-        DefaultUserGrantsParameters::builder()
-            .collection_uuid(collection.id)
-            .visibility(oao_access)
-            .build(),
-    );
+
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
 
     let document = get_accessible_document(
         &ctx,

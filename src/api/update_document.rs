@@ -23,7 +23,9 @@ use crate::api::{
     select_document_for_update, ApiContext, ApiErrors,
 };
 
-use super::grants::{default_user_grants, DefaultUserGrantsParameters};
+use super::grants::{
+    default_user_grants, hook_or_default_user_grants, DefaultUserGrantsParameters, GrantCollection,
+};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
@@ -60,22 +62,10 @@ pub(crate) async fn api_update_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
-    let oao_access = if collection.oao {
-        if user.can_access_all_documents(&collection_name) {
-            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
-        } else {
-            CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
-        }
-    } else {
-        CollectionDocumentVisibility::PublicAndUserIsReader
-    };
-    // TODO: allow override
-    let user_grants = default_user_grants(
-        DefaultUserGrantsParameters::builder()
-            .collection_uuid(collection.id)
-            .visibility(oao_access)
-            .build(),
-    );
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
 
     let document = get_accessible_document(
         &ctx,

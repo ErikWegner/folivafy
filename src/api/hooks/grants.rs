@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use crate::api::{data_service::DataService, dto};
+use crate::api::{data_service::DataService, dto, ApiErrors};
 
-use super::HookResult;
+pub type HookResult = Result<Vec<dto::Grant>, ApiErrors>;
 
 pub struct HookUserGrantContext {
     user: dto::UserWithRoles,

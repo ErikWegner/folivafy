@@ -355,7 +355,7 @@ pub struct Hooks {
             HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
         >,
     >,
-    grant_hooks: Arc<RwLock<HashMap<String, Arc<dyn grants::GrantHook + Send + Sync>>>>,
+    grant_hooks: Arc<RwLock<HashMap<HookCollection, Arc<dyn grants::GrantHook + Send + Sync>>>>,
 }
 
 impl Hooks {
@@ -472,6 +472,27 @@ impl Hooks {
             .iter()
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
+    }
+
+    pub fn put_grant_hook(
+        &self,
+        collection_name: String,
+        hook: Arc<dyn grants::GrantHook + Send + Sync>,
+    ) {
+        let mut map = self.grant_hooks.write().unwrap();
+        map.insert(HookCollection { collection_name }, hook);
+    }
+
+    pub fn get_grant_hook(
+        &self,
+        collection_name: &str,
+    ) -> Option<Arc<dyn grants::GrantHook + Send + Sync>> {
+        let key = HookCollection {
+            collection_name: collection_name.to_string(),
+        };
+        let map = self.grant_hooks.read().unwrap();
+        let value = map.get(&key);
+        value.cloned()
     }
 }
 

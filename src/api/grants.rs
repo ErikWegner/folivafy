@@ -1,7 +1,14 @@
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
-use super::{db::CollectionDocumentVisibility, dto::Grant};
+use super::{
+    auth::User,
+    data_service::{self, DataService},
+    db::CollectionDocumentVisibility,
+    dto::{self, Grant},
+    hooks::{grants::HookUserGrantContext, Hooks},
+    ApiErrors,
+};
 
 pub(crate) fn default_document_grants(
     collection_oao: bool,
@@ -36,6 +43,52 @@ pub(crate) fn default_user_grants(params: DefaultUserGrantsParameters) -> Vec<Gr
             vec![Grant::read_collection(params.collection_uuid)]
         }
     }
+}
+
+pub(crate) struct GrantCollection {
+    name: String,
+    id: Uuid,
+    oao: bool,
+}
+
+impl From<&entity::collection::Model> for GrantCollection {
+    fn from(model: &entity::collection::Model) -> Self {
+        Self {
+            name: model.name.clone(),
+            id: model.id,
+            oao: model.oao,
+        }
+    }
+}
+
+pub(crate) async fn hook_or_default_user_grants(
+    hooks: &Hooks,
+    collection: &GrantCollection,
+    user: &User,
+    data_service: std::sync::Arc<dyn DataService>,
+) -> Result<Vec<Grant>, ApiErrors> {
+    let hook = hooks.get_grant_hook(&collection.name);
+    let user_grants = if let Some(h) = hook {
+        let context = HookUserGrantContext::new(dto::UserWithRoles::read_from(&user), data_service);
+        h.user_grants(&context).await?
+    } else {
+        let oao_access = if collection.oao {
+            if user.can_access_all_documents(&collection.name) {
+                CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
+            } else {
+                CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
+            }
+        } else {
+            CollectionDocumentVisibility::PublicAndUserIsReader
+        };
+        default_user_grants(
+            DefaultUserGrantsParameters::builder()
+                .collection_uuid(collection.id)
+                .visibility(oao_access)
+                .build(),
+        )
+    };
+    Ok(user_grants)
 }
 
 #[cfg(test)]
