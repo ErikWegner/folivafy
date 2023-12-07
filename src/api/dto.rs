@@ -8,6 +8,7 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::cron::CRON_USER_ID;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Collection {
@@ -73,6 +74,18 @@ impl Grant {
             grant_id: collection_id,
             view: true,
         }
+    }
+
+    pub fn cron_access() -> Self {
+        Self {
+            realm: "cron-access".to_string(),
+            grant_id: *CRON_USER_ID,
+            view: true,
+        }
+    }
+
+    pub fn is_cron_access(&self) -> bool {
+        self.realm == "cron-access" && self.grant_id == *CRON_USER_ID
     }
 
     pub fn read_collection(collection_id: Uuid) -> Self {
@@ -474,5 +487,16 @@ impl UserWithRoles {
     /// Check if the user has the specified role
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cron_access() {
+        let cron_grant = Grant::cron_access();
+        assert!(cron_grant.is_cron_access());
     }
 }

@@ -23,6 +23,8 @@ use crate::{
     },
     BackgroundTask,
 };
+use crate::api::db::list_documents;
+use crate::api::dto::Grant;
 
 lazy_static! {
     pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
@@ -39,7 +41,7 @@ struct CronResult {
 async fn cron(
     db: sea_orm::DatabaseConnection,
     hooks: &Hooks,
-    data_service: Arc<crate::api::data_service::FolivafyDataService>,
+    data_service: Arc<FolivafyDataService>,
 ) -> CronResult {
     debug!("Running cron tasks");
     let mut trigger_cron = false;
@@ -58,13 +60,13 @@ async fn cron(
             let dbparams = DbListDocumentParams::builder()
                 .collection(collection.id)
                 .exact_title(None)
-                .user_grants(todo!())
+                .user_grants(vec![Grant::cron_access()])
                 .extra_fields(vec!["title".to_string()])
                 .sort_fields(None)
                 .filters(vec![document_selector.clone().into()])
                 .pagination(pagination.clone())
                 .build();
-            let (total, mut items) = crate::api::db::list_documents(&db, &dbparams)
+            let (total, mut items) = list_documents(&db, &dbparams)
                 .await
                 .unwrap_or_default();
             items.reverse();

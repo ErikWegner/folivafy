@@ -247,15 +247,19 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
     let mut q = b
-        .from_as(Documents, documents_alias.clone())
-        .join(
+        .from_as(Documents, documents_alias.clone());
+    if params.user_grants.len() == 1 && params.user_grants[0].is_cron_access() {
+        debug!("No grant restrictions for cron access");
+    } else {
+        q.join(
             JoinType::Join,
             Grant::Table,
             Expr::col((documents_alias.clone(), CollectionDocument::Id))
                 .equals((Grant::Table, Grant::DocumentId)),
         )
-        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
-    q = q.cond_where(grants_conditions(&params.user_grants));
+            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+        q = q.cond_where(grants_conditions(&params.user_grants));
+    }
 
     for filter in &params.filters {
         match filter {
