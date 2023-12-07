@@ -64,6 +64,7 @@ pub(crate) async fn api_create_event(
 
     let request_context1 = Arc::new(RequestContext::new(
         &collection.name,
+        collection.id,
         dto::UserWithRoles::read_from(&user),
     ));
     let request_context2 = request_context1.clone();

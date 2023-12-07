@@ -9,13 +9,15 @@ use tokio::sync::{
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+use crate::api::db::list_documents;
+use crate::api::dto::Grant;
 use crate::{
     api::{
         data_service::FolivafyDataService,
         db::{
             get_collection_by_name, save_document_events_mails, DbGrantUpdate, DbListDocumentParams,
         },
-        dto::{self, GrantForDocument},
+        dto,
         hooks::{HookCronContext, HookSuccessResult, Hooks},
         select_document_for_update,
         types::Pagination,
@@ -23,8 +25,6 @@ use crate::{
     },
     BackgroundTask,
 };
-use crate::api::db::list_documents;
-use crate::api::dto::Grant;
 
 lazy_static! {
     pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
@@ -66,9 +66,7 @@ async fn cron(
                 .filters(vec![document_selector.clone().into()])
                 .pagination(pagination.clone())
                 .build();
-            let (total, mut items) = list_documents(&db, &dbparams)
-                .await
-                .unwrap_or_default();
+            let (total, mut items) = list_documents(&db, &dbparams).await.unwrap_or_default();
             items.reverse();
             info!("{job_name} found {total} documents, processing up to {cron_limit}");
             loop {

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
-use super::dto::{Grant, GrantForDocument, UserWithRoles};
+use super::dto::{GrantForDocument, UserWithRoles};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -514,13 +514,15 @@ impl Default for Hooks {
 pub struct RequestContext {
     #[allow(dead_code)]
     collection_name: String,
+    collection_id: Uuid,
     user: UserWithRoles,
 }
 
 impl RequestContext {
-    pub fn new(collection_name: &str, user: UserWithRoles) -> Self {
+    pub fn new(collection_name: &str, collection_id: Uuid, user: UserWithRoles) -> Self {
         Self {
             collection_name: collection_name.to_string(),
+            collection_id,
             user,
         }
     }
@@ -528,6 +530,10 @@ impl RequestContext {
     #[allow(dead_code)]
     fn collection_name(&self) -> &str {
         self.collection_name.as_ref()
+    }
+
+    pub fn collection_id(&self) -> Uuid {
+        self.collection_id
     }
 
     pub fn user_id(&self) -> Uuid {

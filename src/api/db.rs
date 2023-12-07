@@ -6,11 +6,9 @@ use migration::CollectionDocument;
 use migration::Grant;
 use sea_orm::ModelTrait;
 use sea_orm::QueryResult;
-use sea_orm::QuerySelect;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
-    DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, PaginatorTrait, QueryFilter, Set,
-    Statement,
+    DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, QueryFilter, Set, Statement,
 };
 use sea_query::Cond;
 use sea_query::Func;
@@ -238,7 +236,7 @@ impl Iden for SortField {
         write!(s, "{}", self.0).unwrap();
     }
 
-    fn prepare(&self, s: &mut dyn std::fmt::Write, q: sea_query::Quote) {
+    fn prepare(&self, s: &mut dyn std::fmt::Write, _q: sea_query::Quote) {
         self.unquoted(s);
     }
 }
@@ -246,8 +244,7 @@ impl Iden for SortField {
 fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
-    let mut q = b
-        .from_as(Documents, documents_alias.clone());
+    let mut q = b.from_as(Documents, documents_alias.clone());
     if params.user_grants.len() == 1 && params.user_grants[0].is_cron_access() {
         debug!("No grant restrictions for cron access");
     } else {
@@ -257,7 +254,7 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
             Expr::col((documents_alias.clone(), CollectionDocument::Id))
                 .equals((Grant::Table, Grant::DocumentId)),
         )
-            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
         q = q.cond_where(grants_conditions(&params.user_grants));
     }
 

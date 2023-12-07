@@ -15,8 +15,7 @@ use validator::Validate;
 use crate::api::{
     auth,
     db::{
-        get_accessible_document, get_collection_by_name, save_document_events_mails,
-        CollectionDocumentVisibility, DbGrantUpdate,
+        get_accessible_document, get_collection_by_name, save_document_events_mails, DbGrantUpdate,
     },
     dto::{self, GrantForDocument},
     grants::default_document_grants,
@@ -24,9 +23,7 @@ use crate::api::{
     select_document_for_update, ApiContext, ApiErrors,
 };
 
-use super::grants::{
-    default_user_grants, hook_or_default_user_grants, DefaultUserGrantsParameters, GrantCollection,
-};
+use super::grants::{hook_or_default_user_grants, GrantCollection};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
@@ -110,6 +107,7 @@ pub(crate) async fn api_update_document(
                 let mut dbgrants: DbGrantUpdate = DbGrantUpdate::Keep;
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
+                    collection.id,
                     dto::UserWithRoles::read_from(&user),
                 ));
                 if let Some(ref hook_processor) = hook_processor {

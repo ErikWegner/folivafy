@@ -66,6 +66,7 @@ pub(crate) async fn api_create_document(
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
+            collection_id,
             dto::UserWithRoles::read_from(&user),
         ));
 
