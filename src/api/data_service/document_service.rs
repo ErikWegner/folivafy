@@ -1,8 +1,16 @@
-use sea_orm::{DatabaseConnection, EntityTrait};
+use std::str::FromStr;
+
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult};
+use sea_query::{Alias, Expr, Query};
+use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
-use crate::api::{db::get_collection_by_name, dto};
-use entity::collection_document::Entity as Documents;
+use crate::api::{
+    db::get_collection_by_name,
+    dto::{self, CollectionDocument},
+    ApiErrors,
+};
+use entity::collection_document::{Column as DocumentsColumns, Entity as Documents};
 
 pub(crate) struct DocumentService {}
 
@@ -40,5 +48,38 @@ impl DocumentService {
         crate::api::db::get_collection_by_name(db, collection_name)
             .await
             .map(|m| (&m).into())
+    }
+
+    pub(crate) async fn get_collection_documents(
+        &self,
+        db: &DatabaseConnection,
+        collection_name: &str,
+    ) -> anyhow::Result<Vec<dto::CollectionDocument>> {
+        let collection = crate::api::db::get_collection_by_name(db, collection_name).await;
+
+        let collection = collection.unwrap();
+
+        let documents_alias = Alias::new("d");
+        let mut b = Query::select();
+        let q = b
+            .from_as(Documents, documents_alias.clone())
+            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.id));
+        let sql = q.to_owned();
+        let builder = db.get_database_backend();
+        let stmt = builder.build(&sql);
+
+        let items = JsonValue::find_by_statement(stmt)
+            .all(db)
+            .await
+            .map_err(ApiErrors::from)?
+            .into_iter()
+            .map(|i| {
+                CollectionDocument::new(
+                    Uuid::from_str(i["id"].as_str().unwrap()).unwrap(),
+                    i["f"].clone(),
+                )
+            })
+            .collect();
+        Ok(items)
     }
 }

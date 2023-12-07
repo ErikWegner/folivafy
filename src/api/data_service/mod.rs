@@ -36,6 +36,10 @@ pub trait DataService: Sync + Send {
         document_id: Uuid,
     ) -> Option<dto::CollectionDocument>;
     async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection>;
+    async fn get_collection_documents(
+        &self,
+        collection_name: &str,
+    ) -> anyhow::Result<Vec<dto::CollectionDocument>>;
 }
 
 pub(crate) struct FolivafyDataService {
@@ -81,6 +85,15 @@ impl DataService for FolivafyDataService {
     async fn get_collection_by_name(&self, collection_name: &str) -> Option<dto::Collection> {
         self.document_service
             .get_collection_by_name(&self.db, collection_name)
+            .await
+    }
+
+    async fn get_collection_documents(
+        &self,
+        collection_name: &str,
+    ) -> anyhow::Result<Vec<dto::CollectionDocument>> {
+        self.document_service
+            .get_collection_documents(&self.db, collection_name)
             .await
     }
 }

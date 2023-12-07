@@ -70,16 +70,6 @@ pub(crate) enum CollectionDocumentVisibility {
     PublicAndUserIsReader,
 }
 
-impl CollectionDocumentVisibility {
-    pub(crate) fn get_userid_for_sql_clause(&self) -> Option<Uuid> {
-        match self {
-            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments => None,
-            CollectionDocumentVisibility::PrivateAndUserIs(userid) => Some(*userid),
-            CollectionDocumentVisibility::PublicAndUserIsReader => None,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(crate) enum FieldFilter {
     ExactFieldMatch {

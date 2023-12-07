@@ -13,6 +13,14 @@ impl HookUserGrantContext {
     pub fn new(user: dto::UserWithRoles, data_service: std::sync::Arc<dyn DataService>) -> Self {
         Self { user, data_service }
     }
+
+    pub fn user(&self) -> &dto::UserWithRoles {
+        &self.user
+    }
+
+    pub fn data_service(&self) -> &dyn DataService {
+        self.data_service.as_ref()
+    }
 }
 
 pub struct HookDocumentGrantContext {
