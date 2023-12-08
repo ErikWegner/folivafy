@@ -84,7 +84,7 @@ pub(crate) async fn hook_or_default_user_grants(
 ) -> Result<Vec<Grant>, ApiErrors> {
     let hook = hooks.get_grant_hook(&collection.name);
     let user_grants = if let Some(h) = hook {
-        let context = HookUserGrantContext::new(dto::UserWithRoles::read_from(&user), data_service);
+        let context = HookUserGrantContext::new(dto::UserWithRoles::read_from(user), data_service);
         h.user_grants(&context).await?
     } else {
         let oao_access = if collection.oao {
@@ -208,8 +208,8 @@ mod tests {
         // Arrange
         let visibility = CollectionDocumentVisibility::PublicAndUserIsReader;
         let collection_uuid = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
-        let user_is_all_reader = true;
+        let _user_id = Uuid::new_v4();
+        let _user_is_all_reader = true;
 
         // Act
         let grants = default_user_grants(DefaultUserGrantsParameters {
@@ -234,7 +234,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let visibility = CollectionDocumentVisibility::PrivateAndUserIs(user_id);
         let collection_uuid = Uuid::new_v4();
-        let user_is_all_reader = false;
+        let _user_is_all_reader = false;
 
         // Act
         let grants = default_user_grants(DefaultUserGrantsParameters {
@@ -256,10 +256,10 @@ mod tests {
     #[test]
     fn it_provides_user_grants_with_read_all_permission_for_oao_collection() {
         // Arrange
-        let user_id = Uuid::new_v4();
+        let _user_id = Uuid::new_v4();
         let visibility = CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments;
         let collection_uuid = Uuid::new_v4();
-        let user_is_all_reader = true;
+        let _user_is_all_reader = true;
 
         // Act
         let grants = default_user_grants(DefaultUserGrantsParameters {

@@ -266,19 +266,19 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
         match filter {
             FieldFilter::ExactFieldMatch { field_name, value } => {
                 q = q.and_where(Expr::cust_with_values(
-                    format!(r#""d"."f"{}=$1"#, field_path_json(&field_name),),
+                    format!(r#""d"."f"{}=$1"#, field_path_json(field_name),),
                     vec![value],
                 ));
             }
             FieldFilter::FieldContains { field_name, value } => {
                 q = q.and_where(Expr::cust_with_values(
-                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(&field_name),),
+                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(field_name),),
                     vec![format!("%{}%", value.to_lowercase())],
                 ))
             }
             FieldFilter::FieldStartsWith { field_name, value } => {
                 q = q.and_where(Expr::cust_with_values(
-                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(&field_name),),
+                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(field_name),),
                     vec![format!("{}%", value.to_lowercase())],
                 ))
             }
@@ -286,14 +286,14 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
                 q = q.and_where(
                     Expr::expr(Expr::cust(format!(
                         r#""d"."f"{}"#,
-                        field_path_json(&field_name),
+                        field_path_json(field_name),
                     )))
                     .is_in(values),
                 );
             }
             FieldFilter::DateFieldLessThan { field_name, value } => {
                 q = q.and_where(Expr::cust_with_values(
-                    format!(r#""d"."f"{} < $1"#, field_path_json(&field_name),),
+                    format!(r#""d"."f"{} < $1"#, field_path_json(field_name),),
                     vec![format!("{}%", value)],
                 ))
             }
@@ -301,7 +301,7 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
                 q = q.and_where(
                     Expr::expr(Expr::cust(format!(
                         r#""d"."f"{}"#,
-                        field_path_json(&field_name),
+                        field_path_json(field_name),
                     )))
                     .is_null(),
                 );
@@ -358,7 +358,7 @@ fn select_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
             Expr::col((documents_alias.clone(), CollectionDocument::Id)).in_subquery(id_select),
         );
 
-    let sort_fields = sort_fields_parser(params.sort_fields.as_ref().map(|s| s.clone()));
+    let sort_fields = sort_fields_parser(params.sort_fields.as_ref().cloned());
     for sort_field in sort_fields {
         document_select.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
     }
@@ -645,7 +645,7 @@ pub(crate) async fn get_document_by_id_in_trx(
 
 pub(crate) async fn get_accessible_document(
     ctx: &ApiContext,
-    user_grants: &Vec<dto::Grant>,
+    user_grants: &[dto::Grant],
     user_id: Uuid,
     collection: &Model,
     document_uuid: Uuid,
