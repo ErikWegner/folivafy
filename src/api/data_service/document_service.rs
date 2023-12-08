@@ -1,15 +1,7 @@
-use std::str::FromStr;
-
-use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter};
-use sea_query::{Alias, Expr, Query};
-use serde_json::Value as JsonValue;
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
-use crate::api::{
-    db::get_collection_by_name,
-    dto::{self, CollectionDocument},
-    ApiErrors,
-};
+use crate::api::{db::get_collection_by_name, dto};
 use entity::collection_document::{Column as DocumentsColumns, Entity as Documents};
 use tracing::debug;
 
@@ -60,19 +52,10 @@ impl DocumentService {
 
         let collection = collection.unwrap();
 
-        let documents_alias = Alias::new("d");
-        let mut b = Query::select();
-        let q = b
-            .from_as(Documents, documents_alias.clone())
-            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(collection.id));
-        let sql = q.to_owned();
-        let builder = db.get_database_backend();
-        let stmt = builder.build(&sql);
-
         let items = Documents::find()
             .filter(DocumentsColumns::CollectionId.eq(collection.id))
             .all(db)
-        .await?;
+            .await?;
         debug!("Found {} documents", items.len());
         Ok(items.into_iter().map(|item| (&item).into()).collect())
     }

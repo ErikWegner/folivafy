@@ -10,6 +10,7 @@ mod grants;
 pub mod hooks;
 mod list_collections;
 mod list_documents;
+mod maintenance;
 pub(crate) mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;
@@ -55,6 +56,7 @@ use self::{
     hooks::Hooks,
     list_collections::api_list_collections,
     list_documents::api_list_document,
+    maintenance::api_rebuild_grants,
     update_document::api_update_document,
 };
 
@@ -257,6 +259,10 @@ async fn api_routes(
                 get(api_read_document),
             )
             .route("/events", post(api_create_event))
+            .route(
+                "/maintenance/:collection_name/rebuild-grants",
+                post(api_rebuild_grants::api_rebuild_grants),
+            )
             .with_state(ApiContext {
                 db,
                 hooks,

@@ -243,6 +243,19 @@ paths:
           description: Creating the collection failed
       tags:
         - event
+  /maintenance/{collection}/rebuild-grants:
+    post:
+      description: Rebuild grants for a collection
+      operationId: rebuildGrants
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: 201 OK
 components:
   parameters:
     CollectionNameParam:

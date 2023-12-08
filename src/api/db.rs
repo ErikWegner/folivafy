@@ -4,12 +4,12 @@ use entity::collection::Model;
 pub(crate) use entity::{DELETED_AT_FIELD, DELETED_BY_FIELD};
 use migration::CollectionDocument;
 use migration::Grant;
-use sea_orm::ModelTrait;
 use sea_orm::QueryResult;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, ConnectionTrait, DatabaseConnection,
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, QueryFilter, Set, Statement,
 };
+use sea_orm::{DbErr, ModelTrait, QuerySelect};
 use sea_query::Cond;
 use sea_query::Func;
 use sea_query::Iden;
@@ -191,7 +191,7 @@ pub(crate) async fn list_documents(
     let query_res = query_res.unwrap();
     let total = query_res
         .try_get_by(0)
-        .map(|count: i64| u32::try_from(count).unwrap_or(std::u32::MAX))?;
+        .map(|count: i64| u32::try_from(count).unwrap_or(u32::MAX))?;
 
     let sql = select_documents_sql(params)
         .limit(params.pagination.limit().into())
@@ -208,6 +208,20 @@ pub(crate) async fn list_documents(
     Ok((total, items))
 }
 
+pub(crate) async fn list_document_ids(
+    db: &DatabaseTransaction,
+    collection_id: Uuid,
+) -> Result<Vec<Uuid>, ApiErrors> {
+    let items = Documents::find()
+        .select_only()
+        .column(DocumentsColumns::Id)
+        .filter(DocumentsColumns::CollectionId.eq(collection_id))
+        .all(db)
+        .await?;
+    debug!("Found {} documents", items.len());
+    Ok(items.into_iter().map(|item| (item.id)).collect())
+}
+
 fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
     let mut grant_conditions = Cond::any();
     for user_grant in user_grants {
@@ -222,12 +236,12 @@ fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
 
 struct SortField(String);
 impl Iden for SortField {
-    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
-        write!(s, "{}", self.0).unwrap();
-    }
-
     fn prepare(&self, s: &mut dyn std::fmt::Write, _q: sea_query::Quote) {
         self.unquoted(s);
+    }
+
+    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
+        write!(s, "{}", self.0).unwrap();
     }
 }
 
@@ -344,7 +358,7 @@ fn select_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
             Expr::col((documents_alias.clone(), CollectionDocument::Id)).in_subquery(id_select),
         );
 
-    let sort_fields = sort_fields_parser((params.sort_fields.as_ref()).map(|s| s.clone()));
+    let sort_fields = sort_fields_parser(params.sort_fields.as_ref().map(|s| s.clone()));
     for sort_field in sort_fields {
         document_select.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
     }
@@ -577,6 +591,102 @@ pub(crate) async fn save_documents_events_mails(
         .context("Saving new document")?;
     }
     Ok(())
+}
+
+pub(crate) async fn replace_grants(
+    txn: &DatabaseTransaction,
+    grants: Vec<dto::GrantForDocument>,
+) -> Result<()> {
+    debug!("Try to update {} grant(s)", grants.len());
+    let mut related_grants = Vec::new();
+    grants.iter().for_each(|g| {
+        let document_id = g.document_id();
+        if !related_grants.contains(&document_id) {
+            related_grants.push(document_id);
+        }
+    });
+    debug!("Removing grants for documents {:?}", related_grants);
+    entity::grant::Entity::delete_many()
+        .filter(entity::grant::Column::DocumentId.is_in(related_grants))
+        .exec(txn)
+        .await?;
+    for grant_for_document in grants {
+        let document_id = grant_for_document.document_id();
+        let grant = grant_for_document.grant();
+        let dbgrant = entity::grant::ActiveModel {
+            id: NotSet,
+            document_id: Set(document_id),
+            realm: Set(grant.realm().into()),
+            grant: Set(grant.grant_id()),
+            view: Set(grant.view()),
+        };
+        let res = dbgrant
+            .save(txn)
+            .await
+            .with_context(|| format!("Saving grant {:?}", grant_for_document))?;
+        debug!("Grant {:?} saved ({})", grant_for_document, res.id.unwrap());
+    }
+
+    Ok(())
+}
+
+pub(crate) async fn get_document_by_id(
+    document_uuid: Uuid,
+    db: &DatabaseConnection,
+) -> core::result::Result<Option<entity::collection_document::Model>, DbErr> {
+    Documents::find_by_id(document_uuid).one(db).await
+}
+pub(crate) async fn get_document_by_id_in_trx(
+    document_uuid: Uuid,
+    db: &DatabaseTransaction,
+) -> core::result::Result<Option<entity::collection_document::Model>, DbErr> {
+    Documents::find_by_id(document_uuid).one(db).await
+}
+
+pub(crate) async fn get_accessible_document(
+    ctx: &ApiContext,
+    user_grants: &Vec<dto::Grant>,
+    user_id: Uuid,
+    collection: &Model,
+    document_uuid: Uuid,
+) -> result::Result<Option<entity::collection_document::Model>, ApiErrors> {
+    let doc = get_document_by_id(document_uuid, &ctx.db)
+        .await?
+        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc));
+    if doc.is_none() {
+        debug!("Document ({document_uuid}) not found",);
+        return Ok(None);
+    }
+    let doc = doc.unwrap();
+
+    // Load referenced document grants:
+    let document_grants = doc
+        .find_related(entity::grant::Entity)
+        .all(&ctx.db)
+        .await
+        .map_err(|e| {
+            error!("Error loading document ({document_uuid}) grants: {}", e);
+            ApiErrors::InternalServerError
+        })?;
+
+    // Compare user grants with document grants
+    let intersection = user_grants.iter().any(|user_grant| {
+        document_grants
+            .iter()
+            .any(|document_grant| user_grant == document_grant)
+    });
+    if !intersection {
+        info!("User {user_id} does not have access to document ({document_uuid})",);
+        return Ok(None);
+    }
+
+    // Do not provide document if it has been deleted
+    if doc.is_deleted() {
+        debug!("Document ({document_uuid}) is deleted",);
+        return Ok(None);
+    }
+
+    Ok(Some(doc))
 }
 
 #[cfg(test)]
@@ -912,51 +1022,4 @@ mod tests {
             )
         );
     }
-}
-
-pub(crate) async fn get_accessible_document(
-    ctx: &ApiContext,
-    user_grants: &Vec<dto::Grant>,
-    user_id: Uuid,
-    collection: &Model,
-    document_uuid: Uuid,
-) -> result::Result<Option<entity::collection_document::Model>, ApiErrors> {
-    let doc = Documents::find_by_id(document_uuid)
-        .one(&ctx.db)
-        .await?
-        .and_then(|doc| (doc.collection_id == collection.id).then_some(doc));
-    if doc.is_none() {
-        debug!("Document ({document_uuid}) not found",);
-        return Ok(None);
-    }
-    let doc = doc.unwrap();
-
-    // Load referenced document grants:
-    let document_grants = doc
-        .find_related(entity::grant::Entity)
-        .all(&ctx.db)
-        .await
-        .map_err(|e| {
-            error!("Error loading document ({document_uuid}) grants: {}", e);
-            ApiErrors::InternalServerError
-        })?;
-
-    // Compare user grants with document grants
-    let intersection = user_grants.iter().any(|user_grant| {
-        document_grants
-            .iter()
-            .any(|document_grant| user_grant == document_grant)
-    });
-    if !intersection {
-        info!("User {user_id} does not have access to document ({document_uuid})",);
-        return Ok(None);
-    }
-
-    // Do not provide document if it has been deleted
-    if doc.is_deleted() {
-        debug!("Document ({document_uuid}) is deleted",);
-        return Ok(None);
-    }
-
-    Ok(Some(doc))
 }

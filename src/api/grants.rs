@@ -1,5 +1,6 @@
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
+use crate::api::hooks::grants::HookDocumentGrantContext;
 
 use super::{
     auth::User,
@@ -45,7 +46,7 @@ pub(crate) fn default_user_grants(params: DefaultUserGrantsParameters) -> Vec<Gr
     }
 }
 
-pub(crate) struct GrantCollection {
+pub struct GrantCollection {
     name: String,
     id: Uuid,
     oao: bool,
@@ -89,6 +90,23 @@ pub(crate) async fn hook_or_default_user_grants(
         )
     };
     Ok(user_grants)
+}
+
+pub(crate) async fn hook_or_default_document_grants(
+    hooks: &Hooks,
+    collection: GrantCollection,
+    document: dto::CollectionDocument,
+    data_service: std::sync::Arc<dyn DataService>,
+    author_id: Uuid,
+) -> Result<Vec<Grant>, ApiErrors> {
+    let hook = hooks.get_grant_hook(&collection.name);
+    let document_grants = if let Some(h) = hook {
+        let context = HookDocumentGrantContext::new(collection, document, data_service);
+        h.document_grants(&context).await?
+    } else {
+        default_document_grants(collection.oao, collection.id, author_id)
+    };
+    Ok(document_grants)
 }
 
 #[cfg(test)]

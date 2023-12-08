@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use crate::api::grants::GrantCollection;
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
 pub type HookResult = Result<Vec<dto::Grant>, ApiErrors>;
@@ -24,14 +25,14 @@ impl HookUserGrantContext {
 }
 
 pub struct HookDocumentGrantContext {
-    collection: dto::Collection,
+    collection: GrantCollection,
     document: dto::CollectionDocument,
     data_service: std::sync::Arc<dyn DataService>,
 }
 
 impl HookDocumentGrantContext {
     pub fn new(
-        collection: dto::Collection,
+        collection: GrantCollection,
         document: dto::CollectionDocument,
         data_service: std::sync::Arc<dyn DataService>,
     ) -> Self {
@@ -40,6 +41,18 @@ impl HookDocumentGrantContext {
             document,
             data_service,
         }
+    }
+
+    pub fn collection(&self) -> &GrantCollection {
+        &self.collection
+    }
+
+    pub fn document(&self) -> &dto::CollectionDocument {
+        &self.document
+    }
+
+    pub fn data_service(&self) -> &dyn DataService {
+        self.data_service.as_ref()
     }
 }
 

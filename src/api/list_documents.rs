@@ -19,7 +19,7 @@ use validator::Validate;
 use crate::{
     api::{
         auth::User,
-        db::{get_collection_by_name, list_documents, CollectionDocumentVisibility, FieldFilter},
+        db::{get_collection_by_name, list_documents, FieldFilter},
         types::Pagination,
         ApiContext, ApiErrors,
     },
@@ -29,7 +29,7 @@ use crate::api::grants::{GrantCollection, hook_or_default_user_grants};
 
 use super::{
     db::DbListDocumentParams,
-    grants::{default_user_grants, DefaultUserGrantsParameters},
+
 };
 
 lazy_static! {
@@ -82,16 +82,6 @@ pub(crate) async fn api_list_document(
     if !extra_fields.contains(&title) {
         extra_fields.push(title);
     }
-
-    let oao_access = if collection.oao {
-        if user.can_access_all_documents(&collection_name) {
-            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
-        } else {
-            CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
-        }
-    } else {
-        CollectionDocumentVisibility::PublicAndUserIsReader
-    };
 
     let dto_collection: GrantCollection = (&collection).into();
     let user_grants = hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
