@@ -1,6 +1,6 @@
+use crate::api::hooks::grants::HookDocumentGrantContext;
 use typed_builder::TypedBuilder;
 use uuid::Uuid;
-use crate::api::hooks::grants::HookDocumentGrantContext;
 
 use super::{
     auth::User,
@@ -52,6 +52,20 @@ pub struct GrantCollection {
     oao: bool,
 }
 
+impl GrantCollection {
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn oao(&self) -> bool {
+        self.oao
+    }
+}
+
 impl From<&entity::collection::Model> for GrantCollection {
     fn from(model: &entity::collection::Model) -> Self {
         Self {
@@ -101,7 +115,7 @@ pub(crate) async fn hook_or_default_document_grants(
 ) -> Result<Vec<Grant>, ApiErrors> {
     let hook = hooks.get_grant_hook(&collection.name);
     let document_grants = if let Some(h) = hook {
-        let context = HookDocumentGrantContext::new(collection, document, data_service);
+        let context = HookDocumentGrantContext::new(collection, document, author_id, data_service);
         h.document_grants(&context).await?
     } else {
         default_document_grants(collection.oao, collection.id, author_id)
@@ -171,8 +185,6 @@ mod tests {
         // Arrange
         let visibility = CollectionDocumentVisibility::PublicAndUserIsReader;
         let collection_uuid = Uuid::new_v4();
-        let user_id = Uuid::new_v4();
-        let user_is_all_reader = false;
 
         // Act
         let grants = default_user_grants(DefaultUserGrantsParameters {

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use uuid::Uuid;
 
 use crate::api::grants::GrantCollection;
 use crate::api::{data_service::DataService, dto, ApiErrors};
@@ -27,6 +28,7 @@ impl HookUserGrantContext {
 pub struct HookDocumentGrantContext {
     collection: GrantCollection,
     document: dto::CollectionDocument,
+    author_id: Uuid,
     data_service: std::sync::Arc<dyn DataService>,
 }
 
@@ -34,11 +36,13 @@ impl HookDocumentGrantContext {
     pub fn new(
         collection: GrantCollection,
         document: dto::CollectionDocument,
+        author_id: Uuid,
         data_service: std::sync::Arc<dyn DataService>,
     ) -> Self {
         Self {
             collection,
             document,
+            author_id,
             data_service,
         }
     }
@@ -53,6 +57,10 @@ impl HookDocumentGrantContext {
 
     pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
+    }
+
+    pub fn author_id(&self) -> Uuid {
+        self.author_id
     }
 }
 
