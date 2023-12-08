@@ -14,6 +14,7 @@ use sea_query::Cond;
 use sea_query::Func;
 use sea_query::Iden;
 use sea_query::{Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr};
+use serde::Deserialize;
 use std::ops::Sub;
 use tracing::{debug, error, info};
 use typed_builder::TypedBuilder;
@@ -208,6 +209,11 @@ pub(crate) async fn list_documents(
     Ok((total, items))
 }
 
+#[derive(FromQueryResult, Debug, Deserialize)]
+struct IdOnly {
+    pub(crate) id: Uuid,
+}
+
 pub(crate) async fn list_document_ids(
     db: &DatabaseTransaction,
     collection_id: Uuid,
@@ -216,6 +222,7 @@ pub(crate) async fn list_document_ids(
         .select_only()
         .column(DocumentsColumns::Id)
         .filter(DocumentsColumns::CollectionId.eq(collection_id))
+        .into_model::<IdOnly>()
         .all(db)
         .await?;
     debug!("Found {} documents", items.len());
