@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter};
 use sea_query::{Alias, Expr, Query};
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
@@ -11,6 +11,7 @@ use crate::api::{
     ApiErrors,
 };
 use entity::collection_document::{Column as DocumentsColumns, Entity as Documents};
+use tracing::debug;
 
 pub(crate) struct DocumentService {}
 
@@ -68,18 +69,11 @@ impl DocumentService {
         let builder = db.get_database_backend();
         let stmt = builder.build(&sql);
 
-        let items = JsonValue::find_by_statement(stmt)
+        let items = Documents::find()
+            .filter(DocumentsColumns::CollectionId.eq(collection.id))
             .all(db)
-            .await
-            .map_err(ApiErrors::from)?
-            .into_iter()
-            .map(|i| {
-                CollectionDocument::new(
-                    Uuid::from_str(i["id"].as_str().unwrap()).unwrap(),
-                    i["f"].clone(),
-                )
-            })
-            .collect();
-        Ok(items)
+        .await?;
+        debug!("Found {} documents", items.len());
+        Ok(items.into_iter().map(|item| (&item).into()).collect())
     }
 }

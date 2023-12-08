@@ -25,6 +25,7 @@ use crate::{
     },
     axumext::extractors::ValidatedQueryParams,
 };
+use crate::api::grants::{GrantCollection, hook_or_default_user_grants};
 
 use super::{
     db::DbListDocumentParams,
@@ -91,13 +92,11 @@ pub(crate) async fn api_list_document(
     } else {
         CollectionDocumentVisibility::PublicAndUserIsReader
     };
-    // TODO: allow override
-    let user_grants = default_user_grants(
-        DefaultUserGrantsParameters::builder()
-            .collection_uuid(collection.id)
-            .visibility(oao_access)
-            .build(),
-    );
+
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants = hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+        .await?;
+
 
     let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
         field_name: DELETED_AT_FIELD.to_string(),
