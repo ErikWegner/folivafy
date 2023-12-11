@@ -26,6 +26,33 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Debug for integration tests",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=folivafy",
+          "--package=folivafy"
+        ],
+        "filter": {
+          "name": "folivafy",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "RUST_LOG": "folivafy=debug",
+        "FOLIVAFY_ENABLE_DELETION": "(shapes,1,1)",
+        "FOLIVAFY_DATABASE": "postgresql://inttest_role:inttest_pwd@db/inttest",
+        "USERDATA_CLIENT_ID": "folivafy",
+        "USERDATA_CLIENT_SECRET": "1ivuNiYQraHhw7h3Q2PJJlnxkODMdGI6",
+        "USERDATA_TOKEN_URL": "http://localhost:8101/realms/folivafy/protocol/openid-connect/token",
+        "USERDATA_USERINFO_URL": "http://localhost:8101/admin/realms/folivafy/users/{id}"
+      }
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "Debug executable 'folivafy'",
       "cargo": {
         "args": [

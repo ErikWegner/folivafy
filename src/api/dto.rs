@@ -8,6 +8,7 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::cron::CRON_USER_ID;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Collection {
@@ -40,6 +41,107 @@ impl From<&entity::collection::Model> for Collection {
             oao: model.oao,
             locked: model.locked,
         }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Grant {
+    realm: String,
+    grant_id: Uuid,
+    view: bool,
+}
+
+impl Grant {
+    pub fn new(realm: String, grant_id: Uuid, view: bool) -> Self {
+        Self {
+            realm,
+            grant_id,
+            view,
+        }
+    }
+
+    pub fn author_grant(user_id: Uuid) -> Self {
+        Self {
+            realm: "author".to_string(),
+            grant_id: user_id,
+            view: true,
+        }
+    }
+
+    pub fn read_all_collection(collection_id: Uuid) -> Self {
+        Self {
+            realm: "read-all-collection".to_string(),
+            grant_id: collection_id,
+            view: true,
+        }
+    }
+
+    pub fn cron_access() -> Self {
+        Self {
+            realm: "cron-access".to_string(),
+            grant_id: *CRON_USER_ID,
+            view: true,
+        }
+    }
+
+    pub fn is_cron_access(&self) -> bool {
+        self.realm == "cron-access" && self.grant_id == *CRON_USER_ID
+    }
+
+    pub fn read_collection(collection_id: Uuid) -> Self {
+        Self {
+            realm: "read-collection".to_string(),
+            grant_id: collection_id,
+            view: true,
+        }
+    }
+
+    pub fn realm(&self) -> &str {
+        self.realm.as_ref()
+    }
+
+    pub fn grant_id(&self) -> Uuid {
+        self.grant_id
+    }
+
+    pub fn view(&self) -> bool {
+        self.view
+    }
+}
+
+impl PartialEq<&entity::grant::Model> for &Grant {
+    fn eq(&self, other: &&entity::grant::Model) -> bool {
+        self.realm == other.realm && self.grant_id == other.grant && self.view == other.view
+    }
+}
+
+impl From<&entity::grant::Model> for Grant {
+    fn from(value: &entity::grant::Model) -> Self {
+        Self {
+            realm: value.realm.clone(),
+            grant_id: value.grant,
+            view: value.view,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct GrantForDocument {
+    grant: Grant,
+    document_id: Uuid,
+}
+
+impl GrantForDocument {
+    pub fn new(grant: Grant, document_id: Uuid) -> Self {
+        Self { grant, document_id }
+    }
+
+    pub fn grant(&self) -> &Grant {
+        &self.grant
+    }
+
+    pub fn document_id(&self) -> Uuid {
+        self.document_id
     }
 }
 
@@ -385,5 +487,16 @@ impl UserWithRoles {
     /// Check if the user has the specified role
     pub fn has_role(&self, role: &str) -> bool {
         self.roles.contains(&role.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cron_access() {
+        let cron_grant = Grant::cron_access();
+        assert!(cron_grant.is_cron_access());
     }
 }

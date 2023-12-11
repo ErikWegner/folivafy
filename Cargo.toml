@@ -1,6 +1,6 @@
 [package]
 name = "folivafy"
-version = "2.1.1"
+version = "2.2.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,11 +12,11 @@ members = [".", "entity", "migration"]
 anyhow = "1.0"
 async-trait = "0.1.73"
 axum = "0.6"
-axum-macros = "0.3.7"
+axum-macros = "0.3.0"
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15.7"
 entity = { path = "entity" }
-jwt-authorizer = { version = "0.12.0", default-features = false, features = [
+jwt-authorizer = { version = "0.13.0", default-features = false, features = [
     "rustls-tls",
 ] }
 lazy_static = "1.4"
@@ -53,6 +53,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 tower-http = { version = "0.4", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+typed-builder = "0.18.0"
 uuid = { version = "1", features = ["serde", "v4"] }
 validator = { version = "0.16.0", features = ["derive"] }
 

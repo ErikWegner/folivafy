@@ -16,13 +16,15 @@ use crate::api::{
     ApiContext, ApiErrors,
 };
 
+use super::grants::{hook_or_default_user_grants, GrantCollection};
+
 #[debug_handler]
 pub(crate) async fn api_read_document(
     State(ctx): State<ApiContext>,
     Path((collection_name, document_id)): Path<(String, String)>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemDetails>, ApiErrors> {
-    let uuid = Uuid::parse_str(&document_id)
+    let document_uuid = Uuid::parse_str(&document_id)
         .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
@@ -36,7 +38,20 @@ pub(crate) async fn api_read_document(
     }
 
     let collection = collection.unwrap();
-    let document = get_accessible_document(&ctx, &user, uuid, &collection).await?;
+
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
+
+    let document = get_accessible_document(
+        &ctx,
+        &user_grants,
+        user.subuuid(),
+        &collection,
+        document_uuid,
+    )
+    .await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(

@@ -1,8 +1,9 @@
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use crate::api::{db::get_collection_by_name, dto};
-use entity::collection_document::Entity as Documents;
+use entity::collection_document::{Column as DocumentsColumns, Entity as Documents};
+use tracing::debug;
 
 pub(crate) struct DocumentService {}
 
@@ -40,5 +41,22 @@ impl DocumentService {
         crate::api::db::get_collection_by_name(db, collection_name)
             .await
             .map(|m| (&m).into())
+    }
+
+    pub(crate) async fn get_collection_documents(
+        &self,
+        db: &DatabaseConnection,
+        collection_name: &str,
+    ) -> anyhow::Result<Vec<dto::CollectionDocument>> {
+        let collection = crate::api::db::get_collection_by_name(db, collection_name).await;
+
+        let collection = collection.unwrap();
+
+        let items = Documents::find()
+            .filter(DocumentsColumns::CollectionId.eq(collection.id))
+            .all(db)
+            .await?;
+        debug!("Found {} documents", items.len());
+        Ok(items.into_iter().map(|item| (&item).into()).collect())
     }
 }

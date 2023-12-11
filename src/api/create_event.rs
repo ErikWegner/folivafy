@@ -9,7 +9,7 @@ use validator::Validate;
 
 use crate::api::{
     auth,
-    db::{get_collection_by_name, save_documents_events_mails},
+    db::{get_collection_by_name, save_documents_events_mails, DbGrantUpdate},
     dto::{self, Event},
     hooks::{DocumentResult, HookCreatedEventContext, HookCreatingEventContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
@@ -64,6 +64,7 @@ pub(crate) async fn api_create_event(
 
     let request_context1 = Arc::new(RequestContext::new(
         &collection.name,
+        collection.id,
         dto::UserWithRoles::read_from(&user),
     ));
     let request_context2 = request_context1.clone();
@@ -95,9 +96,15 @@ pub(crate) async fn api_create_event(
                     debug!("No events were permitted");
                     return Err(ApiErrors::PermissionDenied);
                 }
+                let grants = match result.grants {
+                    crate::api::hooks::GrantSettingsOnEvents::NoChange => DbGrantUpdate::Keep,
+                    crate::api::hooks::GrantSettingsOnEvents::Replace(new_grants) => {
+                        DbGrantUpdate::Replace(new_grants)
+                    }
+                };
 
                 let dtouser = dto::User::read_from(&user);
-                save_documents_events_mails(txn, &dtouser, result.documents, events, mails)
+                save_documents_events_mails(txn, &dtouser, result.documents, events, grants, mails)
                     .await
                     .map_err(|e| {
                         error!("Error while creating event: {:?}", e);

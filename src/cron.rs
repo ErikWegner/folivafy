@@ -9,10 +9,14 @@ use tokio::sync::{
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+use crate::api::db::list_documents;
+use crate::api::dto::Grant;
 use crate::{
     api::{
         data_service::FolivafyDataService,
-        db::{get_collection_by_name, save_document_events_mails, ListDocumentParams},
+        db::{
+            get_collection_by_name, save_document_events_mails, DbGrantUpdate, DbListDocumentParams,
+        },
         dto,
         hooks::{HookCronContext, HookSuccessResult, Hooks},
         select_document_for_update,
@@ -37,7 +41,7 @@ struct CronResult {
 async fn cron(
     db: sea_orm::DatabaseConnection,
     hooks: &Hooks,
-    data_service: Arc<crate::api::data_service::FolivafyDataService>,
+    data_service: Arc<FolivafyDataService>,
 ) -> CronResult {
     debug!("Running cron tasks");
     let mut trigger_cron = false;
@@ -53,20 +57,16 @@ async fn cron(
         let collection = get_collection_by_name(&db, collection_name).await;
         if let Some(collection) = collection {
             let mut counter = cron_limit;
-            let (total, mut items) = crate::api::db::list_documents(
-                &db,
-                ListDocumentParams {
-                    collection: collection.id,
-                    exact_title: None,
-                    oao_access: crate::api::db::CollectionDocumentVisibility::PublicAndUserIsReader,
-                    extra_fields: vec!["title".to_string()],
-                    sort_fields: None,
-                    filters: vec![document_selector.clone().into()],
-                    pagination: pagination.clone(),
-                },
-            )
-            .await
-            .unwrap_or_default();
+            let dbparams = DbListDocumentParams::builder()
+                .collection(collection.id)
+                .exact_title(None)
+                .user_grants(vec![Grant::cron_access()])
+                .extra_fields(vec!["title".to_string()])
+                .sort_fields(None)
+                .filters(vec![document_selector.clone().into()])
+                .pagination(pagination.clone())
+                .build();
+            let (total, mut items) = list_documents(&db, &dbparams).await.unwrap_or_default();
             items.reverse();
             info!("{job_name} found {total} documents, processing up to {cron_limit}");
             loop {
@@ -187,12 +187,28 @@ async fn check_modifications_and_update(
         crate::api::hooks::DocumentResult::NoUpdate => {}
         crate::api::hooks::DocumentResult::Err(e) => return Err(e),
     }
+    let dbgrants = match result.grants {
+        crate::api::hooks::GrantSettings::Default => {
+            error!("GrantSettings::Default is not supported during cron task");
+            return Err(ApiErrors::InternalServerError);
+        }
+        crate::api::hooks::GrantSettings::NoChange => DbGrantUpdate::Keep,
+        crate::api::hooks::GrantSettings::Replace(grants) => DbGrantUpdate::Replace(grants),
+    };
     let cron_user = dto::User::new(*CRON_USER_ID, CRON_USER_NAME.to_string());
-    save_document_events_mails(txn, &cron_user, document, None, result.events, result.mails)
-        .await
-        .map_err(|e| {
-            error!("Update document error: {:?}", e);
-            ApiErrors::InternalServerError
-        })?;
+    save_document_events_mails(
+        txn,
+        &cron_user,
+        document,
+        None,
+        result.events,
+        dbgrants,
+        result.mails,
+    )
+    .await
+    .map_err(|e| {
+        error!("Update document error: {:?}", e);
+        ApiErrors::InternalServerError
+    })?;
     Ok(())
 }

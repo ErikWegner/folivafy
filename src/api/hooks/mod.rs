@@ -1,3 +1,4 @@
+pub mod grants;
 pub mod staged_delete;
 
 use std::{
@@ -13,7 +14,7 @@ use uuid::Uuid;
 
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
-use super::dto::UserWithRoles;
+use super::dto::{GrantForDocument, UserWithRoles};
 
 pub enum DocumentResult {
     /// Indicates that the document was modified and should be inserted/updated.
@@ -59,8 +60,21 @@ impl StoreDocument {
     }
 }
 
+pub enum GrantSettings {
+    Default,
+    NoChange,
+    Replace(Vec<GrantForDocument>),
+}
+
+#[derive(Debug)]
+pub enum GrantSettingsOnEvents {
+    NoChange,
+    Replace(Vec<GrantForDocument>),
+}
+
 pub struct HookSuccessResult {
     pub document: DocumentResult,
+    pub grants: GrantSettings,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
     pub trigger_cron: bool,
@@ -71,6 +85,7 @@ pub struct MultiDocumentsSuccessResult {
     pub documents: Vec<StoreDocument>,
     pub events: Vec<dto::Event>,
     pub mails: Vec<dto::MailMessage>,
+    pub grants: GrantSettingsOnEvents,
     pub trigger_cron: bool,
 }
 
@@ -78,6 +93,7 @@ impl HookSuccessResult {
     pub fn empty() -> Self {
         Self {
             document: DocumentResult::NoUpdate,
+            grants: GrantSettings::Default,
             events: vec![],
             mails: vec![],
             trigger_cron: false,
@@ -347,6 +363,7 @@ pub struct Hooks {
             HashMap<CronDefaultIntervalHookData, Arc<dyn CronDefaultIntervalHook + Send + Sync>>,
         >,
     >,
+    grant_hooks: Arc<RwLock<HashMap<HookCollection, Arc<dyn grants::GrantHook + Send + Sync>>>>,
 }
 
 impl Hooks {
@@ -356,6 +373,7 @@ impl Hooks {
             update_hooks: Arc::new(RwLock::new(HashMap::new())),
             event_hooks: Arc::new(RwLock::new(HashMap::new())),
             cron_default_interval_hooks: Arc::new(RwLock::new(HashMap::new())),
+            grant_hooks: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -463,6 +481,27 @@ impl Hooks {
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect()
     }
+
+    pub fn put_grant_hook(
+        &self,
+        collection_name: String,
+        hook: Arc<dyn grants::GrantHook + Send + Sync>,
+    ) {
+        let mut map = self.grant_hooks.write().unwrap();
+        map.insert(HookCollection { collection_name }, hook);
+    }
+
+    pub fn get_grant_hook(
+        &self,
+        collection_name: &str,
+    ) -> Option<Arc<dyn grants::GrantHook + Send + Sync>> {
+        let key = HookCollection {
+            collection_name: collection_name.to_string(),
+        };
+        let map = self.grant_hooks.read().unwrap();
+        let value = map.get(&key);
+        value.cloned()
+    }
 }
 
 impl Default for Hooks {
@@ -475,13 +514,15 @@ impl Default for Hooks {
 pub struct RequestContext {
     #[allow(dead_code)]
     collection_name: String,
+    collection_id: Uuid,
     user: UserWithRoles,
 }
 
 impl RequestContext {
-    pub fn new(collection_name: &str, user: UserWithRoles) -> Self {
+    pub fn new(collection_name: &str, collection_id: Uuid, user: UserWithRoles) -> Self {
         Self {
             collection_name: collection_name.to_string(),
+            collection_id,
             user,
         }
     }
@@ -489,6 +530,10 @@ impl RequestContext {
     #[allow(dead_code)]
     fn collection_name(&self) -> &str {
         self.collection_name.as_ref()
+    }
+
+    pub fn collection_id(&self) -> Uuid {
+        self.collection_id
     }
 
     pub fn user_id(&self) -> Uuid {

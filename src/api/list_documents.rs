@@ -19,11 +19,17 @@ use validator::Validate;
 use crate::{
     api::{
         auth::User,
-        db::{get_collection_by_name, list_documents, CollectionDocumentVisibility, FieldFilter},
+        db::{get_collection_by_name, list_documents, FieldFilter},
         types::Pagination,
         ApiContext, ApiErrors,
     },
     axumext::extractors::ValidatedQueryParams,
+};
+use crate::api::grants::{GrantCollection, hook_or_default_user_grants};
+
+use super::{
+    db::DbListDocumentParams,
+
 };
 
 lazy_static! {
@@ -77,27 +83,10 @@ pub(crate) async fn api_list_document(
         extra_fields.push(title);
     }
 
-    let oao_access = if collection.oao {
-        if user.can_access_all_documents(&collection_name) {
-            CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
-        } else {
-            CollectionDocumentVisibility::PrivateAndUserIs(user.subuuid())
-        }
-    } else {
-        CollectionDocumentVisibility::PublicAndUserIsReader
-    };
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants = hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+        .await?;
 
-    // Call hook to set additional filters
-    /*
-       Wenn bestimmte Collection (Abteilungsfilter)
-       - Frage ab, zu welchen Abteilungen der Benutzer gehört
-       - Feld "org_unit" enthält eine der Abteilung
-
-       - oder -
-       - Feld signatur1.id = id des Benutzers
-       - Feld signatur2.id = id des Benutzers
-
-    */
 
     let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
         field_name: DELETED_AT_FIELD.to_string(),
@@ -106,20 +95,19 @@ pub(crate) async fn api_list_document(
     let mut filters = vec![exclude_deleted_documents_filter];
     filters.append(&mut request_filters);
 
-    let (total, items) = list_documents(
-        &ctx.db,
-        crate::api::db::ListDocumentParams {
-            collection: collection.id,
-            exact_title: list_params.exact_title,
-            oao_access,
-            extra_fields,
-            sort_fields: list_params.sort_fields,
-            filters,
-            pagination: pagination.clone(),
-        },
-    )
-    .await
-    .map_err(ApiErrors::from)?;
+    let db_params = DbListDocumentParams::builder()
+        .collection(collection.id)
+        .exact_title(list_params.exact_title)
+        .user_grants(user_grants)
+        .extra_fields(extra_fields)
+        .sort_fields(list_params.sort_fields)
+        .filters(filters)
+        .pagination(pagination.clone())
+        .build();
+
+    let (total, items) = list_documents(&ctx.db, &db_params)
+        .await
+        .map_err(ApiErrors::from)?;
 
     let items = items
         .into_iter()

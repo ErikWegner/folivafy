@@ -17,7 +17,7 @@ use tracing::{debug, error, info};
 use crate::api::{
     db::get_collection_by_name,
     dto::{self, MailMessage},
-    hooks::{self, CronDefaultIntervalHook, HookCronContext, HookResult, Hooks},
+    hooks::{self, CronDefaultIntervalHook, GrantSettings, HookCronContext, HookResult, Hooks},
     ApiErrors,
 };
 
@@ -184,6 +184,7 @@ impl CronDefaultIntervalHook for Mailer {
                 );
                 Ok(hooks::HookSuccessResult {
                     document: hooks::DocumentResult::Store(o),
+                    grants: GrantSettings::Default,
                     events: vec![],
                     mails: vec![],
                     trigger_cron: false,

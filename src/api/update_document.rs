@@ -14,11 +14,16 @@ use validator::Validate;
 
 use crate::api::{
     auth,
-    db::{get_accessible_document, get_collection_by_name, save_document_events_mails},
-    dto,
+    db::{
+        get_accessible_document, get_collection_by_name, save_document_events_mails, DbGrantUpdate,
+    },
+    dto::{self, GrantForDocument},
+    grants::default_document_grants,
     hooks::{HookUpdateContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
+
+use super::grants::{hook_or_default_user_grants, GrantCollection};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
@@ -31,7 +36,7 @@ pub(crate) async fn api_update_document(
     payload.validate().map_err(ApiErrors::from)?;
 
     let document_id = payload.id.to_string();
-    let uuid = Uuid::parse_str(&document_id)
+    let document_uuid = Uuid::parse_str(&document_id)
         .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
@@ -55,7 +60,19 @@ pub(crate) async fn api_update_document(
         return Err(ApiErrors::BadRequest("Read only collection".into()));
     }
 
-    let document = get_accessible_document(&ctx, &user, uuid, &collection).await?;
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
+
+    let document = get_accessible_document(
+        &ctx,
+        &user_grants,
+        user.subuuid(),
+        &collection,
+        document_uuid,
+    )
+    .await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(
@@ -68,7 +85,7 @@ pub(crate) async fn api_update_document(
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
             Box::pin(async move {
-                let document = select_document_for_update(uuid, txn)
+                let document = select_document_for_update(document_uuid, txn)
                     .await?
                     .and_then(|doc| {
                         if collection.oao && doc.owner != user.subuuid() {
@@ -78,7 +95,7 @@ pub(crate) async fn api_update_document(
                         }
                     });
                 if document.is_none() {
-                    debug!("Document {} not found", uuid);
+                    debug!("Document {} not found", document_uuid);
                     return Err(ApiErrors::PermissionDenied);
                 }
                 let document = document.unwrap();
@@ -87,8 +104,10 @@ pub(crate) async fn api_update_document(
                 let mut after_document: dto::CollectionDocument = (payload).into();
                 let mut events: Vec<dto::Event> = vec![];
                 let mut mails: Vec<dto::MailMessage> = vec![];
+                let mut dbgrants: DbGrantUpdate = DbGrantUpdate::Keep;
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
+                    collection.id,
                     dto::UserWithRoles::read_from(&user),
                 ));
                 if let Some(ref hook_processor) = hook_processor {
@@ -112,12 +131,24 @@ pub(crate) async fn api_update_document(
                     }
                     events.extend(hook_result.events);
                     mails.extend(hook_result.mails);
+                    dbgrants = match hook_result.grants {
+                        crate::api::hooks::GrantSettings::Default => DbGrantUpdate::Replace(
+                            default_document_grants(collection.oao, collection.id, user.subuuid())
+                                .into_iter()
+                                .map(|g| GrantForDocument::new(g, document.id))
+                                .collect(),
+                        ),
+                        crate::api::hooks::GrantSettings::Replace(grants) => {
+                            DbGrantUpdate::Replace(grants)
+                        }
+                        crate::api::hooks::GrantSettings::NoChange => DbGrantUpdate::Keep,
+                    }
                 }
 
                 events.insert(
                     0,
                     dto::Event::new(
-                        uuid,
+                        document_uuid,
                         crate::api::CATEGORY_DOCUMENT_UPDATES,
                         json!({
                             "user": {
@@ -135,6 +166,7 @@ pub(crate) async fn api_update_document(
                     Some(after_document),
                     None,
                     events,
+                    dbgrants,
                     mails,
                 )
                 .await

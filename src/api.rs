@@ -6,9 +6,11 @@ pub mod data_service;
 pub(crate) mod db;
 pub mod dto;
 mod get_document;
+mod grants;
 pub mod hooks;
 mod list_collections;
 mod list_documents;
+mod maintenance;
 pub(crate) mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;
@@ -54,6 +56,7 @@ use self::{
     hooks::Hooks,
     list_collections::api_list_collections,
     list_documents::api_list_document,
+    maintenance::api_rebuild_grants,
     update_document::api_update_document,
 };
 
@@ -229,7 +232,10 @@ async fn api_routes(
         .eq_ignore_ascii_case("true");
 
     let pem_text = cert_loader(&issuer, danger_accept_invalid_certs).await?;
-    let validation = Validation::new().iss(&[issuer]).leeway(5);
+    let validation = Validation::new()
+        .iss(&[issuer])
+        .aud(&["folivafy"])
+        .leeway(5);
     let jwt_auth: Authorizer<User> = JwtAuthorizer::from_rsa_pem_text(pem_text.as_str())
         .validation(validation)
         .build()
@@ -253,6 +259,10 @@ async fn api_routes(
                 get(api_read_document),
             )
             .route("/events", post(api_create_event))
+            .route(
+                "/maintenance/:collection_name/rebuild-grants",
+                post(api_rebuild_grants::api_rebuild_grants),
+            )
             .with_state(ApiContext {
                 db,
                 hooks,
