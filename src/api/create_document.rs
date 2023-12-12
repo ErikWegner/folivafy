@@ -63,6 +63,8 @@ pub(crate) async fn api_create_document(
     let mut events: Vec<dto::Event> = vec![];
     let mut mails: Vec<dto::MailMessage> = vec![];
     let mut grants: Vec<GrantForDocument> = vec![];
+    let mut trigger_cron = false;
+    let trigger_cron_ctx = ctx.clone();
     if let Some(ref hook) = hook_processor {
         let request_context = Arc::new(RequestContext::new(
             &collection.name,
@@ -72,6 +74,7 @@ pub(crate) async fn api_create_document(
 
         let ctx = HookCreateContext::new((payload).into(), ctx.data_service, request_context);
         let hook_result = hook.on_creating(&ctx).await?;
+        trigger_cron = hook_result.trigger_cron;
         match hook_result.document {
             crate::api::hooks::DocumentResult::Store(document) => {
                 debug!("Received document: {:?}", document);
@@ -139,6 +142,9 @@ pub(crate) async fn api_create_document(
                     ApiErrors::InternalServerError
                 })?;
                 debug!("Document {:?} saved to {collection_name}", document_id,);
+                trigger_cron_ctx
+                    .trigger_cron_with_condition(trigger_cron)
+                    .await;
                 Ok((StatusCode::CREATED, "Document saved".to_string()))
             })
         })

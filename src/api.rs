@@ -68,6 +68,19 @@ pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
     data_service: Arc<FolivafyDataService>,
+    immediate_cron_signal: tokio::sync::mpsc::Sender<()>,
+}
+
+impl ApiContext {
+    pub(crate) async fn trigger_cron_with_condition(&self, condition: bool) {
+        if condition {
+            debug!("Triggering immediate cron");
+            let _ = self
+                .immediate_cron_signal
+                .send_timeout((), tokio::time::Duration::from_millis(20))
+                .await;
+        }
+    }
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -180,7 +193,7 @@ pub async fn serve(
     let (user_service, user_service_task) =
         data_service::user_service::UserService::new_from_env().await?;
     let data_service = Arc::new(FolivafyDataService::new(&db, user_service));
-    let (cronbt, _immediate_cron_signal) = crate::cron::setup_cron(
+    let (cronbt, immediate_cron_signal) = crate::cron::setup_cron(
         db.clone(),
         hooks.clone(),
         cron_interval,
@@ -188,7 +201,7 @@ pub async fn serve(
     );
     let monitor = Arc::new(HealthMonitor::new());
     // build our application with a route
-    let app = api_routes(db, hooks, data_service)
+    let app = api_routes(db, hooks, data_service, immediate_cron_signal)
         .await?
         .nest("/app", health_routes(monitor))
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
@@ -225,6 +238,7 @@ async fn api_routes(
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
     data_service: Arc<FolivafyDataService>,
+    immediate_cron_signal: tokio::sync::mpsc::Sender<()>,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")
@@ -267,6 +281,7 @@ async fn api_routes(
                 db,
                 hooks,
                 data_service,
+                immediate_cron_signal,
             })
             .layer(jwt_auth.into_layer()),
     ))

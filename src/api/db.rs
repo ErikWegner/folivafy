@@ -849,7 +849,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}')"#
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->>'folivafy_deleted_at' is null)"#
             )
         );
     }
@@ -881,7 +881,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}')"#
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->>'folivafy_deleted_at' is null)"#
             )
         );
     }
@@ -912,7 +912,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-all-collection' AND "grant"."grant" = '{collection}')"#
+                r#"SELECT COUNT(DISTINCT "d"."id") FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-all-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->>'folivafy_deleted_at' is null)"#
             )
         );
     }
@@ -945,7 +945,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->>'folivafy_deleted_at' is null)) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -987,7 +987,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->'wf1'->>'seq') IN ('1', '2')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->'wf1'->>'seq') IN ('1', '2') AND ("d"."f"->>'folivafy_deleted_at' is null)) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -1025,7 +1025,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->>'folivafy_deleted_at' is null)) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }

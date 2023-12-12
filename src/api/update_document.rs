@@ -81,6 +81,7 @@ pub(crate) async fn api_update_document(
     }
 
     let hook_processor = ctx.hooks.get_update_hook(&collection.name);
+    let trigger_cron_ctx = ctx.clone();
 
     ctx.db
         .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
@@ -105,6 +106,7 @@ pub(crate) async fn api_update_document(
                 let mut events: Vec<dto::Event> = vec![];
                 let mut mails: Vec<dto::MailMessage> = vec![];
                 let mut dbgrants: DbGrantUpdate = DbGrantUpdate::Keep;
+                let mut trigger_cron = false;
                 let request_context = Arc::new(RequestContext::new(
                     &collection.name,
                     collection.id,
@@ -118,6 +120,7 @@ pub(crate) async fn api_update_document(
                         request_context,
                     );
                     let hook_result = hook_processor.on_updating(&ctx).await?;
+                    trigger_cron = hook_result.trigger_cron;
                     drop(ctx);
 
                     match hook_result.document {
@@ -178,6 +181,9 @@ pub(crate) async fn api_update_document(
                     "Document {:?} updated in collection {}",
                     document_id, collection_name
                 );
+                trigger_cron_ctx
+                    .trigger_cron_with_condition(trigger_cron)
+                    .await;
                 Ok((StatusCode::CREATED, "Document updated".to_string()))
             })
         })

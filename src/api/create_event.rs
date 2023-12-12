@@ -28,6 +28,8 @@ pub(crate) async fn api_create_event(
     let unchecked_collection_name = payload.collection;
     let unchecked_document_id = payload.document;
 
+    let trigger_cron_ctx = ctx.clone();
+    let trigger_cron_post_ctx = ctx.clone();
     let collection = get_collection_by_name(&ctx.db, &unchecked_collection_name).await;
     if collection.is_none() {
         debug!("Collection {} not found", unchecked_collection_name);
@@ -111,6 +113,9 @@ pub(crate) async fn api_create_event(
                         ApiErrors::InternalServerError
                     })?;
 
+                trigger_cron_ctx
+                    .trigger_cron_with_condition(result.trigger_cron)
+                    .await;
                 Ok((StatusCode::CREATED, "Done".to_string()))
             })
         })
@@ -132,7 +137,8 @@ pub(crate) async fn api_create_event(
                     request_context2,
                 );
 
-                let _ = post_hook.on_created(&cdctx).await.ok().map(|r| {
+                let post_result = post_hook.on_created(&cdctx).await;
+                if let Ok(r) = post_result {
                     match r.document {
                         DocumentResult::Store(_) => todo!("Document update not implemented!"),
                         DocumentResult::NoUpdate => {}
@@ -141,7 +147,10 @@ pub(crate) async fn api_create_event(
                     if !r.events.is_empty() {
                         error!("Not implemented");
                     }
-                });
+                    trigger_cron_post_ctx
+                        .trigger_cron_with_condition(r.trigger_cron)
+                        .await;
+                }
             });
             res
         })

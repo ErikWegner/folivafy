@@ -1,16 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::RwLock};
 
+use anyhow::anyhow;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use sea_query::RcOrArc;
 use uuid::Uuid;
 
 use crate::api::{
-    db::{get_collection_by_name, FieldFilter},
-    dto::{self, CollectionDocument},
-    ApiErrors,
+    db::get_collection_by_name,
+    dto::{self},
 };
 use entity::collection_document::{Column as DocumentsColumns, Entity as Documents};
-use tracing::debug;
+use tracing::{debug, warn};
 
 struct CachedCollection {
     id: Uuid,
@@ -18,13 +17,13 @@ struct CachedCollection {
 }
 
 pub(crate) struct DocumentService {
-    collection_id_cache: HashMap<String, std::sync::Arc<CachedCollection>>,
+    collection_id_cache: RwLock<HashMap<String, std::sync::Arc<CachedCollection>>>,
 }
 
 impl DocumentService {
     pub(crate) fn new() -> Self {
         Self {
-            collection_id_cache: HashMap::new(),
+            collection_id_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -53,22 +52,27 @@ impl DocumentService {
         &self,
         db: &DatabaseConnection,
         collection_name: &str,
-    ) -> Option<CachedCollection> {
-        if self.collection_id_cache.contains_key(collection_name) {
-            debug!("Found cached collection {}", collection_name);
-            return Some(self.collection_id_cache[collection_name].clone());
+    ) -> Option<std::sync::Arc<CachedCollection>> {
+        {
+            let c = self.collection_id_cache.read().unwrap();
+            if c.contains_key(collection_name) {
+                debug!("Found cached collection {}", collection_name);
+                return Some(c[collection_name].clone());
+            }
         }
 
         let dbmodel = crate::api::db::get_collection_by_name(db, collection_name).await?;
 
         let cc = std::sync::Arc::new(CachedCollection {
             id: dbmodel.id,
-            dto: dbmodel.into(),
+            dto: (&dbmodel).into(),
         });
-        debug!("Adding cached collection {}", collection_name);
-        self.collection_id_cache
-            .insert(collection_name.to_string(), cc.clone());
 
+        {
+            debug!("Adding cached collection {}", collection_name);
+            let mut w = self.collection_id_cache.write().unwrap();
+            (*w).insert(collection_name.to_string(), cc.clone());
+        }
         Some(cc)
     }
 
@@ -80,8 +84,7 @@ impl DocumentService {
         let collection = self
             .lookup_get_collection_by_name(db, collection_name)
             .await;
-        collection.as_ref()?;
-        Some((&collection.unwrap()).into())
+        Some((collection.as_ref()?).dto.clone())
     }
 
     pub(crate) async fn get_collection_documents(
@@ -91,7 +94,11 @@ impl DocumentService {
     ) -> anyhow::Result<Vec<dto::CollectionDocument>> {
         let collection = self
             .lookup_get_collection_by_name(db, collection_name)
-            .await;
+            .await
+            .ok_or_else(|| {
+                warn!("Could not find collection {collection_name}");
+                anyhow!("Could not find collection {collection_name}")
+            })?;
 
         let items = Documents::find()
             .filter(DocumentsColumns::CollectionId.eq(collection.id))
