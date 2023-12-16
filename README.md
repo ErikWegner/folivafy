@@ -82,6 +82,34 @@ stage. These values are also comma separated and surrounded by parentheses.
 The user needs the permissions `C_<NAME-OF-COLLECTION>_READER` and 
 `C_<NAME-OF-COLLECTION>_REMOVER` to delete items.
 
+#### Delete event
+
+To delete an item, post an event with the collection id and document id.
+The category is number 2.
+
+```json
+{
+    "category": 2,
+    "collection": "a05f5fd6-36a3-48e1-aef2-a62e688580ce",
+    "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
+    "e": {}
+}
+```
+
+#### Recover event
+
+To recover an item, post an event with the collection id and document id.
+The category is number 3.
+
+```json
+{
+    "category": 3,
+    "collection": "a05f5fd6-36a3-48e1-aef2-a62e688580ce",
+    "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
+    "e": {}
+}
+```
+
 ### Example file
 
 ```
