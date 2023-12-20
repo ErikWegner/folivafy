@@ -1,6 +1,7 @@
 use std::time::SystemTime;
 
 use crate::api::{auth, db::DELETED_AT_FIELD, CATEGORY_DOCUMENT_UPDATES};
+use crate::cron::CRON_USER_ID;
 use anyhow::Context;
 use lettre::{
     message::{MultiPart, SinglePart},
@@ -8,7 +9,6 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::cron::CRON_USER_ID;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Collection {
@@ -466,6 +466,10 @@ pub struct UserWithRoles {
 }
 
 impl UserWithRoles {
+    pub fn new(id: Uuid, name: String, roles: Vec<String>) -> Self {
+        Self { id, name, roles }
+    }
+
     pub(crate) fn read_from(auth_user: &auth::User) -> Self {
         Self {
             id: auth_user.subuuid(),
@@ -500,3 +504,4 @@ mod tests {
         assert!(cron_grant.is_cron_access());
     }
 }
+
