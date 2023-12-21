@@ -16,6 +16,7 @@ use serde::Deserialize;
 use tracing::warn;
 use validator::Validate;
 
+use crate::api::grants::{hook_or_default_user_grants, GrantCollection};
 use crate::{
     api::{
         auth::User,
@@ -25,12 +26,8 @@ use crate::{
     },
     axumext::extractors::ValidatedQueryParams,
 };
-use crate::api::grants::{GrantCollection, hook_or_default_user_grants};
 
-use super::{
-    db::DbListDocumentParams,
-
-};
+use super::db::DbListDocumentParams;
 
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
@@ -84,9 +81,9 @@ pub(crate) async fn api_list_document(
     }
 
     let dto_collection: GrantCollection = (&collection).into();
-    let user_grants = hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
-        .await?;
-
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
 
     let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
         field_name: DELETED_AT_FIELD.to_string(),
