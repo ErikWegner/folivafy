@@ -8,7 +8,6 @@ use axum::{
 use entity::DELETED_AT_FIELD;
 use jwt_authorizer::JwtClaims;
 use lazy_static::lazy_static;
-use openapi::models::{CollectionItem, CollectionItemsList};
 use regex::Regex;
 use sea_orm::prelude::Uuid;
 
@@ -20,14 +19,15 @@ use crate::api::grants::{hook_or_default_user_grants, GrantCollection};
 use crate::{
     api::{
         auth::User,
-        db::{get_collection_by_name, list_documents, FieldFilter},
+        db::{list_documents, FieldFilter},
         types::Pagination,
         ApiContext, ApiErrors,
     },
     axumext::extractors::ValidatedQueryParams,
 };
+use crate::models::{CollectionItem, CollectionItemsList};
 
-use super::db::DbListDocumentParams;
+use super::db::{DbListDocumentParams, get_unlocked_collection_by_name, ListDocumentGrants};
 
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
@@ -63,13 +63,13 @@ pub(crate) async fn api_list_document(
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
     let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
-    let collection = get_collection_by_name(&ctx.db, &collection_name).await;
-    if collection.is_none() {
-        return Err(ApiErrors::NotFound(collection_name));
-    }
-    let collection = collection.unwrap();
+    let collection = get_unlocked_collection_by_name(&ctx.db, &collection_name).await
+        .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
 
-    if !user.is_collection_reader(&collection_name) {
+    let user_is_permitted = user.is_collection_admin(&collection_name) ||
+        user.can_access_all_documents(&collection_name) || user.is_collection_reader(&collection_name)
+        ;
+    if !user_is_permitted {
         warn!("User {} is not a collection reader", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);
     }
@@ -95,7 +95,7 @@ pub(crate) async fn api_list_document(
     let db_params = DbListDocumentParams::builder()
         .collection(collection.id)
         .exact_title(list_params.exact_title)
-        .user_grants(user_grants)
+        .grants(ListDocumentGrants::Restricted(user_grants))
         .extra_fields(extra_fields)
         .sort_fields(list_params.sort_fields)
         .filters(filters)

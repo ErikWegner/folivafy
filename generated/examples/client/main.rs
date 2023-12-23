@@ -9,9 +9,11 @@ use openapi::{Api, ApiNoContext, Client, ContextWrapperExt, models,
                       GetCollectionsResponse,
                       GetItemByIdResponse,
                       ListCollectionResponse,
+                      ListRecoverablesInCollectionResponse,
                       StoreIntoCollectionResponse,
                       UpdateItemByIdResponse,
                       CreateEventResponse,
+                      RebuildGrantsResponse,
                      };
 use clap::{App, Arg};
 
@@ -36,6 +38,8 @@ fn main() {
                 "GetCollections",
                 "GetItemById",
                 "ListCollection",
+                "ListRecoverablesInCollection",
+                "RebuildGrants",
             ])
             .required(true)
             .index(1))
@@ -50,7 +54,7 @@ fn main() {
         .arg(Arg::with_name("port")
             .long("port")
             .takes_value(true)
-            .default_value("3000")
+            .default_value("8080")
             .help("Port to contact"))
         .get_matches();
 
@@ -102,6 +106,20 @@ fn main() {
         Some("ListCollection") => {
             let result = rt.block_on(client.list_collection(
                   "collection_example".to_string(),
+                  Some(25),
+                  Some(0),
+                  Some("price,length".to_string()),
+                  Some("price+,length-".to_string()),
+                  Some("Rectangle".to_string()),
+                  Some("f1='v12'".to_string())
+            ));
+            info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
+        },
+        Some("ListRecoverablesInCollection") => {
+            let result = rt.block_on(client.list_recoverables_in_collection(
+                  "collection_example".to_string(),
+                  Some(25),
+                  Some(0),
                   Some("price,length".to_string()),
                   Some("price+,length-".to_string()),
                   Some("Rectangle".to_string()),
@@ -135,6 +153,12 @@ fn main() {
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
         },
         */
+        Some("RebuildGrants") => {
+            let result = rt.block_on(client.rebuild_grants(
+                  "collection_example".to_string()
+            ));
+            info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
+        },
         _ => {
             panic!("Invalid operation provided")
         }

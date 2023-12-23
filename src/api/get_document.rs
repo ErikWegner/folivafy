@@ -5,7 +5,6 @@ use axum::{
 use axum_macros::debug_handler;
 use entity::event::Entity as Events;
 use jwt_authorizer::JwtClaims;
-use openapi::models::{CollectionItemDetails, CollectionItemEvent};
 use sea_orm::{prelude::Uuid, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use sqlx::types::chrono::DateTime;
 use tracing::warn;
@@ -15,6 +14,7 @@ use crate::api::{
     db::{get_accessible_document, get_collection_by_name},
     ApiContext, ApiErrors,
 };
+use crate::models::{CollectionItemDetails, CollectionItemEvent};
 
 use super::grants::{hook_or_default_user_grants, GrantCollection};
 

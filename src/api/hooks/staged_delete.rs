@@ -2,14 +2,19 @@ use async_trait::async_trait;
 use chrono::Duration;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::{debug, info};
+use axum::extract::{Path, State};
+use axum::Json;
+use jwt_authorizer::JwtClaims;
+use sea_orm::DatabaseConnection;
+use tracing::{debug, info, warn};
 
-use crate::api::{
-    db::{DELETED_AT_FIELD, DELETED_BY_FIELD},
-    dto::UserWithRoles,
-    hooks::StoreDocument,
-    ApiErrors, CATEGORY_DOCUMENT_DELETE,
-};
+use crate::api::{db::{DELETED_AT_FIELD, DELETED_BY_FIELD}, dto::UserWithRoles, hooks::StoreDocument, ApiErrors, CATEGORY_DOCUMENT_DELETE};
+use crate::api::auth::User;
+use crate::api::db::get_unlocked_collection_by_name;
+use crate::api::list_documents::ListDocumentParams;
+use crate::api::types::Pagination;
+use crate::axumext::extractors::ValidatedQueryParams;
+use crate::models::CollectionItemsList;
 
 use super::{
     CronDefaultIntervalHook, CronDocumentSelector, EventCreatingHook, EventHookResult,
@@ -99,4 +104,32 @@ impl CronDefaultIntervalHook for StagedDelete {
 fn has_remover_role(user: &UserWithRoles, collection_name: &str) -> bool {
     let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
     user.has_role(&role_name)
+}
+
+pub(crate) async fn get_recoverables(
+    State(db): State<DatabaseConnection>,
+    Path(collection_name): Path<String>,
+    ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
+    ValidatedQueryParams(list_params): ValidatedQueryParams<ListDocumentParams>,
+    JwtClaims(user): JwtClaims<User>,
+) -> Result<Json<CollectionItemsList>, ApiErrors> {
+    let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
+    let collection = get_unlocked_collection_by_name(&db, &collection_name).await
+        .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
+
+    let user_is_permitted = user.is_collection_admin(&collection_name) || (
+        user.is_collection_remover(&collection_name) && user.is_collection_reader(&collection_name)
+        );
+    if !user_is_permitted {
+        warn!("User {} is not permitted for get_recoverables", user.name_and_sub());
+        return Err(ApiErrors::PermissionDenied);
+    }
+
+    let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
+    let title = "title".to_string();
+    if !extra_fields.contains(&title) {
+        extra_fields.push(title);
+    }
+
+    todo!("Impl")
 }

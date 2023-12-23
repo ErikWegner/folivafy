@@ -9,6 +9,7 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::models::CollectionItem;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Collection {
@@ -197,8 +198,8 @@ impl From<&entity::collection_document::Model> for CollectionDocument {
     }
 }
 
-impl From<openapi::models::CollectionItem> for CollectionDocument {
-    fn from(value: openapi::models::CollectionItem) -> Self {
+impl From<CollectionItem> for CollectionDocument {
+    fn from(value: CollectionItem) -> Self {
         Self {
             id: value.id,
             fields: value.f,

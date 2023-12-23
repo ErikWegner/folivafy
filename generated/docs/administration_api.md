@@ -1,6 +1,6 @@
 # administration_api
 
-All URIs are relative to *http://localhost:3000/api*
+All URIs are relative to */api*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------

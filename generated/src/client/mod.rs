@@ -40,9 +40,11 @@ use crate::{Api,
      GetCollectionsResponse,
      GetItemByIdResponse,
      ListCollectionResponse,
+     ListRecoverablesInCollectionResponse,
      StoreIntoCollectionResponse,
      UpdateItemByIdResponse,
-     CreateEventResponse
+     CreateEventResponse,
+     RebuildGrantsResponse
      };
 
 /// Convert input into a base path, e.g. "http://example:123". Also checks the scheme as it goes.
@@ -642,6 +644,8 @@ impl<S, C> Api<C> for Client<S, C> where
     async fn list_collection(
         &self,
         param_collection: String,
+        param_limit: Option<i32>,
+        param_offset: Option<i32>,
         param_extra_fields: Option<String>,
         param_sort: Option<String>,
         param_exact_title: Option<String>,
@@ -658,6 +662,14 @@ impl<S, C> Api<C> for Client<S, C> where
         // Query parameters
         let query_string = {
             let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            if let Some(param_limit) = param_limit {
+                query_string.append_pair("limit",
+                    &param_limit.to_string());
+            }
+            if let Some(param_offset) = param_offset {
+                query_string.append_pair("offset",
+                    &param_offset.to_string());
+            }
             if let Some(param_extra_fields) = param_extra_fields {
                 query_string.append_pair("extraFields",
                     &param_extra_fields);
@@ -721,6 +733,120 @@ impl<S, C> Api<C> for Client<S, C> where
             404 => {
                 Ok(
                     ListCollectionResponse::CollectionNotFound
+                )
+            }
+            code => {
+                let headers = response.headers().clone();
+                let body = response.into_body()
+                       .take(100)
+                       .into_raw().await;
+                Err(ApiError(format!("Unexpected response code {}:\n{:?}\n\n{}",
+                    code,
+                    headers,
+                    match body {
+                        Ok(body) => match String::from_utf8(body) {
+                            Ok(body) => body,
+                            Err(e) => format!("<Body was not UTF8: {:?}>", e),
+                        },
+                        Err(e) => format!("<Failed to read body: {}>", e),
+                    }
+                )))
+            }
+        }
+    }
+
+    async fn list_recoverables_in_collection(
+        &self,
+        param_collection: String,
+        param_limit: Option<i32>,
+        param_offset: Option<i32>,
+        param_extra_fields: Option<String>,
+        param_sort: Option<String>,
+        param_exact_title: Option<String>,
+        param_pfilter: Option<String>,
+        context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>
+    {
+        let mut client_service = self.client_service.clone();
+        let mut uri = format!(
+            "{}/api/recoverables/{collection}",
+            self.base_path
+            ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
+        );
+
+        // Query parameters
+        let query_string = {
+            let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            if let Some(param_limit) = param_limit {
+                query_string.append_pair("limit",
+                    &param_limit.to_string());
+            }
+            if let Some(param_offset) = param_offset {
+                query_string.append_pair("offset",
+                    &param_offset.to_string());
+            }
+            if let Some(param_extra_fields) = param_extra_fields {
+                query_string.append_pair("extraFields",
+                    &param_extra_fields);
+            }
+            if let Some(param_sort) = param_sort {
+                query_string.append_pair("sort",
+                    &param_sort);
+            }
+            if let Some(param_exact_title) = param_exact_title {
+                query_string.append_pair("exactTitle",
+                    &param_exact_title);
+            }
+            if let Some(param_pfilter) = param_pfilter {
+                query_string.append_pair("pfilter",
+                    &param_pfilter);
+            }
+            query_string.finish()
+        };
+        if !query_string.is_empty() {
+            uri += "?";
+            uri += &query_string;
+        }
+
+        let uri = match Uri::from_str(&uri) {
+            Ok(uri) => uri,
+            Err(err) => return Err(ApiError(format!("Unable to build URI: {}", err))),
+        };
+
+        let mut request = match Request::builder()
+            .method("GET")
+            .uri(uri)
+            .body(Body::empty()) {
+                Ok(req) => req,
+                Err(e) => return Err(ApiError(format!("Unable to create request: {}", e)))
+        };
+
+        let header = HeaderValue::from_str(Has::<XSpanIdString>::get(context).0.as_str());
+        request.headers_mut().insert(HeaderName::from_static("x-span-id"), match header {
+            Ok(h) => h,
+            Err(e) => return Err(ApiError(format!("Unable to create X-Span ID header value: {}", e)))
+        });
+
+        let response = client_service.call((request, context.clone()))
+            .map_err(|e| ApiError(format!("No response received: {}", e))).await?;
+
+        match response.status().as_u16() {
+            200 => {
+                let body = response.into_body();
+                let body = body
+                        .into_raw()
+                        .map_err(|e| ApiError(format!("Failed to read response: {}", e))).await?;
+                let body = str::from_utf8(&body)
+                    .map_err(|e| ApiError(format!("Response was not valid UTF8: {}", e)))?;
+                let body = serde_json::from_str::<models::CollectionItemsList>(body).map_err(|e| {
+                    ApiError(format!("Response body did not match the schema: {}", e))
+                })?;
+                Ok(ListRecoverablesInCollectionResponse::SuccessfulOperation
+                    (body)
+                )
+            }
+            404 => {
+                Ok(
+                    ListRecoverablesInCollectionResponse::CollectionNotFound
                 )
             }
             code => {
@@ -997,6 +1123,83 @@ impl<S, C> Api<C> for Client<S, C> where
             400 => {
                 Ok(
                     CreateEventResponse::CreatingTheCollectionFailed
+                )
+            }
+            code => {
+                let headers = response.headers().clone();
+                let body = response.into_body()
+                       .take(100)
+                       .into_raw().await;
+                Err(ApiError(format!("Unexpected response code {}:\n{:?}\n\n{}",
+                    code,
+                    headers,
+                    match body {
+                        Ok(body) => match String::from_utf8(body) {
+                            Ok(body) => body,
+                            Err(e) => format!("<Body was not UTF8: {:?}>", e),
+                        },
+                        Err(e) => format!("<Failed to read body: {}>", e),
+                    }
+                )))
+            }
+        }
+    }
+
+    async fn rebuild_grants(
+        &self,
+        param_collection: String,
+        context: &C) -> Result<RebuildGrantsResponse, ApiError>
+    {
+        let mut client_service = self.client_service.clone();
+        let mut uri = format!(
+            "{}/api/maintenance/{collection}/rebuild-grants",
+            self.base_path
+            ,collection=utf8_percent_encode(&param_collection.to_string(), ID_ENCODE_SET)
+        );
+
+        // Query parameters
+        let query_string = {
+            let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            query_string.finish()
+        };
+        if !query_string.is_empty() {
+            uri += "?";
+            uri += &query_string;
+        }
+
+        let uri = match Uri::from_str(&uri) {
+            Ok(uri) => uri,
+            Err(err) => return Err(ApiError(format!("Unable to build URI: {}", err))),
+        };
+
+        let mut request = match Request::builder()
+            .method("POST")
+            .uri(uri)
+            .body(Body::empty()) {
+                Ok(req) => req,
+                Err(e) => return Err(ApiError(format!("Unable to create request: {}", e)))
+        };
+
+        let header = HeaderValue::from_str(Has::<XSpanIdString>::get(context).0.as_str());
+        request.headers_mut().insert(HeaderName::from_static("x-span-id"), match header {
+            Ok(h) => h,
+            Err(e) => return Err(ApiError(format!("Unable to create X-Span ID header value: {}", e)))
+        });
+
+        let response = client_service.call((request, context.clone()))
+            .map_err(|e| ApiError(format!("No response received: {}", e))).await?;
+
+        match response.status().as_u16() {
+            201 => {
+                let body = response.into_body();
+                let body = body
+                        .into_raw()
+                        .map_err(|e| ApiError(format!("Failed to read response: {}", e))).await?;
+                let body = str::from_utf8(&body)
+                    .map_err(|e| ApiError(format!("Response was not valid UTF8: {}", e)))?;
+                let body = body.to_string();
+                Ok(RebuildGrantsResponse::Success
+                    (body)
                 )
             }
             code => {

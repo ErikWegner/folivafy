@@ -9,10 +9,10 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::Duration;
-use openapi::models::CollectionItem;
 use uuid::Uuid;
 
 use crate::api::{data_service::DataService, dto, ApiErrors};
+use crate::models::CollectionItem;
 
 use super::dto::{GrantForDocument, UserWithRoles};
 

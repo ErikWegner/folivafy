@@ -2,12 +2,12 @@ use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use entity::collection;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CreateCollectionRequest;
 use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::{error, info, warn};
 use validator::Validate;
 
 use crate::api::{auth::User, ApiContext, ApiErrors};
+use crate::models::CreateCollectionRequest;
 
 #[debug_handler]
 pub(crate) async fn api_create_collection(

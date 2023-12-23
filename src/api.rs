@@ -15,7 +15,6 @@ pub(crate) mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
-pub use openapi::models::CollectionItem;
 
 use std::sync::Arc;
 use tokio::signal;
@@ -34,6 +33,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use axum_macros::FromRef;
 use jwt_authorizer::{authorizer::IntoLayer, Authorizer, JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
 use serde::Serialize;
@@ -45,6 +45,7 @@ use crate::{
     mail,
     monitoring::{health_routes, HealthMonitor},
 };
+use crate::api::hooks::staged_delete;
 
 use self::{
     auth::{cert_loader, User},
@@ -63,7 +64,7 @@ use self::{
 pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub static CATEGORY_DOCUMENT_DELETE: i32 = 2;
 
-#[derive(Clone)]
+#[derive(Clone, FromRef)]
 pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
@@ -133,7 +134,7 @@ impl From<DbErr> for ApiErrors {
                     ApiErrors::BadRequest(format!("Cannot append event, code {})", code))
                 }
                 _ => {
-                    error!("Database runtime error: {}", error);
+                    error!("Database runtime error: {:?}", error);
                     ApiErrors::InternalServerError
                 }
             },
@@ -276,6 +277,9 @@ async fn api_routes(
             .route(
                 "/maintenance/:collection_name/rebuild-grants",
                 post(api_rebuild_grants::api_rebuild_grants),
+            )
+            .route("/recoverables/:collection_name",
+                get(staged_delete::get_recoverables)
             )
             .with_state(ApiContext {
                 db,

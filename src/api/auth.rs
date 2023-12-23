@@ -45,6 +45,11 @@ impl User {
         self.realm_access.roles.contains(&role_name)
     }
 
+    pub(crate) fn is_collection_admin(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_ADMIN", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
     pub(crate) fn is_collection_editor(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_EDITOR", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
@@ -52,6 +57,11 @@ impl User {
 
     pub(crate) fn is_collection_reader(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_READER", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
+    pub(crate) fn is_collection_remover(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 

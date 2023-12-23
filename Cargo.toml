@@ -1,6 +1,6 @@
 [package]
 name = "folivafy"
-version = "2.3.0"
+version = "2.4.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -30,10 +30,6 @@ lettre = { version = "0.11", default-features = false, features = [
     "tracing",
 ] }
 migration = { path = "migration" } # depends on your needs
-openapi = { path = "./generated", default-features = false, features = [
-    "lazy_static",
-    "regex",
-] }
 regex = "1"
 reqwest = { version = "0.11", default-features = false, features = [
     "rustls",
@@ -56,6 +52,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 typed-builder = "0.18.0"
 uuid = { version = "1", features = ["serde", "v4"] }
 validator = { version = "0.16.0", features = ["derive"] }
+
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

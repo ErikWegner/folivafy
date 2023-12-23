@@ -10,7 +10,6 @@ use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::api::db::list_documents;
-use crate::api::dto::Grant;
 use crate::{
     api::{
         data_service::FolivafyDataService,
@@ -25,6 +24,7 @@ use crate::{
     },
     BackgroundTask,
 };
+use crate::api::db::ListDocumentGrants::IgnoredForCron;
 
 lazy_static! {
     pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
@@ -60,7 +60,7 @@ async fn cron(
             let dbparams = DbListDocumentParams::builder()
                 .collection(collection.id)
                 .exact_title(None)
-                .user_grants(vec![Grant::cron_access()])
+                .grants(IgnoredForCron)
                 .extra_fields(vec!["title".to_string()])
                 .sort_fields(None)
                 .filters(vec![document_selector.clone().into()])

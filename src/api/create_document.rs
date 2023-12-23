@@ -5,7 +5,6 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionItem;
 use sea_orm::{DbErr, RuntimeErr, TransactionError, TransactionTrait};
 use serde_json::json;
 use std::sync::Arc;
@@ -20,6 +19,7 @@ use crate::api::{
     hooks::{HookCreateContext, RequestContext},
     ApiContext, ApiErrors,
 };
+use crate::models::CollectionItem;
 
 use super::grants::default_document_grants;
 

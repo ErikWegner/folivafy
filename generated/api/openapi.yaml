@@ -5,9 +5,9 @@ info:
     name: AGPL-3.0 license
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
   title: Folivafy
-  version: 1.0.0
+  version: 2.3.0
 servers:
-- url: http://localhost:3000/api
+- url: /api
 tags:
 - description: Administrative tasks
   name: administration
@@ -66,6 +66,26 @@ paths:
         schema:
           $ref: '#/components/schemas/CollectionName'
         style: simple
+      - description: Number of items in the response. Defaults to `50`.
+        example: 25
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+        style: form
+      - description: Number of skipped items in the response. Defaults to `0`.
+        example: 0
+        explode: true
+        in: query
+        name: offset
+        required: false
+        schema:
+          minimum: 0
+          type: integer
+        style: form
       - description: |
           A comma separated list of document fields that should
           be contained in the response
@@ -93,8 +113,8 @@ paths:
         name: sort
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+-fb](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
-            +-fb])*$"
+          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+\\-fb](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
+            +\\-fb])*$"
           type: string
         style: form
       - description: |
@@ -120,6 +140,12 @@ paths:
           list:
             summary: A list of values
             value: "a='k'&f3=['p1','p4','p9']"
+          contains:
+            summary: Filter a column to contain the specified value
+            value: a=~'foo'
+          starts_with:
+            summary: Filter a column to start with the specified value
+            value: a=@'foo'
         explode: true
         in: query
         name: pfilter
@@ -259,8 +285,175 @@ paths:
           description: Creating the collection failed
       tags:
       - event
+  /maintenance/{collection}/rebuild-grants:
+    post:
+      description: Iterate over all documents and refresh grants.
+      operationId: rebuildGrants
+      parameters:
+      - description: Path name of the collection
+        explode: false
+        in: path
+        name: collection
+        required: true
+        schema:
+          $ref: '#/components/schemas/CollectionName'
+        style: simple
+      responses:
+        "201":
+          content:
+            text/plain:
+              schema:
+                example: 201 OK
+                type: string
+          description: Success
+      summary: Rebuild grants for a collection
+      tags:
+      - maintenance
+  /recoverables/{collection}:
+    get:
+      description: |
+        Get a list of recoverable items within the collection. Requires
+        activation of the two-staged-deletion.
+
+        ### Required permissions
+
+        * `C_COLLECTIONNAME_READER` and `C_COLLECTIONNAME_REMOVER` to
+        recover documents from the first stage.
+        * `C_COLLECTIONNAME_ADMIN` to recover documents from the second stage.
+      operationId: listRecoverablesInCollection
+      parameters:
+      - description: Path name of the collection
+        explode: false
+        in: path
+        name: collection
+        required: true
+        schema:
+          $ref: '#/components/schemas/CollectionName'
+        style: simple
+      - description: Number of items in the response. Defaults to `50`.
+        example: 25
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+        style: form
+      - description: Number of skipped items in the response. Defaults to `0`.
+        example: 0
+        explode: true
+        in: query
+        name: offset
+        required: false
+        schema:
+          minimum: 0
+          type: integer
+        style: form
+      - description: |
+          A comma separated list of document fields that should
+          be contained in the response
+        example: "price,length"
+        explode: true
+        in: query
+        name: extraFields
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$"
+          type: string
+        style: form
+      - description: |
+          A comma separated list of document fields that should
+          be used to sort the collection.
+
+          Append a `+` to sort text ascending,
+          append a `-` to sort text descending.
+
+          Append a `f` to sort the native field value ascending (forward),
+          append a `b` to sort the native field value descending (backwards).
+        example: "price+,length-"
+        explode: true
+        in: query
+        name: sort
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\+\\-fb](,[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*[\\\
+            +\\-fb])*$"
+          type: string
+        style: form
+      - description: |
+          Search for documents with this exact title
+          (upper and lower case are respected)
+        example: Rectangle
+        explode: true
+        in: query
+        name: exactTitle
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: |
+          Filter some columns
+        examples:
+          simple:
+            summary: A simple filter
+            value: f1='v12'
+          multiple:
+            summary: Multiple fields
+            value: a='k'&f1=4
+          list:
+            summary: A list of values
+            value: "a='k'&f3=['p1','p4','p9']"
+          contains:
+            summary: Filter a column to contain the specified value
+            value: a=~'foo'
+          starts_with:
+            summary: Filter a column to start with the specified value
+            value: a=@'foo'
+        explode: true
+        in: query
+        name: pfilter
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItemsList'
+          description: successful operation
+        "404":
+          description: Collection not found
+      summary: List recoverable items within the collection
+      tags:
+      - collection
+      - maintenance
 components:
   parameters:
+    Limit:
+      description: Number of items in the response. Defaults to `50`.
+      example: 25
+      explode: true
+      in: query
+      name: limit
+      required: false
+      schema:
+        minimum: 1
+        type: integer
+      style: form
+    Offset:
+      description: Number of skipped items in the response. Defaults to `0`.
+      example: 0
+      explode: true
+      in: query
+      name: offset
+      required: false
+      schema:
+        minimum: 0
+        type: integer
+      style: form
     CollectionNameParam:
       description: Path name of the collection
       explode: false

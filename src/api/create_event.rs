@@ -1,7 +1,6 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CreateEventBody;
 use sea_orm::{TransactionError, TransactionTrait};
 use std::sync::Arc;
 use tracing::{debug, error, warn};
@@ -14,6 +13,7 @@ use crate::api::{
     hooks::{DocumentResult, HookCreatedEventContext, HookCreatingEventContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
+use crate::models::CreateEventBody;
 
 #[debug_handler]
 pub(crate) async fn api_create_event(

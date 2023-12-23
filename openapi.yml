@@ -85,6 +85,8 @@ paths:
       operationId: listCollection
       parameters:
         - $ref: "#/components/parameters/CollectionNameParam"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
         - in: query
           name: extraFields
           schema:
@@ -274,6 +276,8 @@ paths:
       operationId: listRecoverablesInCollection
       parameters:
         - $ref: "#/components/parameters/CollectionNameParam"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
         - in: query
           name: extraFields
           schema:
@@ -343,6 +347,24 @@ paths:
         - maintenance
 components:
   parameters:
+    Limit:
+      name: limit
+      description: Number of items in the response. Defaults to `50`.
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      example: 25
+    Offset:
+      name: offset
+      description: Number of skipped items in the response. Defaults to `0`.
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      example: 0
     CollectionNameParam:
       description: Path name of the collection
       explode: false

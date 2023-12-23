@@ -1,23 +1,23 @@
-# event_api
+# maintenance_api
 
 All URIs are relative to */api*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
-**createEvent**](event_api.md#createEvent) | **POST** /events | 
+**rebuildGrants**](maintenance_api.md#rebuildGrants) | **POST** /maintenance/{collection}/rebuild-grants | Rebuild grants for a collection
 
 
-# **createEvent**
-> String createEvent(create_event_body)
+# **rebuildGrants**
+> String rebuildGrants(collection)
+Rebuild grants for a collection
 
-
-Create event
+Iterate over all documents and refresh grants.
 
 ### Required Parameters
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
-  **create_event_body** | [**CreateEventBody**](CreateEventBody.md)| Event data | 
+  **collection** | **String**| Path name of the collection | 
 
 ### Return type
 
@@ -29,7 +29,7 @@ No authorization required
 
 ### HTTP request headers
 
- - **Content-Type**: application/json
+ - **Content-Type**: Not defined
  - **Accept**: text/plain
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

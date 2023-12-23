@@ -5,7 +5,6 @@ use axum::{
 };
 use axum_macros::debug_handler;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionItem;
 use sea_orm::{prelude::Uuid, TransactionError, TransactionTrait};
 use serde_json::json;
 use std::sync::Arc;
@@ -22,6 +21,7 @@ use crate::api::{
     hooks::{HookUpdateContext, RequestContext},
     select_document_for_update, ApiContext, ApiErrors,
 };
+use crate::models::CollectionItem;
 
 use super::grants::{hook_or_default_user_grants, GrantCollection};
 

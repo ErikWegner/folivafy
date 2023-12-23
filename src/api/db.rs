@@ -36,6 +36,17 @@ use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
 
+pub(crate) async fn get_unlocked_collection_by_name(db: &DatabaseConnection,
+                                                    collection_name: &str,) -> Option<Model> {
+    get_collection_by_name(db, collection_name).await.and_then(|c| {
+        if c.locked {
+            None
+        } else {
+            Some(c)
+        }
+    })
+}
+
 pub(crate) async fn get_collection_by_name(
     db: &DatabaseConnection,
     collection_name: &str,
@@ -170,11 +181,19 @@ impl From<CronDocumentSelector> for FieldFilter {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) enum ListDocumentGrants {
+    IgnoredForCron,
+    IgnoredForAllReaderUser,
+    IgnoredForAdmin,
+    Restricted(Vec<dto::Grant>)
+}
+
 #[derive(Debug, Clone, TypedBuilder)]
 pub(crate) struct DbListDocumentParams {
     pub(crate) collection: Uuid,
     pub(crate) exact_title: Option<String>,
-    pub(crate) user_grants: Vec<dto::Grant>,
+    pub(crate) grants: ListDocumentGrants,
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
     pub(crate) filters: Vec<FieldFilter>,
@@ -256,17 +275,26 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
     let mut q = b.from_as(Documents, documents_alias.clone());
-    if params.user_grants.len() == 1 && params.user_grants[0].is_cron_access() {
-        debug!("No grant restrictions for cron access");
-    } else {
-        q.join(
-            JoinType::Join,
-            Grant::Table,
-            Expr::col((documents_alias.clone(), CollectionDocument::Id))
-                .equals((Grant::Table, Grant::DocumentId)),
-        )
-        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
-        q = q.cond_where(grants_conditions(&params.user_grants));
+    match params.grants {
+        ListDocumentGrants::IgnoredForCron => {
+            debug!("No grant restrictions for cron access");
+        }
+        ListDocumentGrants::IgnoredForAllReaderUser => {
+            info!("No grant restrictions for user with AllReader role");
+        }
+        ListDocumentGrants::IgnoredForAdmin => {
+            info!("No grant restrictions for user with admin role");
+        }
+        ListDocumentGrants::Restricted(ref user_grants) => {
+            q.join(
+                JoinType::Join,
+                Grant::Table,
+                Expr::col((documents_alias.clone(), CollectionDocument::Id))
+                    .equals((Grant::Table, Grant::DocumentId)),
+            )
+                .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+            q = q.cond_where(grants_conditions(user_grants));
+        }
     }
 
     for filter in &params.filters {
@@ -706,6 +734,7 @@ mod tests {
         grants::{default_user_grants, DefaultUserGrantsParameters},
         list_documents::ListDocumentParams,
     };
+    use crate::api::db::ListDocumentGrants::Restricted;
 
     use super::*;
 
@@ -839,7 +868,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![])
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act
@@ -871,7 +900,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![])
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act
@@ -903,7 +932,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![])
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act
@@ -935,7 +964,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![])
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act
@@ -977,7 +1006,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(filters)
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act
@@ -1015,7 +1044,7 @@ mod tests {
             .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(filters)
-            .user_grants(grants)
+            .grants(Restricted(grants))
             .build();
 
         // Act

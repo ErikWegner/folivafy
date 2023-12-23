@@ -26,9 +26,11 @@ use crate::{Api,
      GetCollectionsResponse,
      GetItemByIdResponse,
      ListCollectionResponse,
+     ListRecoverablesInCollectionResponse,
      StoreIntoCollectionResponse,
      UpdateItemByIdResponse,
-     CreateEventResponse
+     CreateEventResponse,
+     RebuildGrantsResponse
 };
 
 mod paths {
@@ -39,7 +41,9 @@ mod paths {
             r"^/api/collections$",
             r"^/api/collections/(?P<collection>[^/?#]*)$",
             r"^/api/collections/(?P<collection>[^/?#]*)/(?P<documentId>[^/?#]*)$",
-            r"^/api/events$"
+            r"^/api/events$",
+            r"^/api/maintenance/(?P<collection>[^/?#]*)/rebuild-grants$",
+            r"^/api/recoverables/(?P<collection>[^/?#]*)$"
         ])
         .expect("Unable to create global regex set");
     }
@@ -59,6 +63,20 @@ mod paths {
                 .expect("Unable to create regex for COLLECTIONS_COLLECTION_DOCUMENTID");
     }
     pub(crate) static ID_EVENTS: usize = 3;
+    pub(crate) static ID_MAINTENANCE_COLLECTION_REBUILD_GRANTS: usize = 4;
+    lazy_static! {
+        pub static ref REGEX_MAINTENANCE_COLLECTION_REBUILD_GRANTS: regex::Regex =
+            #[allow(clippy::invalid_regex)]
+            regex::Regex::new(r"^/api/maintenance/(?P<collection>[^/?#]*)/rebuild-grants$")
+                .expect("Unable to create regex for MAINTENANCE_COLLECTION_REBUILD_GRANTS");
+    }
+    pub(crate) static ID_RECOVERABLES_COLLECTION: usize = 5;
+    lazy_static! {
+        pub static ref REGEX_RECOVERABLES_COLLECTION: regex::Regex =
+            #[allow(clippy::invalid_regex)]
+            regex::Regex::new(r"^/api/recoverables/(?P<collection>[^/?#]*)$")
+                .expect("Unable to create regex for RECOVERABLES_COLLECTION");
+    }
 }
 
 pub struct MakeService<T, C> where
@@ -222,8 +240,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("text/plain")
                                                             .expect("Unable to create Content-Type header for CREATE_COLLECTION_SUCCESSFUL_OPERATION"));
-                                                    let body = body;
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = body;
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 CreateCollectionResponse::CreatingTheCollectionFailed
                                                 => {
@@ -268,8 +286,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("application/json")
                                                             .expect("Unable to create Content-Type header for GET_COLLECTIONS_SUCCESSFUL_OPERATION"));
-                                                    let body = serde_json::to_string(&body).expect("impossible to fail to serialize");
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = serde_json::to_string(&body).expect("impossible to fail to serialize");
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                             },
                                             Err(_) => {
@@ -343,8 +361,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("application/json")
                                                             .expect("Unable to create Content-Type header for GET_ITEM_BY_ID_SUCCESSFUL_OPERATION"));
-                                                    let body = serde_json::to_string(&body).expect("impossible to fail to serialize");
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = serde_json::to_string(&body).expect("impossible to fail to serialize");
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 GetItemByIdResponse::ItemNotFound
                                                 => {
@@ -389,6 +407,40 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
                 // Query parameters (note that non-required or collection query parameters will ignore garbage values, rather than causing a 400 response)
                 let query_params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes()).collect::<Vec<_>>();
+                let param_limit = query_params.iter().filter(|e| e.0 == "limit").map(|e| e.1.clone())
+                    .next();
+                let param_limit = match param_limit {
+                    Some(param_limit) => {
+                        let param_limit =
+                            <i32 as std::str::FromStr>::from_str
+                                (&param_limit);
+                        match param_limit {
+                            Ok(param_limit) => Some(param_limit),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter limit - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter limit")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_offset = query_params.iter().filter(|e| e.0 == "offset").map(|e| e.1.clone())
+                    .next();
+                let param_offset = match param_offset {
+                    Some(param_offset) => {
+                        let param_offset =
+                            <i32 as std::str::FromStr>::from_str
+                                (&param_offset);
+                        match param_offset {
+                            Ok(param_offset) => Some(param_offset),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter offset - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter offset")),
+                        }
+                    },
+                    None => None,
+                };
                 let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
                     .next();
                 let param_extra_fields = match param_extra_fields {
@@ -460,6 +512,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
                                 let result = api_impl.list_collection(
                                             param_collection,
+                                            param_limit,
+                                            param_offset,
                                             param_extra_fields,
                                             param_sort,
                                             param_exact_title,
@@ -482,10 +536,185 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("application/json")
                                                             .expect("Unable to create Content-Type header for LIST_COLLECTION_SUCCESSFUL_OPERATION"));
-                                                    let body = serde_json::to_string(&body).expect("impossible to fail to serialize");
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = serde_json::to_string(&body).expect("impossible to fail to serialize");
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 ListCollectionResponse::CollectionNotFound
+                                                => {
+                                                    *response.status_mut() = StatusCode::from_u16(404).expect("Unable to turn 404 into a StatusCode");
+                                                },
+                                            },
+                                            Err(_) => {
+                                                // Application code returned an error. This should not happen, as the implementation should
+                                                // return a valid response.
+                                                *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                                                *response.body_mut() = Body::from("An internal error occurred");
+                                            },
+                                        }
+
+                                        Ok(response)
+            },
+
+            // ListRecoverablesInCollection - GET /recoverables/{collection}
+            hyper::Method::GET if path.matched(paths::ID_RECOVERABLES_COLLECTION) => {
+                // Path parameters
+                let path: &str = uri.path();
+                let path_params =
+                    paths::REGEX_RECOVERABLES_COLLECTION
+                    .captures(path)
+                    .unwrap_or_else(||
+                        panic!("Path {} matched RE RECOVERABLES_COLLECTION in set but failed match against \"{}\"", path, paths::REGEX_RECOVERABLES_COLLECTION.as_str())
+                    );
+
+                let param_collection = match percent_encoding::percent_decode(path_params["collection"].as_bytes()).decode_utf8() {
+                    Ok(param_collection) => match param_collection.parse::<String>() {
+                        Ok(param_collection) => param_collection,
+                        Err(e) => return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(Body::from(format!("Couldn't parse path parameter collection: {}", e)))
+                                        .expect("Unable to create Bad Request response for invalid path parameter")),
+                    },
+                    Err(_) => return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(Body::from(format!("Couldn't percent-decode path parameter as UTF-8: {}", &path_params["collection"])))
+                                        .expect("Unable to create Bad Request response for invalid percent decode"))
+                };
+
+                // Query parameters (note that non-required or collection query parameters will ignore garbage values, rather than causing a 400 response)
+                let query_params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes()).collect::<Vec<_>>();
+                let param_limit = query_params.iter().filter(|e| e.0 == "limit").map(|e| e.1.clone())
+                    .next();
+                let param_limit = match param_limit {
+                    Some(param_limit) => {
+                        let param_limit =
+                            <i32 as std::str::FromStr>::from_str
+                                (&param_limit);
+                        match param_limit {
+                            Ok(param_limit) => Some(param_limit),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter limit - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter limit")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_offset = query_params.iter().filter(|e| e.0 == "offset").map(|e| e.1.clone())
+                    .next();
+                let param_offset = match param_offset {
+                    Some(param_offset) => {
+                        let param_offset =
+                            <i32 as std::str::FromStr>::from_str
+                                (&param_offset);
+                        match param_offset {
+                            Ok(param_offset) => Some(param_offset),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter offset - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter offset")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                    .next();
+                let param_extra_fields = match param_extra_fields {
+                    Some(param_extra_fields) => {
+                        let param_extra_fields =
+                            <String as std::str::FromStr>::from_str
+                                (&param_extra_fields);
+                        match param_extra_fields {
+                            Ok(param_extra_fields) => Some(param_extra_fields),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_sort = query_params.iter().filter(|e| e.0 == "sort").map(|e| e.1.clone())
+                    .next();
+                let param_sort = match param_sort {
+                    Some(param_sort) => {
+                        let param_sort =
+                            <String as std::str::FromStr>::from_str
+                                (&param_sort);
+                        match param_sort {
+                            Ok(param_sort) => Some(param_sort),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter sort - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter sort")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
+                    .next();
+                let param_exact_title = match param_exact_title {
+                    Some(param_exact_title) => {
+                        let param_exact_title =
+                            <String as std::str::FromStr>::from_str
+                                (&param_exact_title);
+                        match param_exact_title {
+                            Ok(param_exact_title) => Some(param_exact_title),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
+                    .next();
+                let param_pfilter = match param_pfilter {
+                    Some(param_pfilter) => {
+                        let param_pfilter =
+                            <String as std::str::FromStr>::from_str
+                                (&param_pfilter);
+                        match param_pfilter {
+                            Ok(param_pfilter) => Some(param_pfilter),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
+                        }
+                    },
+                    None => None,
+                };
+
+                                let result = api_impl.list_recoverables_in_collection(
+                                            param_collection,
+                                            param_limit,
+                                            param_offset,
+                                            param_extra_fields,
+                                            param_sort,
+                                            param_exact_title,
+                                            param_pfilter,
+                                        &context
+                                    ).await;
+                                let mut response = Response::new(Body::empty());
+                                response.headers_mut().insert(
+                                            HeaderName::from_static("x-span-id"),
+                                            HeaderValue::from_str((&context as &dyn Has<XSpanIdString>).get().0.clone().as_str())
+                                                .expect("Unable to create X-Span-ID header value"));
+
+                                        match result {
+                                            Ok(rsp) => match rsp {
+                                                ListRecoverablesInCollectionResponse::SuccessfulOperation
+                                                    (body)
+                                                => {
+                                                    *response.status_mut() = StatusCode::from_u16(200).expect("Unable to turn 200 into a StatusCode");
+                                                    response.headers_mut().insert(
+                                                        CONTENT_TYPE,
+                                                        HeaderValue::from_str("application/json")
+                                                            .expect("Unable to create Content-Type header for LIST_RECOVERABLES_IN_COLLECTION_SUCCESSFUL_OPERATION"));
+                                                    let body_content = serde_json::to_string(&body).expect("impossible to fail to serialize");
+                                                    *response.body_mut() = Body::from(body_content);
+                                                },
+                                                ListRecoverablesInCollectionResponse::CollectionNotFound
                                                 => {
                                                     *response.status_mut() = StatusCode::from_u16(404).expect("Unable to turn 404 into a StatusCode");
                                                 },
@@ -584,8 +813,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("text/plain")
                                                             .expect("Unable to create Content-Type header for STORE_INTO_COLLECTION_SUCCESSFUL_OPERATION"));
-                                                    let body = body;
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = body;
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 StoreIntoCollectionResponse::CreatingTheCollectionFailed
                                                 => {
@@ -692,8 +921,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("text/plain")
                                                             .expect("Unable to create Content-Type header for UPDATE_ITEM_BY_ID_SUCCESSFUL_OPERATION"));
-                                                    let body = body;
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = body;
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 UpdateItemByIdResponse::UpdatingFailed
                                                 => {
@@ -776,8 +1005,8 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                                                         CONTENT_TYPE,
                                                         HeaderValue::from_str("text/plain")
                                                             .expect("Unable to create Content-Type header for CREATE_EVENT_SUCCESSFUL_OPERATION"));
-                                                    let body = body;
-                                                    *response.body_mut() = Body::from(body);
+                                                    let body_content = body;
+                                                    *response.body_mut() = Body::from(body_content);
                                                 },
                                                 CreateEventResponse::CreatingTheCollectionFailed
                                                 => {
@@ -801,10 +1030,72 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                         }
             },
 
+            // RebuildGrants - POST /maintenance/{collection}/rebuild-grants
+            hyper::Method::POST if path.matched(paths::ID_MAINTENANCE_COLLECTION_REBUILD_GRANTS) => {
+                // Path parameters
+                let path: &str = uri.path();
+                let path_params =
+                    paths::REGEX_MAINTENANCE_COLLECTION_REBUILD_GRANTS
+                    .captures(path)
+                    .unwrap_or_else(||
+                        panic!("Path {} matched RE MAINTENANCE_COLLECTION_REBUILD_GRANTS in set but failed match against \"{}\"", path, paths::REGEX_MAINTENANCE_COLLECTION_REBUILD_GRANTS.as_str())
+                    );
+
+                let param_collection = match percent_encoding::percent_decode(path_params["collection"].as_bytes()).decode_utf8() {
+                    Ok(param_collection) => match param_collection.parse::<String>() {
+                        Ok(param_collection) => param_collection,
+                        Err(e) => return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(Body::from(format!("Couldn't parse path parameter collection: {}", e)))
+                                        .expect("Unable to create Bad Request response for invalid path parameter")),
+                    },
+                    Err(_) => return Ok(Response::builder()
+                                        .status(StatusCode::BAD_REQUEST)
+                                        .body(Body::from(format!("Couldn't percent-decode path parameter as UTF-8: {}", &path_params["collection"])))
+                                        .expect("Unable to create Bad Request response for invalid percent decode"))
+                };
+
+                                let result = api_impl.rebuild_grants(
+                                            param_collection,
+                                        &context
+                                    ).await;
+                                let mut response = Response::new(Body::empty());
+                                response.headers_mut().insert(
+                                            HeaderName::from_static("x-span-id"),
+                                            HeaderValue::from_str((&context as &dyn Has<XSpanIdString>).get().0.clone().as_str())
+                                                .expect("Unable to create X-Span-ID header value"));
+
+                                        match result {
+                                            Ok(rsp) => match rsp {
+                                                RebuildGrantsResponse::Success
+                                                    (body)
+                                                => {
+                                                    *response.status_mut() = StatusCode::from_u16(201).expect("Unable to turn 201 into a StatusCode");
+                                                    response.headers_mut().insert(
+                                                        CONTENT_TYPE,
+                                                        HeaderValue::from_str("text/plain")
+                                                            .expect("Unable to create Content-Type header for REBUILD_GRANTS_SUCCESS"));
+                                                    let body_content = body;
+                                                    *response.body_mut() = Body::from(body_content);
+                                                },
+                                            },
+                                            Err(_) => {
+                                                // Application code returned an error. This should not happen, as the implementation should
+                                                // return a valid response.
+                                                *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                                                *response.body_mut() = Body::from("An internal error occurred");
+                                            },
+                                        }
+
+                                        Ok(response)
+            },
+
             _ if path.matched(paths::ID_COLLECTIONS) => method_not_allowed(),
             _ if path.matched(paths::ID_COLLECTIONS_COLLECTION) => method_not_allowed(),
             _ if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => method_not_allowed(),
             _ if path.matched(paths::ID_EVENTS) => method_not_allowed(),
+            _ if path.matched(paths::ID_MAINTENANCE_COLLECTION_REBUILD_GRANTS) => method_not_allowed(),
+            _ if path.matched(paths::ID_RECOVERABLES_COLLECTION) => method_not_allowed(),
             _ => Ok(Response::builder().status(StatusCode::NOT_FOUND)
                     .body(Body::empty())
                     .expect("Unable to create Not Found response"))
@@ -826,12 +1117,16 @@ impl<T> RequestParser<T> for ApiRequestParser {
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS_COLLECTION_DOCUMENTID) => Some("GetItemById"),
             // ListCollection - GET /collections/{collection}
             hyper::Method::GET if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("ListCollection"),
+            // ListRecoverablesInCollection - GET /recoverables/{collection}
+            hyper::Method::GET if path.matched(paths::ID_RECOVERABLES_COLLECTION) => Some("ListRecoverablesInCollection"),
             // StoreIntoCollection - POST /collections/{collection}
             hyper::Method::POST if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("StoreIntoCollection"),
             // UpdateItemById - PUT /collections/{collection}
             hyper::Method::PUT if path.matched(paths::ID_COLLECTIONS_COLLECTION) => Some("UpdateItemById"),
             // CreateEvent - POST /events
             hyper::Method::POST if path.matched(paths::ID_EVENTS) => Some("CreateEvent"),
+            // RebuildGrants - POST /maintenance/{collection}/rebuild-grants
+            hyper::Method::POST if path.matched(paths::ID_MAINTENANCE_COLLECTION_REBUILD_GRANTS) => Some("RebuildGrants"),
             _ => None,
         }
     }

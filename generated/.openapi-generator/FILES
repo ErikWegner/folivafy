@@ -18,6 +18,7 @@ docs/DocumentId.md
 docs/administration_api.md
 docs/collection_api.md
 docs/event_api.md
+docs/maintenance_api.md
 examples/ca.pem
 examples/client/main.rs
 examples/server-chain.pem

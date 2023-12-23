@@ -98,9 +98,11 @@ use openapi::{
     GetCollectionsResponse,
     GetItemByIdResponse,
     ListCollectionResponse,
+    ListRecoverablesInCollectionResponse,
     StoreIntoCollectionResponse,
     UpdateItemByIdResponse,
     CreateEventResponse,
+    RebuildGrantsResponse,
 };
 use openapi::server::MakeService;
 use std::error::Error;
@@ -115,7 +117,6 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         create_collection_request: models::CreateCollectionRequest,
         context: &C) -> Result<CreateCollectionResponse, ApiError>
     {
-        let context = context.clone();
         info!("create_collection({:?}) - X-Span-ID: {:?}", create_collection_request, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
@@ -125,7 +126,6 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         &self,
         context: &C) -> Result<GetCollectionsResponse, ApiError>
     {
-        let context = context.clone();
         info!("get_collections() - X-Span-ID: {:?}", context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
@@ -137,7 +137,6 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         document_id: uuid::Uuid,
         context: &C) -> Result<GetItemByIdResponse, ApiError>
     {
-        let context = context.clone();
         info!("get_item_by_id(\"{}\", {:?}) - X-Span-ID: {:?}", collection, document_id, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
@@ -146,14 +145,31 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     async fn list_collection(
         &self,
         collection: String,
+        limit: Option<i32>,
+        offset: Option<i32>,
         extra_fields: Option<String>,
         sort: Option<String>,
         exact_title: Option<String>,
         pfilter: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
-        let context = context.clone();
-        info!("list_collection(\"{}\", {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
+        info!("list_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, limit, offset, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
+        Err(ApiError("Generic failure".into()))
+    }
+
+    /// List recoverable items within the collection
+    async fn list_recoverables_in_collection(
+        &self,
+        collection: String,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        extra_fields: Option<String>,
+        sort: Option<String>,
+        exact_title: Option<String>,
+        pfilter: Option<String>,
+        context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>
+    {
+        info!("list_recoverables_in_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, limit, offset, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 
@@ -164,7 +180,6 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         collection_item: models::CollectionItem,
         context: &C) -> Result<StoreIntoCollectionResponse, ApiError>
     {
-        let context = context.clone();
         info!("store_into_collection(\"{}\", {:?}) - X-Span-ID: {:?}", collection, collection_item, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
@@ -176,7 +191,6 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>
     {
-        let context = context.clone();
         info!("update_item_by_id(\"{}\", {:?}) - X-Span-ID: {:?}", collection, collection_item, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
@@ -186,8 +200,17 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         create_event_body: models::CreateEventBody,
         context: &C) -> Result<CreateEventResponse, ApiError>
     {
-        let context = context.clone();
         info!("create_event({:?}) - X-Span-ID: {:?}", create_event_body, context.get().0.clone());
+        Err(ApiError("Generic failure".into()))
+    }
+
+    /// Rebuild grants for a collection
+    async fn rebuild_grants(
+        &self,
+        collection: String,
+        context: &C) -> Result<RebuildGrantsResponse, ApiError>
+    {
+        info!("rebuild_grants(\"{}\") - X-Span-ID: {:?}", collection, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 

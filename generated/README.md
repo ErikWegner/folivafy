@@ -13,8 +13,8 @@ To see how to make this your own, look here:
 
 [README]((https://openapi-generator.tech))
 
-- API version: 1.0.0
-- Build date: 2023-09-11T15:20:47.007143604Z[GMT]
+- API version: 2.3.0
+- Build date: 2023-12-23T22:08:00.073398128Z[Etc/UTC]
 
 
 
@@ -64,6 +64,8 @@ To run a client, follow one of the following simple steps:
 cargo run --example client GetCollections
 cargo run --example client GetItemById
 cargo run --example client ListCollection
+cargo run --example client ListRecoverablesInCollection
+cargo run --example client RebuildGrants
 ```
 
 ### HTTPS
@@ -93,7 +95,7 @@ See https://doc.rust-lang.org/cargo/reference/manifest.html#the-features-section
 
 ## Documentation for API Endpoints
 
-All URIs are relative to *http://localhost:3000/api*
+All URIs are relative to */api*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------
@@ -101,9 +103,11 @@ Method | HTTP request | Description
 [**getCollections**](docs/administration_api.md#getCollections) | **GET** /collections | List available collections
 [**getItemById**](docs/collection_api.md#getItemById) | **GET** /collections/{collection}/{documentId} | Get item
 [**listCollection**](docs/collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
+[**listRecoverablesInCollection**](docs/collection_api.md#listRecoverablesInCollection) | **GET** /recoverables/{collection} | List recoverable items within the collection
 [**storeIntoCollection**](docs/collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
 [**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
 [**createEvent**](docs/event_api.md#createEvent) | **POST** /events | 
+[**rebuildGrants**](docs/maintenance_api.md#rebuildGrants) | **POST** /maintenance/{collection}/rebuild-grants | Rebuild grants for a collection
 
 
 ## Documentation For Models
@@ -122,7 +126,7 @@ Method | HTTP request | Description
 
 
 ## Documentation For Authorization
- Endpoints do not require authorization.
+Endpoints do not require authorization.
 
 
 ## Author
