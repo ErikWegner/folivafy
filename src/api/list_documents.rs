@@ -16,6 +16,7 @@ use tracing::warn;
 use validator::Validate;
 
 use crate::api::grants::{hook_or_default_user_grants, GrantCollection};
+use crate::models::{CollectionItem, CollectionItemsList};
 use crate::{
     api::{
         auth::User,
@@ -25,9 +26,8 @@ use crate::{
     },
     axumext::extractors::ValidatedQueryParams,
 };
-use crate::models::{CollectionItem, CollectionItemsList};
 
-use super::db::{DbListDocumentParams, get_unlocked_collection_by_name, ListDocumentGrants};
+use super::db::{get_unlocked_collection_by_name, DbListDocumentParams, ListDocumentGrants};
 
 lazy_static! {
     static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
@@ -63,12 +63,13 @@ pub(crate) async fn api_list_document(
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
     let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
-    let collection = get_unlocked_collection_by_name(&ctx.db, &collection_name).await
+    let collection = get_unlocked_collection_by_name(&ctx.db, &collection_name)
+        .await
         .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
 
-    let user_is_permitted = user.is_collection_admin(&collection_name) ||
-        user.can_access_all_documents(&collection_name) || user.is_collection_reader(&collection_name)
-        ;
+    let user_is_permitted = user.is_collection_admin(&collection_name)
+        || user.can_access_all_documents(&collection_name)
+        || user.is_collection_reader(&collection_name);
     if !user_is_permitted {
         warn!("User {} is not a collection reader", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);

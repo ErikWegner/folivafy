@@ -36,15 +36,13 @@ use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
 
-pub(crate) async fn get_unlocked_collection_by_name(db: &DatabaseConnection,
-                                                    collection_name: &str,) -> Option<Model> {
-    get_collection_by_name(db, collection_name).await.and_then(|c| {
-        if c.locked {
-            None
-        } else {
-            Some(c)
-        }
-    })
+pub(crate) async fn get_unlocked_collection_by_name(
+    db: &DatabaseConnection,
+    collection_name: &str,
+) -> Option<Model> {
+    get_collection_by_name(db, collection_name)
+        .await
+        .and_then(|c| if c.locked { None } else { Some(c) })
 }
 
 pub(crate) async fn get_collection_by_name(
@@ -186,7 +184,7 @@ pub(crate) enum ListDocumentGrants {
     IgnoredForCron,
     IgnoredForAllReaderUser,
     IgnoredForAdmin,
-    Restricted(Vec<dto::Grant>)
+    Restricted(Vec<dto::Grant>),
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
@@ -292,7 +290,7 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
                 Expr::col((documents_alias.clone(), CollectionDocument::Id))
                     .equals((Grant::Table, Grant::DocumentId)),
             )
-                .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
             q = q.cond_where(grants_conditions(user_grants));
         }
     }
@@ -730,11 +728,11 @@ mod tests {
     use sea_query::PostgresQueryBuilder;
     use validator::Validate;
 
+    use crate::api::db::ListDocumentGrants::Restricted;
     use crate::api::{
         grants::{default_user_grants, DefaultUserGrantsParameters},
         list_documents::ListDocumentParams,
     };
-    use crate::api::db::ListDocumentGrants::Restricted;
 
     use super::*;
 

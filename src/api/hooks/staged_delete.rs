@@ -1,18 +1,23 @@
 use async_trait::async_trait;
-use chrono::Duration;
-use serde_json::{json, Value};
-use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::Json;
+use chrono::Duration;
 use jwt_authorizer::JwtClaims;
 use sea_orm::DatabaseConnection;
+use serde_json::{json, Value};
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::api::{db::{DELETED_AT_FIELD, DELETED_BY_FIELD}, dto::UserWithRoles, hooks::StoreDocument, ApiErrors, CATEGORY_DOCUMENT_DELETE};
 use crate::api::auth::User;
 use crate::api::db::get_unlocked_collection_by_name;
 use crate::api::list_documents::ListDocumentParams;
 use crate::api::types::Pagination;
+use crate::api::{
+    db::{DELETED_AT_FIELD, DELETED_BY_FIELD},
+    dto::UserWithRoles,
+    hooks::StoreDocument,
+    ApiErrors, CATEGORY_DOCUMENT_DELETE,
+};
 use crate::axumext::extractors::ValidatedQueryParams;
 use crate::models::CollectionItemsList;
 
@@ -114,14 +119,18 @@ pub(crate) async fn get_recoverables(
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
     let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
-    let collection = get_unlocked_collection_by_name(&db, &collection_name).await
+    let collection = get_unlocked_collection_by_name(&db, &collection_name)
+        .await
         .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
 
-    let user_is_permitted = user.is_collection_admin(&collection_name) || (
-        user.is_collection_remover(&collection_name) && user.is_collection_reader(&collection_name)
-        );
+    let user_is_permitted = user.is_collection_admin(&collection_name)
+        || (user.is_collection_remover(&collection_name)
+            && user.is_collection_reader(&collection_name));
     if !user_is_permitted {
-        warn!("User {} is not permitted for get_recoverables", user.name_and_sub());
+        warn!(
+            "User {} is not permitted for get_recoverables",
+            user.name_and_sub()
+        );
         return Err(ApiErrors::PermissionDenied);
     }
 

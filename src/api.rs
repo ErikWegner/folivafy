@@ -41,11 +41,11 @@ use thiserror::Error;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
+use crate::api::hooks::staged_delete;
 use crate::{
     mail,
     monitoring::{health_routes, HealthMonitor},
 };
-use crate::api::hooks::staged_delete;
 
 use self::{
     auth::{cert_loader, User},
@@ -278,8 +278,9 @@ async fn api_routes(
                 "/maintenance/:collection_name/rebuild-grants",
                 post(api_rebuild_grants::api_rebuild_grants),
             )
-            .route("/recoverables/:collection_name",
-                get(staged_delete::get_recoverables)
+            .route(
+                "/recoverables/:collection_name",
+                get(staged_delete::get_recoverables),
             )
             .with_state(ApiContext {
                 db,

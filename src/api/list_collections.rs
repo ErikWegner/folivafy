@@ -6,17 +6,9 @@ use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
 use tracing::warn;
 
 use crate::{
+    api::{auth::User, types::Pagination, ApiContext, ApiErrors},
     axumext::extractors::ValidatedQueryParams,
-    api::{
-        auth::User,
-        types::Pagination,
-        ApiContext,
-        ApiErrors,
-    },
-    models::{
-        self,
-        CollectionsList,
-    },
+    models::{self, CollectionsList},
 };
 
 #[debug_handler]

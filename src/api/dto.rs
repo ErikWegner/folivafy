@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use crate::api::{auth, db::DELETED_AT_FIELD, CATEGORY_DOCUMENT_UPDATES};
 use crate::cron::CRON_USER_ID;
+use crate::models::CollectionItem;
 use anyhow::Context;
 use lettre::{
     message::{MultiPart, SinglePart},
@@ -9,7 +10,6 @@ use lettre::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::models::CollectionItem;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Collection {

@@ -2,9 +2,9 @@
 
 use validator::Validate;
 
-use crate::models;
 #[cfg(any(feature = "client", feature = "server"))]
 use crate::header;
+use crate::models;
 
 /// Arbitrary event category
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
@@ -36,33 +36,26 @@ impl std::ops::DerefMut for CategoryId {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[validate(
-            length(min = 1, max = 32),
-           regex = "RE_COLLECTION_NAME",
-        )]
+    #[validate(length(min = 1, max = 32), regex = "RE_COLLECTION_NAME")]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[validate(
-            length(min = 1, max = 150),
-        )]
+    #[validate(length(min = 1, max = 150))]
     pub title: String,
 
-    /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`). 
+    /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
     #[serde(rename = "oao")]
     pub oao: bool,
 
-    /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`). 
+    /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
     #[serde(rename = "locked")]
     pub locked: bool,
-
 }
 
 lazy_static::lazy_static! {
@@ -72,7 +65,7 @@ lazy_static::lazy_static! {
 impl Collection {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(name: String, title: String, oao: bool, locked: bool, ) -> Collection {
+    pub fn new(name: String, title: String, oao: bool, locked: bool) -> Collection {
         Collection {
             name,
             title,
@@ -88,22 +81,14 @@ impl Collection {
 impl std::string::ToString for Collection {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("name".to_string()),
             Some(self.name.to_string()),
-
-
             Some("title".to_string()),
             Some(self.title.to_string()),
-
-
             Some("oao".to_string()),
             Some(self.oao.to_string()),
-
-
             Some("locked".to_string()),
             Some(self.locked.to_string()),
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -136,21 +121,37 @@ impl std::str::FromStr for Collection {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing Collection".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing Collection".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "name" => intermediate_rep.name.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "name" => intermediate_rep.name.push(
+                        <String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "title" => intermediate_rep.title.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "title" => intermediate_rep.title.push(
+                        <String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "oao" => intermediate_rep.oao.push(<bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "oao" => intermediate_rep.oao.push(
+                        <bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "locked" => intermediate_rep.locked.push(<bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    _ => return std::result::Result::Err("Unexpected key while parsing Collection".to_string())
+                    "locked" => intermediate_rep.locked.push(
+                        <bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing Collection".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -160,10 +161,26 @@ impl std::str::FromStr for Collection {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(Collection {
-            name: intermediate_rep.name.into_iter().next().ok_or_else(|| "name missing in Collection".to_string())?,
-            title: intermediate_rep.title.into_iter().next().ok_or_else(|| "title missing in Collection".to_string())?,
-            oao: intermediate_rep.oao.into_iter().next().ok_or_else(|| "oao missing in Collection".to_string())?,
-            locked: intermediate_rep.locked.into_iter().next().ok_or_else(|| "locked missing in Collection".to_string())?,
+            name: intermediate_rep
+                .name
+                .into_iter()
+                .next()
+                .ok_or_else(|| "name missing in Collection".to_string())?,
+            title: intermediate_rep
+                .title
+                .into_iter()
+                .next()
+                .ok_or_else(|| "title missing in Collection".to_string())?,
+            oao: intermediate_rep
+                .oao
+                .into_iter()
+                .next()
+                .ok_or_else(|| "oao missing in Collection".to_string())?,
+            locked: intermediate_rep
+                .locked
+                .into_iter()
+                .next()
+                .ok_or_else(|| "locked missing in Collection".to_string())?,
         })
     }
 }
@@ -174,13 +191,16 @@ impl std::str::FromStr for Collection {
 impl std::convert::TryFrom<header::IntoHeaderValue<Collection>> for hyper::header::HeaderValue {
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<Collection>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<Collection>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for Collection - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for Collection - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
@@ -191,21 +211,24 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <Collection as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into Collection - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <Collection as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into Collection - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
@@ -217,18 +240,13 @@ pub struct CollectionItem {
     /// Field data
     #[serde(rename = "f")]
     pub f: serde_json::Value,
-
 }
-
 
 impl CollectionItem {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(id: uuid::Uuid, f: serde_json::Value, ) -> CollectionItem {
-        CollectionItem {
-            id,
-            f,
-        }
+    pub fn new(id: uuid::Uuid, f: serde_json::Value) -> CollectionItem {
+        CollectionItem { id, f }
     }
 }
 
@@ -272,17 +290,31 @@ impl std::str::FromStr for CollectionItem {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CollectionItem".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CollectionItem".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "id" => intermediate_rep.id.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "id" => intermediate_rep.id.push(
+                        <uuid::Uuid as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "f" => intermediate_rep.f.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItem".to_string())
+                    "f" => intermediate_rep.f.push(
+                        <serde_json::Value as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CollectionItem".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -292,8 +324,16 @@ impl std::str::FromStr for CollectionItem {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionItem {
-            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItem".to_string())?,
-            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in CollectionItem".to_string())?,
+            id: intermediate_rep
+                .id
+                .into_iter()
+                .next()
+                .ok_or_else(|| "id missing in CollectionItem".to_string())?,
+            f: intermediate_rep
+                .f
+                .into_iter()
+                .next()
+                .ok_or_else(|| "f missing in CollectionItem".to_string())?,
         })
     }
 }
@@ -304,13 +344,16 @@ impl std::str::FromStr for CollectionItem {
 impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItem>> for hyper::header::HeaderValue {
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItem>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CollectionItem>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CollectionItem - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CollectionItem - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
@@ -321,21 +364,24 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CollectionItem as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CollectionItem - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CollectionItem as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CollectionItem - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
@@ -350,19 +396,17 @@ pub struct CollectionItemDetails {
 
     #[serde(rename = "e")]
     pub e: Vec<models::CollectionItemEvent>,
-
 }
-
 
 impl CollectionItemDetails {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(id: uuid::Uuid, f: serde_json::Value, e: Vec<models::CollectionItemEvent>, ) -> CollectionItemDetails {
-        CollectionItemDetails {
-            id,
-            f,
-            e,
-        }
+    pub fn new(
+        id: uuid::Uuid,
+        f: serde_json::Value,
+        e: Vec<models::CollectionItemEvent>,
+    ) -> CollectionItemDetails {
+        CollectionItemDetails { id, f, e }
     }
 }
 
@@ -409,7 +453,11 @@ impl std::str::FromStr for CollectionItemDetails {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CollectionItemDetails".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CollectionItemDetails".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
@@ -430,9 +478,21 @@ impl std::str::FromStr for CollectionItemDetails {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionItemDetails {
-            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemDetails".to_string())?,
-            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in CollectionItemDetails".to_string())?,
-            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemDetails".to_string())?,
+            id: intermediate_rep
+                .id
+                .into_iter()
+                .next()
+                .ok_or_else(|| "id missing in CollectionItemDetails".to_string())?,
+            f: intermediate_rep
+                .f
+                .into_iter()
+                .next()
+                .ok_or_else(|| "f missing in CollectionItemDetails".to_string())?,
+            e: intermediate_rep
+                .e
+                .into_iter()
+                .next()
+                .ok_or_else(|| "e missing in CollectionItemDetails".to_string())?,
         })
     }
 }
@@ -440,53 +500,61 @@ impl std::str::FromStr for CollectionItemDetails {
 // Methods for converting between header::IntoHeaderValue<CollectionItemDetails> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemDetails>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemDetails>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemDetails>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CollectionItemDetails>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CollectionItemDetails - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CollectionItemDetails - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemDetails> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CollectionItemDetails>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CollectionItemDetails as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CollectionItemDetails - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CollectionItemDetails as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CollectionItemDetails - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemEvent {
     #[serde(rename = "id")]
-    #[validate(
-            range(min = 0),
-        )]
+    #[validate(range(min = 0))]
     pub id: u32,
 
     #[serde(rename = "ts")]
-    pub ts: chrono::DateTime::<chrono::Utc>,
+    pub ts: chrono::DateTime<chrono::Utc>,
 
     /// Arbitrary event category
     #[serde(rename = "category")]
@@ -495,14 +563,17 @@ pub struct CollectionItemEvent {
     /// Field data
     #[serde(rename = "e")]
     pub e: serde_json::Value,
-
 }
-
 
 impl CollectionItemEvent {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(id: u32, ts: chrono::DateTime::<chrono::Utc>, category: i32, e: serde_json::Value, ) -> CollectionItemEvent {
+    pub fn new(
+        id: u32,
+        ts: chrono::DateTime<chrono::Utc>,
+        category: i32,
+        e: serde_json::Value,
+    ) -> CollectionItemEvent {
         CollectionItemEvent {
             id,
             ts,
@@ -518,18 +589,12 @@ impl CollectionItemEvent {
 impl std::string::ToString for CollectionItemEvent {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("id".to_string()),
             Some(self.id.to_string()),
-
             // Skipping ts in query parameter serialization
-
-
             Some("category".to_string()),
             Some(self.category.to_string()),
-
             // Skipping e in query parameter serialization
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -548,7 +613,7 @@ impl std::str::FromStr for CollectionItemEvent {
         #[allow(dead_code)]
         struct IntermediateRep {
             pub id: Vec<u32>,
-            pub ts: Vec<chrono::DateTime::<chrono::Utc>>,
+            pub ts: Vec<chrono::DateTime<chrono::Utc>>,
             pub category: Vec<i32>,
             pub e: Vec<serde_json::Value>,
         }
@@ -562,21 +627,39 @@ impl std::str::FromStr for CollectionItemEvent {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CollectionItemEvent".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CollectionItemEvent".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "id" => intermediate_rep.id.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "id" => intermediate_rep.id.push(
+                        <u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "ts" => intermediate_rep.ts.push(<chrono::DateTime::<chrono::Utc> as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "ts" => intermediate_rep.ts.push(
+                        <chrono::DateTime<chrono::Utc> as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "category" => intermediate_rep.category.push(
+                        <i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemEvent".to_string())
+                    "e" => intermediate_rep.e.push(
+                        <serde_json::Value as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CollectionItemEvent".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -586,10 +669,26 @@ impl std::str::FromStr for CollectionItemEvent {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionItemEvent {
-            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemEvent".to_string())?,
-            ts: intermediate_rep.ts.into_iter().next().ok_or_else(|| "ts missing in CollectionItemEvent".to_string())?,
-            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CollectionItemEvent".to_string())?,
-            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemEvent".to_string())?,
+            id: intermediate_rep
+                .id
+                .into_iter()
+                .next()
+                .ok_or_else(|| "id missing in CollectionItemEvent".to_string())?,
+            ts: intermediate_rep
+                .ts
+                .into_iter()
+                .next()
+                .ok_or_else(|| "ts missing in CollectionItemEvent".to_string())?,
+            category: intermediate_rep
+                .category
+                .into_iter()
+                .next()
+                .ok_or_else(|| "category missing in CollectionItemEvent".to_string())?,
+            e: intermediate_rep
+                .e
+                .into_iter()
+                .next()
+                .ok_or_else(|| "e missing in CollectionItemEvent".to_string())?,
         })
     }
 }
@@ -597,73 +696,75 @@ impl std::str::FromStr for CollectionItemEvent {
 // Methods for converting between header::IntoHeaderValue<CollectionItemEvent> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemEvent>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemEvent>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemEvent>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CollectionItemEvent>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CollectionItemEvent - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CollectionItemEvent - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemEvent> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CollectionItemEvent>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CollectionItemEvent as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CollectionItemEvent - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CollectionItemEvent as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CollectionItemEvent - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
-    #[validate(
-            range(min = 1, max = 250),
-        )]
+    #[validate(range(min = 1, max = 250))]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[validate(
-            range(min = 0),
-        )]
+    #[validate(range(min = 0))]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[validate(
-            range(min = 0),
-        )]
+    #[validate(range(min = 0))]
     pub total: u32,
 
     #[serde(rename = "items")]
     pub items: Vec<models::CollectionItem>,
-
 }
-
 
 impl CollectionItemsList {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(items: Vec<models::CollectionItem>, ) -> CollectionItemsList {
+    pub fn new(items: Vec<models::CollectionItem>) -> CollectionItemsList {
         CollectionItemsList {
             limit: 50,
             offset: 0,
@@ -679,20 +780,13 @@ impl CollectionItemsList {
 impl std::string::ToString for CollectionItemsList {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("limit".to_string()),
             Some(self.limit.to_string()),
-
-
             Some("offset".to_string()),
             Some(self.offset.to_string()),
-
-
             Some("total".to_string()),
             Some(self.total.to_string()),
-
             // Skipping items in query parameter serialization
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -725,20 +819,37 @@ impl std::str::FromStr for CollectionItemsList {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CollectionItemsList".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CollectionItemsList".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "limit" => intermediate_rep.limit.push(<u8 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "limit" => intermediate_rep
+                        .limit
+                        .push(<u8 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
-                    "offset" => intermediate_rep.offset.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "offset" => intermediate_rep.offset.push(
+                        <u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "total" => intermediate_rep.total.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    "items" => return std::result::Result::Err("Parsing a container in this style is not supported in CollectionItemsList".to_string()),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemsList".to_string())
+                    "total" => intermediate_rep.total.push(
+                        <u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
+                    "items" => return std::result::Result::Err(
+                        "Parsing a container in this style is not supported in CollectionItemsList"
+                            .to_string(),
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CollectionItemsList".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -748,10 +859,26 @@ impl std::str::FromStr for CollectionItemsList {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionItemsList {
-            limit: intermediate_rep.limit.into_iter().next().ok_or_else(|| "limit missing in CollectionItemsList".to_string())?,
-            offset: intermediate_rep.offset.into_iter().next().ok_or_else(|| "offset missing in CollectionItemsList".to_string())?,
-            total: intermediate_rep.total.into_iter().next().ok_or_else(|| "total missing in CollectionItemsList".to_string())?,
-            items: intermediate_rep.items.into_iter().next().ok_or_else(|| "items missing in CollectionItemsList".to_string())?,
+            limit: intermediate_rep
+                .limit
+                .into_iter()
+                .next()
+                .ok_or_else(|| "limit missing in CollectionItemsList".to_string())?,
+            offset: intermediate_rep
+                .offset
+                .into_iter()
+                .next()
+                .ok_or_else(|| "offset missing in CollectionItemsList".to_string())?,
+            total: intermediate_rep
+                .total
+                .into_iter()
+                .next()
+                .ok_or_else(|| "total missing in CollectionItemsList".to_string())?,
+            items: intermediate_rep
+                .items
+                .into_iter()
+                .next()
+                .ok_or_else(|| "items missing in CollectionItemsList".to_string())?,
         })
     }
 }
@@ -759,41 +886,51 @@ impl std::str::FromStr for CollectionItemsList {
 // Methods for converting between header::IntoHeaderValue<CollectionItemsList> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemsList>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemsList>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemsList>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CollectionItemsList>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CollectionItemsList - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CollectionItemsList - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemsList> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CollectionItemsList>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CollectionItemsList as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CollectionItemsList - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CollectionItemsList as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CollectionItemsList - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 /// Path name of the collection
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
@@ -808,7 +945,7 @@ impl std::convert::From<String> for CollectionName {
 
 impl std::string::ToString for CollectionName {
     fn to_string(&self) -> String {
-       self.0.to_string()
+        self.0.to_string()
     }
 }
 
@@ -838,38 +975,29 @@ impl std::ops::DerefMut for CollectionName {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
-    #[validate(
-            range(min = 1, max = 250),
-        )]
+    #[validate(range(min = 1, max = 250))]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[validate(
-            range(min = 0),
-        )]
+    #[validate(range(min = 0))]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[validate(
-            range(min = 0),
-        )]
+    #[validate(range(min = 0))]
     pub total: u32,
 
     #[serde(rename = "items")]
     pub items: Vec<models::Collection>,
-
 }
-
 
 impl CollectionsList {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(items: Vec<models::Collection>, ) -> CollectionsList {
+    pub fn new(items: Vec<models::Collection>) -> CollectionsList {
         CollectionsList {
             limit: 50,
             offset: 0,
@@ -885,20 +1013,13 @@ impl CollectionsList {
 impl std::string::ToString for CollectionsList {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("limit".to_string()),
             Some(self.limit.to_string()),
-
-
             Some("offset".to_string()),
             Some(self.offset.to_string()),
-
-
             Some("total".to_string()),
             Some(self.total.to_string()),
-
             // Skipping items in query parameter serialization
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -931,20 +1052,39 @@ impl std::str::FromStr for CollectionsList {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CollectionsList".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CollectionsList".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "limit" => intermediate_rep.limit.push(<u8 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "limit" => intermediate_rep
+                        .limit
+                        .push(<u8 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
                     #[allow(clippy::redundant_clone)]
-                    "offset" => intermediate_rep.offset.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "offset" => intermediate_rep.offset.push(
+                        <u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "total" => intermediate_rep.total.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    "items" => return std::result::Result::Err("Parsing a container in this style is not supported in CollectionsList".to_string()),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionsList".to_string())
+                    "total" => intermediate_rep.total.push(
+                        <u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
+                    "items" => {
+                        return std::result::Result::Err(
+                            "Parsing a container in this style is not supported in CollectionsList"
+                                .to_string(),
+                        )
+                    }
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CollectionsList".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -954,10 +1094,26 @@ impl std::str::FromStr for CollectionsList {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CollectionsList {
-            limit: intermediate_rep.limit.into_iter().next().ok_or_else(|| "limit missing in CollectionsList".to_string())?,
-            offset: intermediate_rep.offset.into_iter().next().ok_or_else(|| "offset missing in CollectionsList".to_string())?,
-            total: intermediate_rep.total.into_iter().next().ok_or_else(|| "total missing in CollectionsList".to_string())?,
-            items: intermediate_rep.items.into_iter().next().ok_or_else(|| "items missing in CollectionsList".to_string())?,
+            limit: intermediate_rep
+                .limit
+                .into_iter()
+                .next()
+                .ok_or_else(|| "limit missing in CollectionsList".to_string())?,
+            offset: intermediate_rep
+                .offset
+                .into_iter()
+                .next()
+                .ok_or_else(|| "offset missing in CollectionsList".to_string())?,
+            total: intermediate_rep
+                .total
+                .into_iter()
+                .next()
+                .ok_or_else(|| "total missing in CollectionsList".to_string())?,
+            items: intermediate_rep
+                .items
+                .into_iter()
+                .next()
+                .ok_or_else(|| "items missing in CollectionsList".to_string())?,
         })
     }
 }
@@ -965,64 +1121,68 @@ impl std::str::FromStr for CollectionsList {
 // Methods for converting between header::IntoHeaderValue<CollectionsList> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CollectionsList>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionsList>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CollectionsList>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CollectionsList>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CollectionsList - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CollectionsList - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionsList> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CollectionsList>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CollectionsList as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CollectionsList - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CollectionsList as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CollectionsList - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[validate(
-            length(min = 1, max = 32),
-           regex = "RE_CREATECOLLECTIONREQUEST_NAME",
-        )]
+    #[validate(length(min = 1, max = 32), regex = "RE_CREATECOLLECTIONREQUEST_NAME")]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[validate(
-            length(min = 1, max = 150),
-        )]
+    #[validate(length(min = 1, max = 150))]
     pub title: String,
 
     /// Owner access only?
     #[serde(rename = "oao")]
     pub oao: bool,
-
 }
 
 lazy_static::lazy_static! {
@@ -1032,12 +1192,8 @@ lazy_static::lazy_static! {
 impl CreateCollectionRequest {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(name: String, title: String, oao: bool, ) -> CreateCollectionRequest {
-        CreateCollectionRequest {
-            name,
-            title,
-            oao,
-        }
+    pub fn new(name: String, title: String, oao: bool) -> CreateCollectionRequest {
+        CreateCollectionRequest { name, title, oao }
     }
 }
 
@@ -1047,18 +1203,12 @@ impl CreateCollectionRequest {
 impl std::string::ToString for CreateCollectionRequest {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("name".to_string()),
             Some(self.name.to_string()),
-
-
             Some("title".to_string()),
             Some(self.title.to_string()),
-
-
             Some("oao".to_string()),
             Some(self.oao.to_string()),
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -1090,19 +1240,33 @@ impl std::str::FromStr for CreateCollectionRequest {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CreateCollectionRequest".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CreateCollectionRequest".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "name" => intermediate_rep.name.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "name" => intermediate_rep.name.push(
+                        <String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "title" => intermediate_rep.title.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "title" => intermediate_rep.title.push(
+                        <String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "oao" => intermediate_rep.oao.push(<bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CreateCollectionRequest".to_string())
+                    "oao" => intermediate_rep.oao.push(
+                        <bool as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CreateCollectionRequest".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -1112,9 +1276,21 @@ impl std::str::FromStr for CreateCollectionRequest {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CreateCollectionRequest {
-            name: intermediate_rep.name.into_iter().next().ok_or_else(|| "name missing in CreateCollectionRequest".to_string())?,
-            title: intermediate_rep.title.into_iter().next().ok_or_else(|| "title missing in CreateCollectionRequest".to_string())?,
-            oao: intermediate_rep.oao.into_iter().next().ok_or_else(|| "oao missing in CreateCollectionRequest".to_string())?,
+            name: intermediate_rep
+                .name
+                .into_iter()
+                .next()
+                .ok_or_else(|| "name missing in CreateCollectionRequest".to_string())?,
+            title: intermediate_rep
+                .title
+                .into_iter()
+                .next()
+                .ok_or_else(|| "title missing in CreateCollectionRequest".to_string())?,
+            oao: intermediate_rep
+                .oao
+                .into_iter()
+                .next()
+                .ok_or_else(|| "oao missing in CreateCollectionRequest".to_string())?,
         })
     }
 }
@@ -1122,41 +1298,51 @@ impl std::str::FromStr for CreateCollectionRequest {
 // Methods for converting between header::IntoHeaderValue<CreateCollectionRequest> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CreateCollectionRequest>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CreateCollectionRequest>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CreateCollectionRequest>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CreateCollectionRequest>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CreateCollectionRequest - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CreateCollectionRequest - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CreateCollectionRequest> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CreateCollectionRequest>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CreateCollectionRequest as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CreateCollectionRequest - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CreateCollectionRequest as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CreateCollectionRequest - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
@@ -1167,10 +1353,7 @@ pub struct CreateEventBody {
 
     /// Path name of the collection
     #[serde(rename = "collection")]
-    #[validate(
-            length(min = 1, max = 32),
-           regex = "RE_CREATEEVENTBODY_COLLECTION",
-        )]
+    #[validate(length(min = 1, max = 32), regex = "RE_CREATEEVENTBODY_COLLECTION")]
     pub collection: String,
 
     /// Document identifier
@@ -1180,7 +1363,6 @@ pub struct CreateEventBody {
     /// Field data
     #[serde(rename = "e")]
     pub e: serde_json::Value,
-
 }
 
 lazy_static::lazy_static! {
@@ -1190,7 +1372,12 @@ lazy_static::lazy_static! {
 impl CreateEventBody {
     #[allow(clippy::new_without_default)]
     #[allow(dead_code)]
-    pub fn new(category: i32, collection: String, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
+    pub fn new(
+        category: i32,
+        collection: String,
+        document: uuid::Uuid,
+        e: serde_json::Value,
+    ) -> CreateEventBody {
         CreateEventBody {
             category,
             collection,
@@ -1206,18 +1393,13 @@ impl CreateEventBody {
 impl std::string::ToString for CreateEventBody {
     fn to_string(&self) -> String {
         let params: Vec<Option<String>> = vec![
-
             Some("category".to_string()),
             Some(self.category.to_string()),
-
-
             Some("collection".to_string()),
             Some(self.collection.to_string()),
-
             // Skipping document in query parameter serialization
 
             // Skipping e in query parameter serialization
-
         ];
 
         params.into_iter().flatten().collect::<Vec<_>>().join(",")
@@ -1250,21 +1432,39 @@ impl std::str::FromStr for CreateEventBody {
         while key_result.is_some() {
             let val = match string_iter.next() {
                 Some(x) => x,
-                None => return std::result::Result::Err("Missing value while parsing CreateEventBody".to_string())
+                None => {
+                    return std::result::Result::Err(
+                        "Missing value while parsing CreateEventBody".to_string(),
+                    )
+                }
             };
 
             if let Some(key) = key_result {
                 #[allow(clippy::match_single_binding)]
                 match key {
                     #[allow(clippy::redundant_clone)]
-                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "category" => intermediate_rep.category.push(
+                        <i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "collection" => intermediate_rep.collection.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "collection" => intermediate_rep.collection.push(
+                        <String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "document" => intermediate_rep.document.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "document" => intermediate_rep.document.push(
+                        <uuid::Uuid as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
                     #[allow(clippy::redundant_clone)]
-                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
-                    _ => return std::result::Result::Err("Unexpected key while parsing CreateEventBody".to_string())
+                    "e" => intermediate_rep.e.push(
+                        <serde_json::Value as std::str::FromStr>::from_str(val)
+                            .map_err(|x| x.to_string())?,
+                    ),
+                    _ => {
+                        return std::result::Result::Err(
+                            "Unexpected key while parsing CreateEventBody".to_string(),
+                        )
+                    }
                 }
             }
 
@@ -1274,10 +1474,26 @@ impl std::str::FromStr for CreateEventBody {
 
         // Use the intermediate representation to return the struct
         std::result::Result::Ok(CreateEventBody {
-            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CreateEventBody".to_string())?,
-            collection: intermediate_rep.collection.into_iter().next().ok_or_else(|| "collection missing in CreateEventBody".to_string())?,
-            document: intermediate_rep.document.into_iter().next().ok_or_else(|| "document missing in CreateEventBody".to_string())?,
-            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CreateEventBody".to_string())?,
+            category: intermediate_rep
+                .category
+                .into_iter()
+                .next()
+                .ok_or_else(|| "category missing in CreateEventBody".to_string())?,
+            collection: intermediate_rep
+                .collection
+                .into_iter()
+                .next()
+                .ok_or_else(|| "collection missing in CreateEventBody".to_string())?,
+            document: intermediate_rep
+                .document
+                .into_iter()
+                .next()
+                .ok_or_else(|| "document missing in CreateEventBody".to_string())?,
+            e: intermediate_rep
+                .e
+                .into_iter()
+                .next()
+                .ok_or_else(|| "e missing in CreateEventBody".to_string())?,
         })
     }
 }
@@ -1285,41 +1501,51 @@ impl std::str::FromStr for CreateEventBody {
 // Methods for converting between header::IntoHeaderValue<CreateEventBody> and hyper::header::HeaderValue
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<header::IntoHeaderValue<CreateEventBody>> for hyper::header::HeaderValue {
+impl std::convert::TryFrom<header::IntoHeaderValue<CreateEventBody>>
+    for hyper::header::HeaderValue
+{
     type Error = String;
 
-    fn try_from(hdr_value: header::IntoHeaderValue<CreateEventBody>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        hdr_value: header::IntoHeaderValue<CreateEventBody>,
+    ) -> std::result::Result<Self, Self::Error> {
         let hdr_value = hdr_value.to_string();
         match hyper::header::HeaderValue::from_str(&hdr_value) {
-             std::result::Result::Ok(value) => std::result::Result::Ok(value),
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Invalid header value for CreateEventBody - value: {} is invalid {}",
-                     hdr_value, e))
+            std::result::Result::Ok(value) => std::result::Result::Ok(value),
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Invalid header value for CreateEventBody - value: {} is invalid {}",
+                hdr_value, e
+            )),
         }
     }
 }
 
 #[cfg(any(feature = "client", feature = "server"))]
-impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CreateEventBody> {
+impl std::convert::TryFrom<hyper::header::HeaderValue>
+    for header::IntoHeaderValue<CreateEventBody>
+{
     type Error = String;
 
     fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
         match hdr_value.to_str() {
-             std::result::Result::Ok(value) => {
-                    match <CreateEventBody as std::str::FromStr>::from_str(value) {
-                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
-                        std::result::Result::Err(err) => std::result::Result::Err(
-                            format!("Unable to convert header value '{}' into CreateEventBody - {}",
-                                value, err))
+            std::result::Result::Ok(value) => {
+                match <CreateEventBody as std::str::FromStr>::from_str(value) {
+                    std::result::Result::Ok(value) => {
+                        std::result::Result::Ok(header::IntoHeaderValue(value))
                     }
-             },
-             std::result::Result::Err(e) => std::result::Result::Err(
-                 format!("Unable to convert header: {:?} to string: {}",
-                     hdr_value, e))
+                    std::result::Result::Err(err) => std::result::Result::Err(format!(
+                        "Unable to convert header value '{}' into CreateEventBody - {}",
+                        value, err
+                    )),
+                }
+            }
+            std::result::Result::Err(e) => std::result::Result::Err(format!(
+                "Unable to convert header: {:?} to string: {}",
+                hdr_value, e
+            )),
         }
     }
 }
-
 
 /// Document identifier
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
@@ -1350,4 +1576,3 @@ impl std::ops::DerefMut for DocumentId {
         &mut self.0
     }
 }
-

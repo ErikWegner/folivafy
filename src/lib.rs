@@ -5,6 +5,7 @@ use sea_orm::DatabaseConnection;
 use tokio::{sync::oneshot, task::JoinHandle};
 use tracing::{debug, error};
 
+pub use models::CollectionItem;
 pub mod api;
 mod axumext;
 pub mod cron;
