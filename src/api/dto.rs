@@ -176,6 +176,10 @@ impl CollectionDocument {
         self.fields[key] = value;
     }
 
+    pub fn remove_field(&mut self, key: &str) {
+        let _ = self.fields.as_object_mut().and_then(|obj| obj.remove(key));
+    }
+
     pub fn is_deleted(&self) -> bool {
         let field = self.fields.get(DELETED_AT_FIELD);
         if let Some(field) = field {

@@ -61,8 +61,9 @@ use self::{
     update_document::api_update_document,
 };
 
-pub static CATEGORY_DOCUMENT_UPDATES: i32 = 1;
-pub static CATEGORY_DOCUMENT_DELETE: i32 = 2;
+pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
+pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
+pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
 #[derive(Clone, FromRef)]
 pub(crate) struct ApiContext {

@@ -63,6 +63,8 @@ impl User {
     pub(crate) fn is_collection_remover(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
+            && (self.is_collection_reader(collection_name)
+                || self.can_access_all_documents(collection_name))
     }
 
     pub(crate) fn name_and_sub(&self) -> String {

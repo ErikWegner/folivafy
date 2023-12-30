@@ -79,8 +79,9 @@ item in the list contains the name of the collection, the number of days
 for the first stage and the number of additional days for the second
 stage. These values are also comma separated and surrounded by parentheses.
 
-The user needs the permissions `C_<NAME-OF-COLLECTION>_READER` and 
-`C_<NAME-OF-COLLECTION>_REMOVER` to delete items.
+The user needs the permissions `C_<NAME-OF-COLLECTION>_READER` (or 
+`C_<NAME-OF-COLLECTION>_ALLREADER`) and `C_<NAME-OF-COLLECTION>_REMOVER` to
+delete items. There are no further access checks on document level.
 
 #### Delete event
 
@@ -90,7 +91,7 @@ The category is number 2.
 ```json
 {
     "category": 2,
-    "collection": "a05f5fd6-36a3-48e1-aef2-a62e688580ce",
+    "collection": "collection-name",
     "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
     "e": {}
 }
@@ -104,7 +105,7 @@ The category is number 3.
 ```json
 {
     "category": 3,
-    "collection": "a05f5fd6-36a3-48e1-aef2-a62e688580ce",
+    "collection": "collection-name",
     "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
     "e": {}
 }

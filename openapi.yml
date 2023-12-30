@@ -224,7 +224,15 @@ paths:
         - collection
   /events:
     post:
-      description: Create event
+      description: |
+        Create an event for the given document in a given collection. The collection must not be locked.
+
+        ### Required permissions
+
+        To create an event, the user must have one of the following permission:
+
+        * `C_COLLECTIONNAME_READER`
+        * `C_COLLECTIONNAME_ALLREADER`
       operationId: createEvent
       requestBody:
         content:
@@ -243,6 +251,7 @@ paths:
           description: successful operation
         "400":
           description: Creating the collection failed
+      summary: Create event for document in collection
       tags:
         - event
   /maintenance/{collection}/rebuild-grants:

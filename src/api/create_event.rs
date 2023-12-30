@@ -37,8 +37,13 @@ pub(crate) async fn api_create_event(
     }
     let collection_name = unchecked_collection_name;
 
-    if !user.is_collection_reader(&collection_name) {
-        debug!("User {} is not a collection reader", user.name_and_sub());
+    if !(user.is_collection_reader(&collection_name)
+        || user.can_access_all_documents(&collection_name))
+    {
+        debug!(
+            "User {} is not allowed to read documents in collection {collection_name}",
+            user.name_and_sub()
+        );
         return Err(ApiErrors::PermissionDenied);
     }
 

@@ -546,6 +546,63 @@ then
       echo -e "${RED}Failure:${NC} remover found d12!\n$RESP"
 fi
 
+
+echo "- Check reader cannot recover document d12"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 3,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} reader is allowed to recover d12!\n$RESP"
+fi
+
+echo "- Check cannot recover active document"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 3,"collection": "shapes", "document": "be7c1d84-e27d-42a0-8abd-54a1b2c17e36","e": {}}' \
+  $API/events)
+if [ "$RESP" != "Document is not in deleted stage" ]
+then
+      echo -e "${RED}Failure:${NC} Remover is allowed to recover hexagon!\n$RESP"
+fi
+
+
+echo "- Check remover can recover document d12"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"category": 3,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
+  $API/events)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} remover is not allowed to recover d12!\n$RESP"
+fi
+if [ "$RESP" != "Done" ]
+then
+      echo -e "${RED}Failure:${NC} Remover is not allowed to recover d12!\n$RESP"
+fi
+
+
+echo "- Check reader can access document d12 again"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes/dd326434-c1f4-4b07-a933-298bd3eb45dd)
+FIELDS=$(echo $RESP | jq '.id, .f.title, (.e | length)' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "dd326434-c1f4-4b07-a933-298bd3eb45dd d12 3" ]
+then
+      echo -e "${RED}Failure:${NC} Expected d12 to be readable again!\n$FIELDS\n$RESP"
+fi
+
+
+
 #####################################################
 ##
 ##  Owner access only collection
