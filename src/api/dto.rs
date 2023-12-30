@@ -160,35 +160,48 @@ impl std::hash::Hash for CollectionDocument {
 }
 
 impl CollectionDocument {
+    /// Creates a new CollectionDocument.
     pub fn new(id: Uuid, fields: serde_json::Value) -> Self {
         Self { id, fields }
     }
 
+    /// Returns the id of the document.
     pub fn id(&self) -> &Uuid {
         &self.id
     }
 
+    /// Returns a reference to the fields of the document.
     pub fn fields(&self) -> &serde_json::Value {
         &self.fields
     }
 
+    /// Set a field in the document.
     pub fn set_field(&mut self, key: &str, value: serde_json::Value) {
         self.fields[key] = value;
     }
 
+    /// Remove the field with the given key from the document.
     pub fn remove_field(&mut self, key: &str) {
         let _ = self.fields.as_object_mut().and_then(|obj| obj.remove(key));
     }
 
+    /// Returns `true` if the document has been marked as deleted, `false` otherwise.
     pub fn is_deleted(&self) -> bool {
+        // The field that stores the deletion timestamp.
         let field = self.fields.get(DELETED_AT_FIELD);
+
+        // Extract the deletion timestamp from the document's fields.
         if let Some(field) = field {
+            // The deletion timestamp is stored as a string.
             let s = field.as_str();
+
+            // Check if the timestamp is empty.
             if let Some(s) = s {
                 return !s.is_empty();
             }
         }
 
+        // The document has not been marked as deleted.
         false
     }
 }

@@ -34,32 +34,41 @@ pub(crate) struct User {
 }
 
 impl User {
+    /// Checks whether the user has the "A_FOLIVAFY_COLLECTION_EDITOR" role, which grants access to
+    /// administrative tasks on collections level.
     pub(crate) fn is_collections_administrator(&self) -> bool {
         self.realm_access
             .roles
             .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
     }
 
+    /// Checks whether a user has the "C_COLLECTION_ALLREADRE" role for a specific collection.
     pub(crate) fn can_access_all_documents(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_ALLREADER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 
+    /// Checks whether a user has the "C_COLLECTION_ADMIN" role for a specific collection.
     pub(crate) fn is_collection_admin(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_ADMIN", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 
+    /// Checks whether a user has the "C_COLLECTION_EDITOR" role for a specific collection.
     pub(crate) fn is_collection_editor(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_EDITOR", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 
+    /// Checks whether a user has the "C_COLLECTION_READER" role for a specific collection.
     pub(crate) fn is_collection_reader(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_READER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 
+    /// The is_collection_remover function returns true if the user has the
+    /// "C_COLLECTION_REMOVER" role and either the "C_COLLECTION_READER" role or the ability
+    /// to access all documents in the collection, or false otherwise.
     pub(crate) fn is_collection_remover(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
