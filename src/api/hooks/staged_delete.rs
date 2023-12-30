@@ -9,8 +9,8 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::api::auth::User;
-use crate::api::db::get_unlocked_collection_by_name;
-use crate::api::list_documents::ListDocumentParams;
+use crate::api::db::{get_unlocked_collection_by_name, ListDocumentGrants};
+use crate::api::list_documents::{generic_list_documents, DeletedDocuments, ListDocumentParams};
 use crate::api::types::Pagination;
 use crate::api::{
     db::{DELETED_AT_FIELD, DELETED_BY_FIELD},
@@ -118,7 +118,6 @@ pub(crate) async fn get_recoverables(
     ValidatedQueryParams(list_params): ValidatedQueryParams<ListDocumentParams>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
-    let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
     let collection = get_unlocked_collection_by_name(&db, &collection_name)
         .await
         .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
@@ -134,11 +133,15 @@ pub(crate) async fn get_recoverables(
         return Err(ApiErrors::PermissionDenied);
     }
 
-    let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
-    let title = "title".to_string();
-    if !extra_fields.contains(&title) {
-        extra_fields.push(title);
-    }
+    let grants = ListDocumentGrants::IgnoredForAdmin;
 
-    todo!("Impl")
+    generic_list_documents(
+        &db,
+        collection.id,
+        DeletedDocuments::LimitToDeletedDocuments,
+        list_params,
+        grants,
+        pagination,
+    )
+    .await
 }

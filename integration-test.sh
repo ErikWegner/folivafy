@@ -461,6 +461,23 @@ then
       echo -e "${RED}Failure:${NC} editor is allowed to delete d12!\n$RESP"
 fi
 
+echo "List of deleted documents is empty"
+authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
+RESP=$(curl --silent \
+  --request GET \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  $API/recoverables/shapes
+)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list recoverables!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "0" ]
+then
+      echo -e "${RED}Failure:${NC} list of recoverables should be empty!\n$RESP"
+fi
 
 echo "- Remover can delete shape"
 authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
@@ -805,6 +822,8 @@ if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":
 then
       echo -e "${RED}Failure:${NC} Alpaca letter 1 content (3)!\n$RESP\n$CONTENT"
 fi
+
+
 
 
 kill $serverPID

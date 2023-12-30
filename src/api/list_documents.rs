@@ -10,6 +10,7 @@ use jwt_authorizer::JwtClaims;
 use lazy_static::lazy_static;
 use regex::Regex;
 use sea_orm::prelude::Uuid;
+use sea_orm::DatabaseConnection;
 
 use serde::Deserialize;
 use tracing::warn;
@@ -37,6 +38,11 @@ lazy_static! {
     .unwrap();
 }
 
+pub(crate) enum DeletedDocuments {
+    LimitToDeletedDocuments,
+    Exclude,
+}
+
 #[derive(Debug, Default, Deserialize, Validate)]
 #[serde(default)]
 pub(crate) struct ListDocumentParams {
@@ -62,7 +68,6 @@ pub(crate) async fn api_list_document(
     Path(collection_name): Path<String>,
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
-    let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
     let collection = get_unlocked_collection_by_name(&ctx.db, &collection_name)
         .await
         .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
@@ -75,35 +80,69 @@ pub(crate) async fn api_list_document(
         return Err(ApiErrors::PermissionDenied);
     }
 
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
+
+    let grants = ListDocumentGrants::Restricted(user_grants);
+
+    generic_list_documents(
+        &ctx.db,
+        collection.id,
+        DeletedDocuments::Exclude,
+        list_params,
+        grants,
+        pagination,
+    )
+    .await
+}
+
+pub(crate) fn parse_pfilter(s: Option<String>) -> Vec<FieldFilter> {
+    // Split s by ampersand
+    s.map(|s| s.split('&').filter_map(FieldFilter::from_str).collect())
+        .unwrap_or_default()
+}
+
+pub(crate) async fn generic_list_documents(
+    db: &DatabaseConnection,
+    collection_id: Uuid,
+    deleted_documents: DeletedDocuments,
+    list_params: ListDocumentParams,
+    grants: ListDocumentGrants,
+    pagination: Pagination,
+) -> Result<Json<CollectionItemsList>, ApiErrors> {
+    let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
     let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
     let title = "title".to_string();
     if !extra_fields.contains(&title) {
         extra_fields.push(title);
     }
 
-    let dto_collection: GrantCollection = (&collection).into();
-    let user_grants =
-        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
-            .await?;
-
-    let exclude_deleted_documents_filter = FieldFilter::FieldIsNull {
-        field_name: DELETED_AT_FIELD.to_string(),
+    let filters = match deleted_documents {
+        DeletedDocuments::LimitToDeletedDocuments => FieldFilter::FieldIsNotNull {
+            field_name: DELETED_AT_FIELD.to_string(),
+        },
+        DeletedDocuments::Exclude => FieldFilter::FieldIsNull {
+            field_name: DELETED_AT_FIELD.to_string(),
+        },
     };
+
     let mut request_filters = parse_pfilter(list_params.pfilter);
-    let mut filters = vec![exclude_deleted_documents_filter];
+    let mut filters = vec![filters];
     filters.append(&mut request_filters);
 
     let db_params = DbListDocumentParams::builder()
-        .collection(collection.id)
+        .collection(collection_id)
         .exact_title(list_params.exact_title)
-        .grants(ListDocumentGrants::Restricted(user_grants))
+        .grants(grants)
         .extra_fields(extra_fields)
         .sort_fields(list_params.sort_fields)
         .filters(filters)
         .pagination(pagination.clone())
         .build();
 
-    let (total, items) = list_documents(&ctx.db, &db_params)
+    let (total, items) = list_documents(db, &db_params)
         .await
         .map_err(ApiErrors::from)?;
 
@@ -121,12 +160,6 @@ pub(crate) async fn api_list_document(
         total,
         items,
     }))
-}
-
-fn parse_pfilter(s: Option<String>) -> Vec<FieldFilter> {
-    // Split s by ampersand
-    s.map(|s| s.split('&').filter_map(FieldFilter::from_str).collect())
-        .unwrap_or_default()
 }
 
 #[cfg(test)]

@@ -1,7 +1,5 @@
 #![allow(unused_qualifications)]
 
-use validator::Validate;
-
 #[cfg(any(feature = "client", feature = "server"))]
 use crate::header;
 use crate::models;

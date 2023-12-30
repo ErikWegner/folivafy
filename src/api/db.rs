@@ -101,6 +101,9 @@ pub(crate) enum FieldFilter {
     FieldIsNull {
         field_name: String,
     },
+    FieldIsNotNull {
+        field_name: String,
+    },
     DateFieldLessThan {
         field_name: String,
         value: DateTime<Utc>,
@@ -182,7 +185,6 @@ impl From<CronDocumentSelector> for FieldFilter {
 #[derive(Debug, Clone)]
 pub(crate) enum ListDocumentGrants {
     IgnoredForCron,
-    IgnoredForAllReaderUser,
     IgnoredForAdmin,
     Restricted(Vec<dto::Grant>),
 }
@@ -277,9 +279,6 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
         ListDocumentGrants::IgnoredForCron => {
             debug!("No grant restrictions for cron access");
         }
-        ListDocumentGrants::IgnoredForAllReaderUser => {
-            info!("No grant restrictions for user with AllReader role");
-        }
         ListDocumentGrants::IgnoredForAdmin => {
             info!("No grant restrictions for user with admin role");
         }
@@ -337,6 +336,15 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
                         field_path_json(field_name),
                     )))
                     .is_null(),
+                );
+            }
+            FieldFilter::FieldIsNotNull { field_name } => {
+                q = q.and_where(
+                    Expr::expr(Expr::cust(format!(
+                        r#""d"."f"{}"#,
+                        field_path_json(field_name),
+                    )))
+                    .is_not_null(),
                 );
             }
         }
