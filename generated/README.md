@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 2.3.0
-- Build date: 2023-12-23T22:08:00.073398128Z[Etc/UTC]
+- Build date: 2023-12-31T16:43:37.265795839Z[Etc/UTC]
 
 
 
@@ -106,7 +106,7 @@ Method | HTTP request | Description
 [**listRecoverablesInCollection**](docs/collection_api.md#listRecoverablesInCollection) | **GET** /recoverables/{collection} | List recoverable items within the collection
 [**storeIntoCollection**](docs/collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
 [**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
-[**createEvent**](docs/event_api.md#createEvent) | **POST** /events | 
+[**createEvent**](docs/event_api.md#createEvent) | **POST** /events | Create event for document in collection
 [**rebuildGrants**](docs/maintenance_api.md#rebuildGrants) | **POST** /maintenance/{collection}/rebuild-grants | Rebuild grants for a collection
 
 

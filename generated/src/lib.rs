@@ -135,24 +135,24 @@ pub trait Api<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>;
 
     /// List recoverable items within the collection
     async fn list_recoverables_in_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
 
     /// Create new item
@@ -169,6 +169,7 @@ pub trait Api<C: Send + Sync> {
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>;
 
+    /// Create event for document in collection
     async fn create_event(
         &self,
         create_event_body: models::CreateEventBody,
@@ -213,24 +214,24 @@ pub trait ApiNoContext<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>;
 
     /// List recoverable items within the collection
     async fn list_recoverables_in_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
 
     /// Create new item
@@ -247,6 +248,7 @@ pub trait ApiNoContext<C: Send + Sync> {
         collection_item: models::CollectionItem,
         ) -> Result<UpdateItemByIdResponse, ApiError>;
 
+    /// Create event for document in collection
     async fn create_event(
         &self,
         create_event_body: models::CreateEventBody,
@@ -317,32 +319,32 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().list_collection(collection, limit, offset, extra_fields, sort, exact_title, pfilter, &context).await
+        self.api().list_collection(collection, exact_title, extra_fields, limit, offset, pfilter, sort, &context).await
     }
 
     /// List recoverable items within the collection
     async fn list_recoverables_in_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListRecoverablesInCollectionResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().list_recoverables_in_collection(collection, limit, offset, extra_fields, sort, exact_title, pfilter, &context).await
+        self.api().list_recoverables_in_collection(collection, exact_title, extra_fields, limit, offset, pfilter, sort, &context).await
     }
 
     /// Create new item
@@ -367,6 +369,7 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
         self.api().update_item_by_id(collection, collection_item, &context).await
     }
 
+    /// Create event for document in collection
     async fn create_event(
         &self,
         create_event_body: models::CreateEventBody,

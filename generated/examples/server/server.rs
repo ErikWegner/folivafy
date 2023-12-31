@@ -145,15 +145,15 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
-        info!("list_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, limit, offset, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
+        info!("list_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, exact_title, extra_fields, limit, offset, pfilter, sort, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 
@@ -161,15 +161,15 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
     async fn list_recoverables_in_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
         limit: Option<i32>,
         offset: Option<i32>,
-        extra_fields: Option<String>,
-        sort: Option<String>,
-        exact_title: Option<String>,
         pfilter: Option<String>,
+        sort: Option<String>,
         context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>
     {
-        info!("list_recoverables_in_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, limit, offset, extra_fields, sort, exact_title, pfilter, context.get().0.clone());
+        info!("list_recoverables_in_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, exact_title, extra_fields, limit, offset, pfilter, sort, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 
@@ -195,6 +195,7 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         Err(ApiError("Generic failure".into()))
     }
 
+    /// Create event for document in collection
     async fn create_event(
         &self,
         create_event_body: models::CreateEventBody,

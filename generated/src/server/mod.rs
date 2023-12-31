@@ -407,6 +407,40 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
                 // Query parameters (note that non-required or collection query parameters will ignore garbage values, rather than causing a 400 response)
                 let query_params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes()).collect::<Vec<_>>();
+                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
+                    .next();
+                let param_exact_title = match param_exact_title {
+                    Some(param_exact_title) => {
+                        let param_exact_title =
+                            <String as std::str::FromStr>::from_str
+                                (&param_exact_title);
+                        match param_exact_title {
+                            Ok(param_exact_title) => Some(param_exact_title),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                    .next();
+                let param_extra_fields = match param_extra_fields {
+                    Some(param_extra_fields) => {
+                        let param_extra_fields =
+                            <String as std::str::FromStr>::from_str
+                                (&param_extra_fields);
+                        match param_extra_fields {
+                            Ok(param_extra_fields) => Some(param_extra_fields),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                        }
+                    },
+                    None => None,
+                };
                 let param_limit = query_params.iter().filter(|e| e.0 == "limit").map(|e| e.1.clone())
                     .next();
                 let param_limit = match param_limit {
@@ -441,19 +475,19 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
-                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
                     .next();
-                let param_extra_fields = match param_extra_fields {
-                    Some(param_extra_fields) => {
-                        let param_extra_fields =
+                let param_pfilter = match param_pfilter {
+                    Some(param_pfilter) => {
+                        let param_pfilter =
                             <String as std::str::FromStr>::from_str
-                                (&param_extra_fields);
-                        match param_extra_fields {
-                            Ok(param_extra_fields) => Some(param_extra_fields),
+                                (&param_pfilter);
+                        match param_pfilter {
+                            Ok(param_pfilter) => Some(param_pfilter),
                             Err(e) => return Ok(Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
                         }
                     },
                     None => None,
@@ -475,49 +509,15 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
-                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
-                    .next();
-                let param_exact_title = match param_exact_title {
-                    Some(param_exact_title) => {
-                        let param_exact_title =
-                            <String as std::str::FromStr>::from_str
-                                (&param_exact_title);
-                        match param_exact_title {
-                            Ok(param_exact_title) => Some(param_exact_title),
-                            Err(e) => return Ok(Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
-                        }
-                    },
-                    None => None,
-                };
-                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
-                    .next();
-                let param_pfilter = match param_pfilter {
-                    Some(param_pfilter) => {
-                        let param_pfilter =
-                            <String as std::str::FromStr>::from_str
-                                (&param_pfilter);
-                        match param_pfilter {
-                            Ok(param_pfilter) => Some(param_pfilter),
-                            Err(e) => return Ok(Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
-                        }
-                    },
-                    None => None,
-                };
 
                                 let result = api_impl.list_collection(
                                             param_collection,
+                                            param_exact_title,
+                                            param_extra_fields,
                                             param_limit,
                                             param_offset,
-                                            param_extra_fields,
-                                            param_sort,
-                                            param_exact_title,
                                             param_pfilter,
+                                            param_sort,
                                         &context
                                     ).await;
                                 let mut response = Response::new(Body::empty());
@@ -582,6 +582,40 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
 
                 // Query parameters (note that non-required or collection query parameters will ignore garbage values, rather than causing a 400 response)
                 let query_params = form_urlencoded::parse(uri.query().unwrap_or_default().as_bytes()).collect::<Vec<_>>();
+                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
+                    .next();
+                let param_exact_title = match param_exact_title {
+                    Some(param_exact_title) => {
+                        let param_exact_title =
+                            <String as std::str::FromStr>::from_str
+                                (&param_exact_title);
+                        match param_exact_title {
+                            Ok(param_exact_title) => Some(param_exact_title),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
+                        }
+                    },
+                    None => None,
+                };
+                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                    .next();
+                let param_extra_fields = match param_extra_fields {
+                    Some(param_extra_fields) => {
+                        let param_extra_fields =
+                            <String as std::str::FromStr>::from_str
+                                (&param_extra_fields);
+                        match param_extra_fields {
+                            Ok(param_extra_fields) => Some(param_extra_fields),
+                            Err(e) => return Ok(Response::builder()
+                                .status(StatusCode::BAD_REQUEST)
+                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                        }
+                    },
+                    None => None,
+                };
                 let param_limit = query_params.iter().filter(|e| e.0 == "limit").map(|e| e.1.clone())
                     .next();
                 let param_limit = match param_limit {
@@ -616,19 +650,19 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
-                let param_extra_fields = query_params.iter().filter(|e| e.0 == "extraFields").map(|e| e.1.clone())
+                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
                     .next();
-                let param_extra_fields = match param_extra_fields {
-                    Some(param_extra_fields) => {
-                        let param_extra_fields =
+                let param_pfilter = match param_pfilter {
+                    Some(param_pfilter) => {
+                        let param_pfilter =
                             <String as std::str::FromStr>::from_str
-                                (&param_extra_fields);
-                        match param_extra_fields {
-                            Ok(param_extra_fields) => Some(param_extra_fields),
+                                (&param_pfilter);
+                        match param_pfilter {
+                            Ok(param_pfilter) => Some(param_pfilter),
                             Err(e) => return Ok(Response::builder()
                                 .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter extraFields - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter extraFields")),
+                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
+                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
                         }
                     },
                     None => None,
@@ -650,49 +684,15 @@ impl<T, C> hyper::service::Service<(Request<Body>, C)> for Service<T, C> where
                     },
                     None => None,
                 };
-                let param_exact_title = query_params.iter().filter(|e| e.0 == "exactTitle").map(|e| e.1.clone())
-                    .next();
-                let param_exact_title = match param_exact_title {
-                    Some(param_exact_title) => {
-                        let param_exact_title =
-                            <String as std::str::FromStr>::from_str
-                                (&param_exact_title);
-                        match param_exact_title {
-                            Ok(param_exact_title) => Some(param_exact_title),
-                            Err(e) => return Ok(Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter exactTitle - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter exactTitle")),
-                        }
-                    },
-                    None => None,
-                };
-                let param_pfilter = query_params.iter().filter(|e| e.0 == "pfilter").map(|e| e.1.clone())
-                    .next();
-                let param_pfilter = match param_pfilter {
-                    Some(param_pfilter) => {
-                        let param_pfilter =
-                            <String as std::str::FromStr>::from_str
-                                (&param_pfilter);
-                        match param_pfilter {
-                            Ok(param_pfilter) => Some(param_pfilter),
-                            Err(e) => return Ok(Response::builder()
-                                .status(StatusCode::BAD_REQUEST)
-                                .body(Body::from(format!("Couldn't parse query parameter pfilter - doesn't match schema: {}", e)))
-                                .expect("Unable to create Bad Request response for invalid query parameter pfilter")),
-                        }
-                    },
-                    None => None,
-                };
 
                                 let result = api_impl.list_recoverables_in_collection(
                                             param_collection,
+                                            param_exact_title,
+                                            param_extra_fields,
                                             param_limit,
                                             param_offset,
-                                            param_extra_fields,
-                                            param_sort,
-                                            param_exact_title,
                                             param_pfilter,
+                                            param_sort,
                                         &context
                                     ).await;
                                 let mut response = Response::new(Body::empty());

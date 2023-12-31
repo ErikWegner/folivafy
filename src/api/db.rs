@@ -350,11 +350,6 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
         }
     }
 
-    q = q.and_where(Expr::cust(format!(
-        r#""d"."f"{} is null"#,
-        field_path_json(DELETED_AT_FIELD),
-    )));
-
     if let Some(title) = &params.exact_title {
         q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
     }

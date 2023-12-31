@@ -106,24 +106,24 @@ fn main() {
         Some("ListCollection") => {
             let result = rt.block_on(client.list_collection(
                   "collection_example".to_string(),
+                  Some("Rectangle".to_string()),
+                  Some("price,length".to_string()),
                   Some(25),
                   Some(0),
-                  Some("price,length".to_string()),
-                  Some("price+,length-".to_string()),
-                  Some("Rectangle".to_string()),
-                  Some("f1='v12'".to_string())
+                  Some("f1='v12'".to_string()),
+                  Some("price+,length-".to_string())
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
         },
         Some("ListRecoverablesInCollection") => {
             let result = rt.block_on(client.list_recoverables_in_collection(
                   "collection_example".to_string(),
+                  Some("Rectangle".to_string()),
+                  Some("price,length".to_string()),
                   Some(25),
                   Some(0),
-                  Some("price,length".to_string()),
-                  Some("price+,length-".to_string()),
-                  Some("Rectangle".to_string()),
-                  Some("f1='v12'".to_string())
+                  Some("f1='v12'".to_string()),
+                  Some("price+,length-".to_string())
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
         },

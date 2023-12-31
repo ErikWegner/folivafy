@@ -644,12 +644,12 @@ impl<S, C> Api<C> for Client<S, C> where
     async fn list_collection(
         &self,
         param_collection: String,
+        param_exact_title: Option<String>,
+        param_extra_fields: Option<String>,
         param_limit: Option<i32>,
         param_offset: Option<i32>,
-        param_extra_fields: Option<String>,
-        param_sort: Option<String>,
-        param_exact_title: Option<String>,
         param_pfilter: Option<String>,
+        param_sort: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>
     {
         let mut client_service = self.client_service.clone();
@@ -662,6 +662,14 @@ impl<S, C> Api<C> for Client<S, C> where
         // Query parameters
         let query_string = {
             let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            if let Some(param_exact_title) = param_exact_title {
+                query_string.append_pair("exactTitle",
+                    &param_exact_title);
+            }
+            if let Some(param_extra_fields) = param_extra_fields {
+                query_string.append_pair("extraFields",
+                    &param_extra_fields);
+            }
             if let Some(param_limit) = param_limit {
                 query_string.append_pair("limit",
                     &param_limit.to_string());
@@ -670,21 +678,13 @@ impl<S, C> Api<C> for Client<S, C> where
                 query_string.append_pair("offset",
                     &param_offset.to_string());
             }
-            if let Some(param_extra_fields) = param_extra_fields {
-                query_string.append_pair("extraFields",
-                    &param_extra_fields);
+            if let Some(param_pfilter) = param_pfilter {
+                query_string.append_pair("pfilter",
+                    &param_pfilter);
             }
             if let Some(param_sort) = param_sort {
                 query_string.append_pair("sort",
                     &param_sort);
-            }
-            if let Some(param_exact_title) = param_exact_title {
-                query_string.append_pair("exactTitle",
-                    &param_exact_title);
-            }
-            if let Some(param_pfilter) = param_pfilter {
-                query_string.append_pair("pfilter",
-                    &param_pfilter);
             }
             query_string.finish()
         };
@@ -758,12 +758,12 @@ impl<S, C> Api<C> for Client<S, C> where
     async fn list_recoverables_in_collection(
         &self,
         param_collection: String,
+        param_exact_title: Option<String>,
+        param_extra_fields: Option<String>,
         param_limit: Option<i32>,
         param_offset: Option<i32>,
-        param_extra_fields: Option<String>,
-        param_sort: Option<String>,
-        param_exact_title: Option<String>,
         param_pfilter: Option<String>,
+        param_sort: Option<String>,
         context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>
     {
         let mut client_service = self.client_service.clone();
@@ -776,6 +776,14 @@ impl<S, C> Api<C> for Client<S, C> where
         // Query parameters
         let query_string = {
             let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            if let Some(param_exact_title) = param_exact_title {
+                query_string.append_pair("exactTitle",
+                    &param_exact_title);
+            }
+            if let Some(param_extra_fields) = param_extra_fields {
+                query_string.append_pair("extraFields",
+                    &param_extra_fields);
+            }
             if let Some(param_limit) = param_limit {
                 query_string.append_pair("limit",
                     &param_limit.to_string());
@@ -784,21 +792,13 @@ impl<S, C> Api<C> for Client<S, C> where
                 query_string.append_pair("offset",
                     &param_offset.to_string());
             }
-            if let Some(param_extra_fields) = param_extra_fields {
-                query_string.append_pair("extraFields",
-                    &param_extra_fields);
+            if let Some(param_pfilter) = param_pfilter {
+                query_string.append_pair("pfilter",
+                    &param_pfilter);
             }
             if let Some(param_sort) = param_sort {
                 query_string.append_pair("sort",
                     &param_sort);
-            }
-            if let Some(param_exact_title) = param_exact_title {
-                query_string.append_pair("exactTitle",
-                    &param_exact_title);
-            }
-            if let Some(param_pfilter) = param_pfilter {
-                query_string.append_pair("pfilter",
-                    &param_pfilter);
             }
             query_string.finish()
         };

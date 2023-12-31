@@ -58,12 +58,12 @@ Optional parameters are passed through a map[string]interface{}.
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **collection** | **String**| Path name of the collection | 
+ **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
+ **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
  **limit** | **i32**| Number of items in the response. Defaults to `50`. | 
  **offset** | **i32**| Number of skipped items in the response. Defaults to `0`. | 
- **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
- **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  Append a `+` to sort text ascending, append a `-` to sort text descending.  Append a `f` to sort the native field value ascending (forward), append a `b` to sort the native field value descending (backwards).  | 
- **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
  **pfilter** | **String**| Filter some columns  | 
+ **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  * Append a `+` to sort text ascending, * append a `-` to sort text descending. * Append a `f` to sort the native field value ascending (forward), * append a `b` to sort the native field value descending (backwards).  | 
 
 ### Return type
 
@@ -99,12 +99,12 @@ Optional parameters are passed through a map[string]interface{}.
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **collection** | **String**| Path name of the collection | 
+ **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
+ **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
  **limit** | **i32**| Number of items in the response. Defaults to `50`. | 
  **offset** | **i32**| Number of skipped items in the response. Defaults to `0`. | 
- **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
- **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  Append a `+` to sort text ascending, append a `-` to sort text descending.  Append a `f` to sort the native field value ascending (forward), append a `b` to sort the native field value descending (backwards).  | 
- **exact_title** | **String**| Search for documents with this exact title (upper and lower case are respected)  | 
  **pfilter** | **String**| Filter some columns  | 
+ **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  * Append a `+` to sort text ascending, * append a `-` to sort text descending. * Append a `f` to sort the native field value ascending (forward), * append a `b` to sort the native field value descending (backwards).  | 
 
 ### Return type
 

@@ -31,9 +31,9 @@ use crate::{
 use super::db::{get_unlocked_collection_by_name, DbListDocumentParams, ListDocumentGrants};
 
 lazy_static! {
-    static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$").unwrap();
+    static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$").unwrap();
     static ref RE_SORT_FIELDS: Regex = Regex::new(
-        r"^[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb](,[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*[\+\-fb])*$"
+        r"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb](,[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb])*$"
     )
     .unwrap();
 }
