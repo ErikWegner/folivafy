@@ -4,6 +4,7 @@ use crate::api::{auth, db::DELETED_AT_FIELD, CATEGORY_DOCUMENT_UPDATES};
 use crate::cron::CRON_USER_ID;
 use crate::models::CollectionItem;
 use anyhow::Context;
+use lettre::message::Attachment;
 use lettre::{
     message::{MultiPart, SinglePart},
     Message,
@@ -335,6 +336,14 @@ pub struct MailMessage {
     body_text: String,
     body_html: String,
     status: MailMessageStatus,
+    attachments: Vec<MailMessageAttachment>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MailMessageAttachment {
+    filename: String,
+    mime_type: String,
+    data: Vec<u8>,
 }
 
 impl MailMessage {
@@ -343,20 +352,29 @@ impl MailMessage {
     }
 
     pub fn build_mail(&self, from: &str) -> anyhow::Result<lettre::Message> {
+        let mut m = MultiPart::mixed().multipart(
+            MultiPart::alternative()
+                .singlepart(SinglePart::plain(self.body_text.clone()))
+                .multipart(
+                    MultiPart::related().singlepart(SinglePart::html(self.body_html.clone())),
+                ),
+        );
+        for attachment in self.attachments.iter() {
+            m = m.singlepart(
+                Attachment::new(attachment.filename.clone()).body(
+                    attachment.data.clone(),
+                    attachment
+                        .mime_type
+                        .parse()
+                        .context("Attachment mime type")?,
+                ),
+            );
+        }
         Message::builder()
             .from(from.parse().context("From")?)
             .to(self.to.parse().context("Recipient")?)
             .subject(self.subject.clone())
-            .multipart(
-                MultiPart::mixed().multipart(
-                    MultiPart::alternative()
-                        .singlepart(SinglePart::plain(self.body_text.clone()))
-                        .multipart(
-                            MultiPart::related()
-                                .singlepart(SinglePart::html(self.body_html.clone())),
-                        ),
-                ),
-            )
+            .multipart(m)
             .context("Build mail")
     }
 
@@ -383,6 +401,7 @@ pub struct MailMessageBuilder {
     subject: Option<String>,
     body_text: Option<String>,
     body_html: Option<String>,
+    attachments: Vec<MailMessageAttachment>,
 }
 
 impl MailMessageBuilder {
@@ -392,6 +411,7 @@ impl MailMessageBuilder {
             subject: None,
             body_text: None,
             body_html: None,
+            attachments: Vec::new(),
         }
     }
 
@@ -429,6 +449,7 @@ impl MailMessageBuilder {
                 body_text,
                 body_html,
                 status: MailMessageStatus::Pending,
+                attachments: self.attachments,
             })
         } else {
             Err("Recipient, subject and body are required".to_string())
