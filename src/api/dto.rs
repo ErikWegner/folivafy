@@ -430,6 +430,11 @@ impl MailMessageBuilder {
         self.body_html = Some(body_html.into());
         self
     }
+
+    pub fn add_attachment(mut self, attachment: MailMessageAttachment) -> Self {
+        self.attachments.push(attachment);
+        self
+    }
 }
 
 impl Default for MailMessageBuilder {
