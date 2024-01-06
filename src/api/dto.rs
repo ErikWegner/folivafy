@@ -10,6 +10,7 @@ use lettre::{
     Message,
 };
 use serde::{Deserialize, Serialize};
+use typed_builder::TypedBuilder;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -339,7 +340,7 @@ pub struct MailMessage {
     attachments: Vec<MailMessageAttachment>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, TypedBuilder)]
 pub struct MailMessageAttachment {
     filename: String,
     mime_type: String,
