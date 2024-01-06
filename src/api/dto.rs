@@ -333,6 +333,7 @@ pub enum MailMessageStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MailMessage {
     to: String,
+    bcc: Option<String>,
     subject: String,
     body_text: String,
     body_html: String,
@@ -371,12 +372,15 @@ impl MailMessage {
                 ),
             );
         }
-        Message::builder()
+        let mut b = Message::builder()
             .from(from.parse().context("From")?)
             .to(self.to.parse().context("Recipient")?)
-            .subject(self.subject.clone())
-            .multipart(m)
-            .context("Build mail")
+            .subject(self.subject.clone());
+        if let Some(bcc) = self.bcc.as_ref() {
+            b = b.bcc(bcc.parse().context("Bcc")?);
+        }
+
+        b.multipart(m).context("Build mail")
     }
 
     pub fn set_sent(&mut self) {
@@ -399,6 +403,7 @@ impl MailMessage {
 
 pub struct MailMessageBuilder {
     to: Option<String>,
+    bcc: Option<String>,
     subject: Option<String>,
     body_text: Option<String>,
     body_html: Option<String>,
@@ -409,6 +414,7 @@ impl MailMessageBuilder {
     pub fn new() -> Self {
         Self {
             to: None,
+            bcc: None,
             subject: None,
             body_text: None,
             body_html: None,
@@ -418,6 +424,20 @@ impl MailMessageBuilder {
 
     pub fn set_to(mut self, to: &str) -> Self {
         self.to = Some(to.into());
+        self
+    }
+
+    /// Set the bcc field of the mail message.
+    ///
+    /// # Parameters
+    ///
+    /// * `bcc` - The bcc field, as a string.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `MailMessageBuilder` object.
+    pub fn set_bcc(mut self, bcc: &str) -> Self {
+        self.bcc = Some(bcc.into());
         self
     }
 
@@ -451,6 +471,7 @@ impl MailMessageBuilder {
         {
             Ok(MailMessage {
                 to,
+                bcc: self.bcc,
                 subject,
                 body_text,
                 body_html,

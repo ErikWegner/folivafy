@@ -184,7 +184,7 @@ impl CronDefaultIntervalHook for Mailer {
                 );
                 Ok(hooks::HookSuccessResult {
                     document: hooks::DocumentResult::Store(o),
-                    grants: GrantSettings::Default,
+                    grants: GrantSettings::NoChange,
                     events: vec![],
                     mails: vec![],
                     trigger_cron: false,
