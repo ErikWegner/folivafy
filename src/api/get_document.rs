@@ -32,7 +32,10 @@ pub(crate) async fn api_read_document(
         return Err(ApiErrors::NotFound(collection_name));
     }
 
-    if !user.is_collection_reader(&collection_name) {
+    let user_is_permitted = user.is_collection_admin(&collection_name)
+        || user.can_access_all_documents(&collection_name)
+        || user.is_collection_reader(&collection_name);
+    if !user_is_permitted {
         warn!("User {} is not a collection reader", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);
     }

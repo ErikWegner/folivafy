@@ -83,10 +83,7 @@ pub(crate) async fn hook_or_default_user_grants(
     data_service: std::sync::Arc<dyn DataService>,
 ) -> Result<Vec<Grant>, ApiErrors> {
     let hook = hooks.get_grant_hook(&collection.name);
-    let user_grants = if let Some(h) = hook {
-        let context = HookUserGrantContext::new(dto::UserWithRoles::read_from(user), data_service);
-        h.user_grants(&context).await?
-    } else {
+    let dug = {
         let oao_access = if collection.oao {
             if user.can_access_all_documents(&collection.name) {
                 CollectionDocumentVisibility::PrivateAndUserCanAccessAllDocuments
@@ -102,6 +99,13 @@ pub(crate) async fn hook_or_default_user_grants(
                 .visibility(oao_access)
                 .build(),
         )
+    };
+    let user_grants = if let Some(h) = hook {
+        let context =
+            HookUserGrantContext::new(dto::UserWithRoles::read_from(user), dug, data_service);
+        h.user_grants(&context).await?
+    } else {
+        dug
     };
     Ok(user_grants)
 }

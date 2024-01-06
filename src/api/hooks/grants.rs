@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
+use crate::api::dto::Grant;
 use crate::api::grants::GrantCollection;
 use crate::api::{data_service::DataService, dto, ApiErrors};
 
@@ -9,11 +10,20 @@ pub type HookResult = Result<Vec<dto::Grant>, ApiErrors>;
 pub struct HookUserGrantContext {
     user: dto::UserWithRoles,
     data_service: std::sync::Arc<dyn DataService>,
+    default_grants: Vec<Grant>,
 }
 
 impl HookUserGrantContext {
-    pub fn new(user: dto::UserWithRoles, data_service: std::sync::Arc<dyn DataService>) -> Self {
-        Self { user, data_service }
+    pub fn new(
+        user: dto::UserWithRoles,
+        default_grants: Vec<Grant>,
+        data_service: std::sync::Arc<dyn DataService>,
+    ) -> Self {
+        Self {
+            user,
+            data_service,
+            default_grants,
+        }
     }
 
     pub fn user(&self) -> &dto::UserWithRoles {
@@ -22,6 +32,10 @@ impl HookUserGrantContext {
 
     pub fn data_service(&self) -> &dyn DataService {
         self.data_service.as_ref()
+    }
+
+    pub fn default_grants(&self) -> &Vec<Grant> {
+        &self.default_grants
     }
 }
 
