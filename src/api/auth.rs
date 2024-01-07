@@ -42,7 +42,7 @@ impl User {
             .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
     }
 
-    /// Checks whether a user has the "C_COLLECTION_ALLREADRE" role for a specific collection.
+    /// Checks whether a user has the "C_COLLECTION_ALLREADER" role for a specific collection.
     pub(crate) fn can_access_all_documents(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_ALLREADER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
