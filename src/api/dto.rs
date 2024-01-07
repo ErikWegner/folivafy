@@ -228,6 +228,7 @@ impl From<CollectionItem> for CollectionDocument {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExistingEvent {
+    event_id: i32,
     document_id: uuid::Uuid,
     category: i32,
     payload: serde_json::Value,
@@ -237,6 +238,7 @@ pub struct ExistingEvent {
 
 impl ExistingEvent {
     pub fn new(
+        event_id: i32,
         document_id: uuid::Uuid,
         category: i32,
         payload: serde_json::Value,
@@ -244,6 +246,7 @@ impl ExistingEvent {
         timestamp: i64,
     ) -> Self {
         Self {
+            event_id,
             document_id,
             category,
             payload,
@@ -259,6 +262,10 @@ impl ExistingEvent {
                 .get("new")
                 .map(|jv| jv.as_bool().unwrap_or(false))
                 .unwrap_or(false)
+    }
+
+    pub fn event_id(&self) -> i32 {
+        self.event_id
     }
 
     pub fn category(&self) -> i32 {
@@ -314,6 +321,7 @@ impl Event {
 impl From<&entity::event::Model> for ExistingEvent {
     fn from(model: &entity::event::Model) -> Self {
         Self {
+            event_id: model.id,
             document_id: model.document_id,
             category: model.category_id,
             payload: model.payload.clone(),
