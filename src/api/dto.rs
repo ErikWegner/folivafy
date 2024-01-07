@@ -338,6 +338,7 @@ pub struct MailMessage {
     body_text: String,
     body_html: String,
     status: MailMessageStatus,
+    #[serde(default)]
     attachments: Vec<MailMessageAttachment>,
 }
 
