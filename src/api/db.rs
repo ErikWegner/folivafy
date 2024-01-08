@@ -274,7 +274,7 @@ impl Iden for SortField {
 fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
-    let mut q = b.from_as(Documents, documents_alias.clone());
+    let mut q = b.from_as(Documents, documents_alias.clone()).and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
     match params.grants {
         ListDocumentGrants::IgnoredForCron => {
             debug!("No grant restrictions for cron access");
@@ -283,14 +283,12 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
             info!("No grant restrictions for user with admin role");
         }
         ListDocumentGrants::Restricted(ref user_grants) => {
-            q.join(
+            q = q.join(
                 JoinType::Join,
                 Grant::Table,
                 Expr::col((documents_alias.clone(), CollectionDocument::Id))
                     .equals((Grant::Table, Grant::DocumentId)),
-            )
-            .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
-            q = q.cond_where(grants_conditions(user_grants));
+            ).cond_where(grants_conditions(user_grants));
         }
     }
 
