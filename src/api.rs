@@ -27,7 +27,7 @@ use std::{
 
 use anyhow::Context;
 use axum::{
-    body::Full,
+    body::Body,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -116,7 +116,7 @@ impl IntoResponse for ApiErrors {
             ApiErrors::BadRequestJson(jsonstring) => Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .header("Content-Type", "application/json")
-                .body(Full::from(jsonstring))
+                .body(Body::from(jsonstring))
                 .unwrap()
                 .into_response(),
             ApiErrors::NotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
@@ -223,9 +223,10 @@ pub async fn serve(
     );
 
     tracing::info!("listening on {}", addr);
-    axum::Server::try_bind(&addr)
-        .context("Cannot start server")?
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .context("Cannot start server")?;
+    axum::serve(listener, app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error running server")?;
