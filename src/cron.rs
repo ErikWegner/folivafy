@@ -65,6 +65,7 @@ async fn cron(
                 .sort_fields(None)
                 .filters(vec![document_selector.clone().into()])
                 .pagination(pagination.clone())
+                .include_author_id(false)
                 .build();
             let (total, mut items) = list_documents(&db, &dbparams).await.unwrap_or_default();
             items.reverse();

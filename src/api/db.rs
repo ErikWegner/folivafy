@@ -10,10 +10,10 @@ use sea_orm::{
     DatabaseTransaction, EntityTrait, FromQueryResult, JsonValue, QueryFilter, Set, Statement,
 };
 use sea_orm::{DbErr, ModelTrait, QuerySelect};
-use sea_query::Cond;
-use sea_query::Func;
-use sea_query::Iden;
-use sea_query::{Alias, Condition, Expr, JoinType, Order, Query, SelectStatement, SimpleExpr};
+use sea_query::{
+    all, Alias, Cond, Condition, Expr, Func, Iden, JoinType, Order, Query, SelectStatement,
+    SimpleExpr,
+};
 use serde::Deserialize;
 use std::ops::Sub;
 use tracing::{debug, error, info};
@@ -25,10 +25,12 @@ use crate::api::{
     dto::{self, Event, MailMessage},
     hooks::CronDocumentSelector,
     types::Pagination,
-    ApiContext, ApiErrors,
+    ApiContext, ApiErrors, CATEGORY_DOCUMENT_UPDATES,
 };
 use entity::collection_document::Column as DocumentsColumns;
 use entity::collection_document::Entity as Documents;
+use entity::event::Column as DbEventsColumns;
+use entity::event::Entity as DbEventsEntity;
 use std::result;
 
 use super::hooks::GrantSettingsOnEvents;
@@ -197,6 +199,7 @@ pub(crate) struct DbListDocumentParams {
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
     pub(crate) filters: Vec<FieldFilter>,
+    pub(crate) include_author_id: bool,
     #[builder(default)]
     pub(crate) pagination: Pagination,
 }
@@ -261,6 +264,7 @@ fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
 }
 
 struct SortField(String);
+
 impl Iden for SortField {
     fn prepare(&self, s: &mut dyn std::fmt::Write, _q: sea_query::Quote) {
         self.unquoted(s);
@@ -274,7 +278,9 @@ impl Iden for SortField {
 fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
-    let mut q = b.from_as(Documents, documents_alias.clone()).and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
+    let mut q = b
+        .from_as(Documents, documents_alias.clone())
+        .and_where(Expr::col(DocumentsColumns::CollectionId).eq(params.collection));
     match params.grants {
         ListDocumentGrants::IgnoredForCron => {
             debug!("No grant restrictions for cron access");
@@ -283,12 +289,14 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
             info!("No grant restrictions for user with admin role");
         }
         ListDocumentGrants::Restricted(ref user_grants) => {
-            q = q.join(
-                JoinType::Join,
-                Grant::Table,
-                Expr::col((documents_alias.clone(), CollectionDocument::Id))
-                    .equals((Grant::Table, Grant::DocumentId)),
-            ).cond_where(grants_conditions(user_grants));
+            q = q
+                .join(
+                    JoinType::Join,
+                    Grant::Table,
+                    Expr::col((documents_alias.clone(), CollectionDocument::Id))
+                        .equals((Grant::Table, Grant::DocumentId)),
+                )
+                .cond_where(grants_conditions(user_grants));
         }
     }
 
@@ -395,6 +403,34 @@ fn select_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
     let sort_fields = sort_fields_parser(params.sort_fields.as_ref().cloned());
     for sort_field in sort_fields {
         document_select.order_by_expr(Expr::cust(sort_field.0), sort_field.1);
+    }
+
+    if params.include_author_id {
+        let events_alias_name = "e";
+        let events_alias = Alias::new(events_alias_name);
+        document_select
+            .join_as(
+                JoinType::LeftJoin,
+                DbEventsEntity,
+                events_alias.clone(),
+                all![
+                    // Filter by category
+                    Expr::col((events_alias.clone(), DbEventsColumns::CategoryId))
+                        .eq(CATEGORY_DOCUMENT_UPDATES),
+                    // Filter by document id
+                    Expr::col((events_alias.clone(), DbEventsColumns::DocumentId))
+                        .eq(Expr::col((documents_alias.clone(), DocumentsColumns::Id))),
+                    // Filter by e.new = true
+                    Expr::cust(format!(
+                        r#""{events_alias_name}"."payload"{}='true'::JSONB"#,
+                        field_path_json_native("new"),
+                    ))
+                ],
+            )
+            .expr_as(
+                Expr::col((events_alias, DbEventsColumns::User)),
+                Alias::new("author_id"),
+            );
     }
 
     document_select.to_owned()
@@ -670,6 +706,7 @@ pub(crate) async fn get_document_by_id(
 ) -> core::result::Result<Option<entity::collection_document::Model>, DbErr> {
     Documents::find_by_id(document_uuid).one(db).await
 }
+
 pub(crate) async fn get_document_by_id_in_trx(
     document_uuid: Uuid,
     db: &DatabaseTransaction,
@@ -868,6 +905,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(vec![])
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -900,6 +938,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(vec![])
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -932,6 +971,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(vec![])
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -964,6 +1004,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(vec![])
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -1006,6 +1047,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(filters)
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -1044,6 +1086,7 @@ mod tests {
             .sort_fields(Some(sort_fields))
             .filters(filters)
             .grants(Restricted(grants))
+            .include_author_id(false)
             .build();
 
         // Act
@@ -1054,6 +1097,45 @@ mod tests {
             sql,
             format!(
                 r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_select_documents_sql_query3() {
+        // Arrange
+        let collection = Uuid::new_v4();
+        let userid = Uuid::new_v4();
+        let sort_fields = "created+".to_string();
+        let filters = vec![CronDocumentSelector::ByFieldEqualsValue {
+            field: "orgaddr.zip".to_string(),
+            value: "11101".to_string(),
+        }
+        .into()];
+        let grants = default_user_grants(
+            DefaultUserGrantsParameters::builder()
+                .visibility(CollectionDocumentVisibility::PrivateAndUserIs(userid))
+                .collection_uuid(collection)
+                .build(),
+        );
+        let params = DbListDocumentParams::builder()
+            .collection(collection)
+            .extra_fields(vec!["title".to_string()])
+            .exact_title(None)
+            .sort_fields(Some(sort_fields))
+            .filters(filters)
+            .grants(Restricted(grants))
+            .include_author_id(true)
+            .build();
+
+        // Act
+        let sql = select_documents_sql(&params).to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            sql,
+            format!(
+                r#"SELECT "d"."id", "t"."new_f" AS "f", "e"."user" AS "author_id" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE LEFT JOIN "event" AS "e" ON "e"."category_id" = 1 AND "e"."document_id" = "d"."id" AND ("e"."payload"->'new'='true'::JSONB) WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }

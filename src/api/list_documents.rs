@@ -114,6 +114,13 @@ pub(crate) async fn generic_list_documents(
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
     let extra_fields = list_params.extra_fields.unwrap_or("title".to_string());
     let mut extra_fields: Vec<String> = extra_fields.split(',').map(|s| s.to_string()).collect();
+    let extra_field_author = "author_id".to_string();
+
+    let include_author = extra_fields.contains(&extra_field_author);
+    if include_author {
+        extra_fields.retain(|f| f != &extra_field_author);
+    }
+
     let title = "title".to_string();
     if !extra_fields.contains(&title) {
         extra_fields.push(title);
@@ -140,6 +147,7 @@ pub(crate) async fn generic_list_documents(
         .sort_fields(list_params.sort_fields)
         .filters(filters)
         .pagination(pagination.clone())
+        .include_author_id(include_author)
         .build();
 
     let (total, items) = list_documents(db, &db_params)
@@ -148,9 +156,15 @@ pub(crate) async fn generic_list_documents(
 
     let items = items
         .into_iter()
-        .map(|i| CollectionItem {
-            id: Uuid::from_str(i["id"].as_str().unwrap()).unwrap(),
-            f: i["f"].clone(),
+        .map(|i| {
+            let mut f = i["f"].clone();
+            if include_author {
+                f["author_id"] = i["author_id"].clone();
+            }
+            CollectionItem {
+                id: Uuid::from_str(i["id"].as_str().unwrap()).unwrap(),
+                f,
+            }
         })
         .collect();
 
@@ -182,7 +196,7 @@ mod tests {
 
         // Assert
         assert_eq!(r.len(), 1);
-        match r.get(0).unwrap() {
+        match r.first().unwrap() {
             FieldFilter::ExactFieldMatch { field_name, value } => {
                 assert_eq!(field_name, "f1");
                 assert_eq!(value, "v12");
@@ -201,7 +215,7 @@ mod tests {
 
         // Assert
         assert_eq!(r.len(), 2);
-        match r.get(0).unwrap() {
+        match r.first().unwrap() {
             FieldFilter::ExactFieldMatch { field_name, value } => {
                 assert_eq!(field_name, "a");
                 assert_eq!(value, "k");
@@ -231,7 +245,7 @@ mod tests {
 
         // Assert
         assert_eq!(r.len(), 2);
-        match r.get(0).unwrap() {
+        match r.first().unwrap() {
             FieldFilter::ExactFieldMatch { field_name, value } => {
                 assert_eq!(field_name, "a");
                 assert_eq!(value, "k");
@@ -257,7 +271,7 @@ mod tests {
 
         // Assert
         assert_eq!(r.len(), 1);
-        match r.get(0).unwrap() {
+        match r.first().unwrap() {
             FieldFilter::FieldStartsWith { field_name, value } => {
                 assert_eq!(field_name, "az");
                 assert_eq!(value, "kl");
@@ -276,7 +290,7 @@ mod tests {
 
         // Assert
         assert_eq!(r.len(), 1);
-        match r.get(0).unwrap() {
+        match r.first().unwrap() {
             FieldFilter::FieldContains { field_name, value } => {
                 assert_eq!(field_name, "pt");
                 assert_eq!(value, "imi");
