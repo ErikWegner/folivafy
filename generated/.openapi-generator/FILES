@@ -15,6 +15,16 @@ docs/CollectionsList.md
 docs/CreateCollectionRequest.md
 docs/CreateEventBody.md
 docs/DocumentId.md
+docs/SearchCollectionBody.md
+docs/SearchFilter.md
+docs/SearchFilterAndGroup.md
+docs/SearchFilterFieldOp.md
+docs/SearchFilterFieldOpValue.md
+docs/SearchFilterFieldOpValueV.md
+docs/SearchFilterOrGroup.md
+docs/ValueBoolean.md
+docs/ValueNumber.md
+docs/ValueString.md
 docs/administration_api.md
 docs/collection_api.md
 docs/event_api.md

@@ -67,6 +67,17 @@ pub enum ListRecoverablesInCollectionResponse {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[must_use]
+pub enum SearchCollectionResponse {
+    /// successful operation
+    SuccessfulOperation
+    (models::CollectionItemsList)
+    ,
+    /// Collection not found
+    CollectionNotFound
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[must_use]
 pub enum StoreIntoCollectionResponse {
     /// successful operation
     SuccessfulOperation
@@ -155,6 +166,17 @@ pub trait Api<C: Send + Sync> {
         sort: Option<String>,
         context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
 
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        context: &C) -> Result<SearchCollectionResponse, ApiError>;
+
     /// Create new item
     async fn store_into_collection(
         &self,
@@ -233,6 +255,17 @@ pub trait ApiNoContext<C: Send + Sync> {
         pfilter: Option<String>,
         sort: Option<String>,
         ) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        ) -> Result<SearchCollectionResponse, ApiError>;
 
     /// Create new item
     async fn store_into_collection(
@@ -345,6 +378,21 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     {
         let context = self.context().clone();
         self.api().list_recoverables_in_collection(collection, exact_title, extra_fields, limit, offset, pfilter, sort, &context).await
+    }
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        ) -> Result<SearchCollectionResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().search_collection(collection, search_collection_body, extra_fields, limit, offset, sort, &context).await
     }
 
     /// Create new item

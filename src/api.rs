@@ -11,6 +11,7 @@ pub mod hooks;
 mod list_collections;
 mod list_documents;
 mod maintenance;
+mod search_documents;
 pub(crate) mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;

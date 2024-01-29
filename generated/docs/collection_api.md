@@ -7,6 +7,7 @@ Method | HTTP request | Description
 **getItemById**](collection_api.md#getItemById) | **GET** /collections/{collection}/{documentId} | Get item
 **listCollection**](collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
 **listRecoverablesInCollection**](collection_api.md#listRecoverablesInCollection) | **GET** /recoverables/{collection} | List recoverable items within the collection
+**searchCollection**](collection_api.md#searchCollection) | **POST** /collections/{collection}/searches | List collection items
 **storeIntoCollection**](collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
 **updateItemById**](collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
 
@@ -117,6 +118,47 @@ No authorization required
 ### HTTP request headers
 
  - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **searchCollection**
+> models::CollectionItemsList searchCollection(collection, search_collection_body, optional)
+List collection items
+
+Search a list of items within the collection
+
+### Required Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+  **collection** | **String**| Path name of the collection | 
+  **search_collection_body** | [**SearchCollectionBody**](SearchCollectionBody.md)| Search filters | 
+ **optional** | **map[string]interface{}** | optional parameters | nil if no parameters
+
+### Optional Parameters
+Optional parameters are passed through a map[string]interface{}.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **collection** | **String**| Path name of the collection | 
+ **search_collection_body** | [**SearchCollectionBody**](SearchCollectionBody.md)| Search filters | 
+ **extra_fields** | **String**| A comma separated list of document fields that should be contained in the response  | 
+ **limit** | **i32**| Number of items in the response. Defaults to `50`. | 
+ **offset** | **i32**| Number of skipped items in the response. Defaults to `0`. | 
+ **sort** | **String**| A comma separated list of document fields that should be used to sort the collection.  * Append a `+` to sort text ascending, * append a `-` to sort text descending. * Append a `f` to sort the native field value ascending (forward), * append a `b` to sort the native field value descending (backwards).  | 
+
+### Return type
+
+[**models::CollectionItemsList**](CollectionItemsList.md)
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
  - **Accept**: application/json
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

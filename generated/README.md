@@ -14,7 +14,7 @@ To see how to make this your own, look here:
 [README]((https://openapi-generator.tech))
 
 - API version: 2.3.0
-- Build date: 2023-12-31T16:43:37.265795839Z[Etc/UTC]
+- Build date: 2024-01-29T20:18:45.946028828Z[Etc/UTC]
 
 
 
@@ -104,6 +104,7 @@ Method | HTTP request | Description
 [**getItemById**](docs/collection_api.md#getItemById) | **GET** /collections/{collection}/{documentId} | Get item
 [**listCollection**](docs/collection_api.md#listCollection) | **GET** /collections/{collection} | List collection items
 [**listRecoverablesInCollection**](docs/collection_api.md#listRecoverablesInCollection) | **GET** /recoverables/{collection} | List recoverable items within the collection
+[**searchCollection**](docs/collection_api.md#searchCollection) | **POST** /collections/{collection}/searches | List collection items
 [**storeIntoCollection**](docs/collection_api.md#storeIntoCollection) | **POST** /collections/{collection} | Create new item
 [**updateItemById**](docs/collection_api.md#updateItemById) | **PUT** /collections/{collection} | Replace item
 [**createEvent**](docs/event_api.md#createEvent) | **POST** /events | Create event for document in collection
@@ -123,6 +124,16 @@ Method | HTTP request | Description
  - [CreateCollectionRequest](docs/CreateCollectionRequest.md)
  - [CreateEventBody](docs/CreateEventBody.md)
  - [DocumentId](docs/DocumentId.md)
+ - [SearchCollectionBody](docs/SearchCollectionBody.md)
+ - [SearchFilter](docs/SearchFilter.md)
+ - [SearchFilterAndGroup](docs/SearchFilterAndGroup.md)
+ - [SearchFilterFieldOp](docs/SearchFilterFieldOp.md)
+ - [SearchFilterFieldOpValue](docs/SearchFilterFieldOpValue.md)
+ - [SearchFilterFieldOpValueV](docs/SearchFilterFieldOpValueV.md)
+ - [SearchFilterOrGroup](docs/SearchFilterOrGroup.md)
+ - [ValueBoolean](docs/ValueBoolean.md)
+ - [ValueNumber](docs/ValueNumber.md)
+ - [ValueString](docs/ValueString.md)
 
 
 ## Documentation For Authorization

@@ -86,7 +86,7 @@ paths:
         name: extraFields
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*(,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*)*$"
+          pattern: "^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"
           type: string
         style: form
       - description: Number of items in the response. Defaults to `50`.
@@ -148,8 +148,8 @@ paths:
         name: sort
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*[\\\
-            +\\-fb])*$"
+          pattern: "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\\
+            .[a-zA-Z0-9_]+)*[\\+\\-fb])*$"
           type: string
         style: form
       responses:
@@ -226,6 +226,88 @@ paths:
         "400":
           description: Updating failed
       summary: Replace item
+      tags:
+      - collection
+  /collections/{collection}/searches:
+    post:
+      description: Search a list of items within the collection
+      operationId: searchCollection
+      parameters:
+      - description: Path name of the collection
+        explode: false
+        in: path
+        name: collection
+        required: true
+        schema:
+          $ref: '#/components/schemas/CollectionName'
+        style: simple
+      - description: |
+          A comma separated list of document fields that should
+          be contained in the response
+        example: "price,length"
+        explode: true
+        in: query
+        name: extraFields
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"
+          type: string
+        style: form
+      - description: Number of items in the response. Defaults to `50`.
+        example: 25
+        explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+        style: form
+      - description: Number of skipped items in the response. Defaults to `0`.
+        example: 0
+        explode: true
+        in: query
+        name: offset
+        required: false
+        schema:
+          minimum: 0
+          type: integer
+        style: form
+      - description: |
+          A comma separated list of document fields that should
+          be used to sort the collection.
+
+          * Append a `+` to sort text ascending,
+          * append a `-` to sort text descending.
+          * Append a `f` to sort the native field value ascending (forward),
+          * append a `b` to sort the native field value descending (backwards).
+        example: "price+,length-"
+        explode: true
+        in: query
+        name: sort
+        required: false
+        schema:
+          pattern: "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\\
+            .[a-zA-Z0-9_]+)*[\\+\\-fb])*$"
+          type: string
+        style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchCollectionBody'
+        description: Search filters
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItemsList'
+          description: successful operation
+        "404":
+          description: Collection not found
+      summary: List collection items
       tags:
       - collection
   /collections/{collection}/{documentId}:
@@ -358,7 +440,7 @@ paths:
         name: extraFields
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*(,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*)*$"
+          pattern: "^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"
           type: string
         style: form
       - description: Number of items in the response. Defaults to `50`.
@@ -420,8 +502,8 @@ paths:
         name: sort
         required: false
         schema:
-          pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*[\\\
-            +\\-fb])*$"
+          pattern: "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\\
+            .[a-zA-Z0-9_]+)*[\\+\\-fb])*$"
           type: string
         style: form
       responses:
@@ -461,7 +543,7 @@ components:
       name: extraFields
       required: false
       schema:
-        pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*(,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*)*$"
+        pattern: "^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"
         type: string
       style: form
     Limit:
@@ -527,7 +609,7 @@ components:
       name: sort
       required: false
       schema:
-        pattern: "^[a-zA-Z0-9]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9]+)*[\\\
+        pattern: "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*[\\+\\-fb](,[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*[\\\
           +\\-fb])*$"
         type: string
       style: form
@@ -799,6 +881,93 @@ components:
       - document
       - e
       type: object
+    SearchCollectionBody:
+      example:
+        filter: null
+      properties:
+        filter:
+          $ref: '#/components/schemas/SearchFilter'
+      type: object
+    SearchFilterList:
+      description: A list of search filters
+      items:
+        $ref: '#/components/schemas/SearchFilter'
+      type: array
+    SearchFilterFieldOpValue:
+      properties:
+        f:
+          description: Field name
+          example: price.currency
+          type: string
+        o:
+          description: Operator
+          enum:
+          - eq
+          - ne
+          - lt
+          - le
+          - gt
+          - ge
+          type: string
+        v:
+          $ref: '#/components/schemas/SearchFilterFieldOpValue_v'
+      required:
+      - f
+      - o
+      - v
+      type: object
+    SearchFilterFieldOp:
+      properties:
+        f:
+          description: Field name
+          example: price.currency
+          type: string
+        o:
+          description: Operator
+          enum:
+          - "null"
+          - notnull
+          type: string
+      required:
+      - f
+      - o
+      type: object
+    SearchFilterOrGroup:
+      properties:
+        or:
+          description: A list of search filters
+          items:
+            $ref: '#/components/schemas/SearchFilter'
+          type: array
+      required:
+      - or
+    SearchFilterAndGroup:
+      properties:
+        and:
+          description: A list of search filters
+          items:
+            $ref: '#/components/schemas/SearchFilter'
+          type: array
+      required:
+      - and
+    SearchFilter:
+      description: A search filter
+      oneOf:
+      - $ref: '#/components/schemas/SearchFilterFieldOpValue'
+      - $ref: '#/components/schemas/SearchFilterFieldOp'
+      - $ref: '#/components/schemas/SearchFilterAndGroup'
+      - $ref: '#/components/schemas/SearchFilterOrGroup'
+    ValueString:
+      description: A string value
+      example: Foo
+      type: string
+    ValueNumber:
+      description: A number value
+      example: 56.3
+      type: number
+    ValueBoolean:
+      description: A boolean value
+      type: boolean
     createCollection_request:
       example:
         name: shapes
@@ -826,4 +995,10 @@ components:
       - oao
       - title
       type: object
+    SearchFilterFieldOpValue_v:
+      description: Value
+      oneOf:
+      - $ref: '#/components/schemas/ValueString'
+      - $ref: '#/components/schemas/ValueBoolean'
+      - $ref: '#/components/schemas/ValueNumber'
 

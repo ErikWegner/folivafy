@@ -99,6 +99,7 @@ use openapi::{
     GetItemByIdResponse,
     ListCollectionResponse,
     ListRecoverablesInCollectionResponse,
+    SearchCollectionResponse,
     StoreIntoCollectionResponse,
     UpdateItemByIdResponse,
     CreateEventResponse,
@@ -170,6 +171,21 @@ impl<C> Api<C> for Server<C> where C: Has<XSpanIdString> + Send + Sync
         context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>
     {
         info!("list_recoverables_in_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, exact_title, extra_fields, limit, offset, pfilter, sort, context.get().0.clone());
+        Err(ApiError("Generic failure".into()))
+    }
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        context: &C) -> Result<SearchCollectionResponse, ApiError>
+    {
+        info!("search_collection(\"{}\", {:?}, {:?}, {:?}, {:?}, {:?}) - X-Span-ID: {:?}", collection, search_collection_body, extra_fields, limit, offset, sort, context.get().0.clone());
         Err(ApiError("Generic failure".into()))
     }
 

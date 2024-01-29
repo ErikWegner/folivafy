@@ -90,7 +90,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/PFilter"
-        - $ref: '#/components/parameters/SortList'
+        - $ref: "#/components/parameters/SortList"
       responses:
         "200":
           content:
@@ -153,6 +153,35 @@ paths:
           description: successful operation
         "400":
           description: Updating failed
+  /collections/{collection}/searches:
+    post:
+      description: Search a list of items within the collection
+      operationId: searchCollection
+      parameters:
+        - $ref: "#/components/parameters/CollectionNameParam"
+        - $ref: "#/components/parameters/ExtraFields"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/SortList"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchCollectionBody"
+        description: Search filters
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionItemsList"
+          description: successful operation
+        "404":
+          description: Collection not found
+      summary: List collection items
+      tags:
+        - collection
   /collections/{collection}/{documentId}:
     get:
       description: Get item data
@@ -240,7 +269,7 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/PFilter"
-        - $ref: '#/components/parameters/SortList'
+        - $ref: "#/components/parameters/SortList"
       responses:
         "200":
           content:
@@ -575,3 +604,86 @@ components:
         - document
         - e
       type: object
+    SearchCollectionBody:
+      properties:
+        filter:
+          $ref: "#/components/schemas/SearchFilter"
+      type: object
+    SearchFilterList:
+      description: A list of search filters
+      type: array
+      items:
+        $ref: "#/components/schemas/SearchFilter"
+    SearchFilterFieldOpValue:
+      required:
+        - f
+        - o
+        - v
+      properties:
+        f:
+          type: string
+          description: Field name
+          example: "price.currency"
+        o:
+          type: string
+          description: Operator
+          enum:
+            - eq
+            - ne
+            - lt
+            - le
+            - gt
+            - ge
+        v:
+          description: Value
+          oneOf:
+            - $ref: '#/components/schemas/ValueString'
+            - $ref: '#/components/schemas/ValueBoolean'
+            - $ref: '#/components/schemas/ValueNumber'
+      type: object
+    SearchFilterFieldOp:
+      required:
+        - f
+        - o
+      properties:
+        f:
+          type: string
+          description: Field name
+          example: "price.currency"
+        o:
+          type: string
+          description: Operator
+          enum:
+            - "null"
+            - "notnull"
+      type: object
+    SearchFilterOrGroup:
+      required:
+        - "or"
+      properties:
+        "or":
+          $ref: "#/components/schemas/SearchFilterList"
+    SearchFilterAndGroup:
+      required:
+        - "and"
+      properties:
+        "and":
+          $ref: "#/components/schemas/SearchFilterList"
+    SearchFilter:
+      description: A search filter
+      oneOf:
+      - $ref: "#/components/schemas/SearchFilterFieldOpValue"
+      - $ref: "#/components/schemas/SearchFilterFieldOp"
+      - $ref: "#/components/schemas/SearchFilterAndGroup"
+      - $ref: "#/components/schemas/SearchFilterOrGroup"
+    ValueString:
+      description: A string value
+      example: Foo
+      type: string
+    ValueNumber:
+      description: A number value
+      example: 56.3
+      type: number
+    ValueBoolean:
+      description: A boolean value
+      type: boolean

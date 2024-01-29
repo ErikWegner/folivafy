@@ -10,6 +10,7 @@ use openapi::{Api, ApiNoContext, Client, ContextWrapperExt, models,
                       GetItemByIdResponse,
                       ListCollectionResponse,
                       ListRecoverablesInCollectionResponse,
+                      SearchCollectionResponse,
                       StoreIntoCollectionResponse,
                       UpdateItemByIdResponse,
                       CreateEventResponse,
@@ -127,6 +128,19 @@ fn main() {
             ));
             info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
         },
+        /* Disabled because there's no example.
+        Some("SearchCollection") => {
+            let result = rt.block_on(client.search_collection(
+                  "collection_example".to_string(),
+                  ???,
+                  Some("price,length".to_string()),
+                  Some(25),
+                  Some(0),
+                  Some("price+,length-".to_string())
+            ));
+            info!("{:?} (X-Span-ID: {:?})", result, (client.context() as &dyn Has<XSpanIdString>).get().clone());
+        },
+        */
         /* Disabled because there's no example.
         Some("StoreIntoCollection") => {
             let result = rt.block_on(client.store_into_collection(
