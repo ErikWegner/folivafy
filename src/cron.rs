@@ -63,7 +63,7 @@ async fn cron(
                 .grants(IgnoredForCron)
                 .extra_fields(vec!["title".to_string()])
                 .sort_fields(None)
-                .filters(vec![document_selector.clone().into()])
+                .filters(vec![document_selector.clone().into()].into())
                 .pagination(pagination.clone())
                 .include_author_id(false)
                 .build();

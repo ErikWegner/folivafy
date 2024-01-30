@@ -145,7 +145,7 @@ pub(crate) async fn generic_list_documents(
         .grants(grants)
         .extra_fields(extra_fields)
         .sort_fields(list_params.sort_fields)
-        .filters(filters)
+        .filters(filters.into())
         .pagination(pagination.clone())
         .include_author_id(include_author)
         .build();

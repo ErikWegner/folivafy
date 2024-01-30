@@ -37,6 +37,9 @@ use super::hooks::GrantSettingsOnEvents;
 use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
+use super::search_documents::OperationWithValue;
+use super::search_documents::SearchFilter;
+use super::search_documents::SearchGroup;
 
 pub(crate) async fn get_unlocked_collection_by_name(
     db: &DatabaseConnection,
@@ -198,7 +201,7 @@ pub(crate) struct DbListDocumentParams {
     pub(crate) grants: ListDocumentGrants,
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
-    pub(crate) filters: Vec<FieldFilter>,
+    pub(crate) filters: SearchFilter,
     pub(crate) include_author_id: bool,
     #[builder(default)]
     pub(crate) pagination: Pagination,
@@ -300,67 +303,110 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
         }
     }
 
-    for filter in &params.filters {
-        match filter {
-            FieldFilter::ExactFieldMatch { field_name, value } => {
-                q = q.and_where(Expr::cust_with_values(
-                    format!(r#""d"."f"{}=$1"#, field_path_json(field_name),),
-                    vec![value],
-                ));
-            }
-            FieldFilter::FieldContains { field_name, value } => {
-                q = q.and_where(Expr::cust_with_values(
-                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(field_name),),
-                    vec![format!("%{}%", value.to_lowercase())],
-                ))
-            }
-            FieldFilter::FieldStartsWith { field_name, value } => {
-                q = q.and_where(Expr::cust_with_values(
-                    format!(r#"lower("d"."f"{}) like $1"#, field_path_json(field_name),),
-                    vec![format!("{}%", value.to_lowercase())],
-                ))
-            }
-            FieldFilter::FieldValueInMatch { field_name, values } => {
-                q = q.and_where(
-                    Expr::expr(Expr::cust(format!(
-                        r#""d"."f"{}"#,
-                        field_path_json(field_name),
-                    )))
-                    .is_in(values),
-                );
-            }
-            FieldFilter::DateFieldLessThan { field_name, value } => {
-                q = q.and_where(Expr::cust_with_values(
-                    format!(r#""d"."f"{} < $1"#, field_path_json(field_name),),
-                    vec![format!("{}%", value)],
-                ))
-            }
-            FieldFilter::FieldIsNull { field_name } => {
-                q = q.and_where(
-                    Expr::expr(Expr::cust(format!(
-                        r#""d"."f"{}"#,
-                        field_path_json(field_name),
-                    )))
-                    .is_null(),
-                );
-            }
-            FieldFilter::FieldIsNotNull { field_name } => {
-                q = q.and_where(
-                    Expr::expr(Expr::cust(format!(
-                        r#""d"."f"{}"#,
-                        field_path_json(field_name),
-                    )))
-                    .is_not_null(),
-                );
-            }
-        }
-    }
+    q = modify_query(q, &params.filters);
 
     if let Some(title) = &params.exact_title {
         q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
     }
 
     (q.to_owned(), documents_alias)
+}
+
+fn modify_query<'a>(q: &'a mut SelectStatement, filters: &SearchFilter) -> &'a mut SelectStatement {
+    let (outer_condition, has_condition) = match filters {
+        SearchFilter::FieldOpValue(_) => (Condition::all(), true),
+        SearchFilter::FieldOp(_) => (Condition::all(), true),
+        SearchFilter::Group(g) => match g {
+            SearchGroup::OrGroup(ig) => (Condition::any(), !ig.is_empty()),
+            SearchGroup::AndGroup(ig) => (Condition::all(), !ig.is_empty()),
+        },
+    };
+
+    if !has_condition {
+        return q;
+    }
+
+    let outer_condition = condition_for_filter(outer_condition, filters);
+
+    q.cond_where(outer_condition)
+}
+
+fn condition_for_filter(condition: Condition, filters: &SearchFilter) -> Condition {
+    match filters {
+        SearchFilter::FieldOpValue(fov) => condition.add(fov_to_condition(fov)),
+        SearchFilter::FieldOp(fo) => condition.add(fo_to_condition(fo)),
+        SearchFilter::Group(g) => {
+            let (mut subgroup, filters) = match g {
+                SearchGroup::AndGroup(and_filters) => (Condition::all(), and_filters),
+                SearchGroup::OrGroup(or_filters) => (Condition::any(), or_filters),
+            };
+            for filter in filters {
+                subgroup = condition_for_filter(subgroup, filter);
+            }
+            condition.add(subgroup)
+        }
+    }
+}
+
+fn fo_to_condition(fo: &super::search_documents::SearchFilterFieldOp) -> SimpleExpr {
+    let field_name = fo.field();
+    let field = Expr::expr(Expr::cust(format!(
+        r#""d"."f"{}"#,
+        field_path_json(field_name),
+    )));
+    match fo.operation() {
+        super::search_documents::Operation::Null => field.is_null(),
+        super::search_documents::Operation::NotNull => field.is_not_null(),
+    }
+}
+
+fn fov_to_condition(fov: &super::search_documents::SearchFilterFieldOpValue) -> SimpleExpr {
+    let field_name = fov.field();
+    let value = fov.value().as_str().unwrap_or_default();
+    if value.is_empty() && fov.operation() != OperationWithValue::In {
+        return Expr::cust("1 = 0");
+    }
+    let field = Expr::expr(Expr::cust(format!(
+        r#""d"."f"{}"#,
+        field_path_json(field_name),
+    )));
+    match fov.operation() {
+        super::search_documents::OperationWithValue::Eq => field.eq(value),
+        super::search_documents::OperationWithValue::Ne => field.ne(value),
+        super::search_documents::OperationWithValue::Lt => field.lt(Expr::value(value)),
+        super::search_documents::OperationWithValue::Le => field.lte(Expr::value(value)),
+        super::search_documents::OperationWithValue::Gt => field.gt(Expr::value(value)),
+        super::search_documents::OperationWithValue::Ge => field.gte(Expr::value(value)),
+        super::search_documents::OperationWithValue::StartsWith => {
+            Expr::expr(Func::lower(field)).like(format!("{}%", value.to_lowercase()))
+        }
+        super::search_documents::OperationWithValue::ContainsText => {
+            Expr::expr(Func::lower(field)).like(format!("%{}%", value.to_lowercase()))
+        }
+        super::search_documents::OperationWithValue::In => (|| -> Option<SimpleExpr> {
+            let v = fov.value().as_array()?;
+            if v.is_empty() {
+                return None;
+            }
+            let vv: Vec<String> = v
+                .iter()
+                .filter_map(|jv| {
+                    jv.as_str().and_then(|s| {
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(s.to_string())
+                        }
+                    })
+                })
+                .collect();
+            if vv.is_empty() {
+                return None;
+            }
+            Some(field.is_in(vv))
+        })()
+        .unwrap_or_else(|| Expr::cust("1 = 0")),
+    }
 }
 
 fn count_documents_sql(params: &DbListDocumentParams) -> SelectStatement {
@@ -764,9 +810,13 @@ pub(crate) async fn get_accessible_document(
 mod tests {
     use pretty_assertions::assert_eq;
     use sea_query::PostgresQueryBuilder;
+    use serde_json::json;
     use validator::Validate;
 
     use crate::api::db::ListDocumentGrants::Restricted;
+    use crate::api::search_documents::{
+        Operation, OperationWithValue, SearchFilterFieldOp, SearchFilterFieldOpValue,
+    };
     use crate::api::{
         grants::{default_user_grants, DefaultUserGrantsParameters},
         list_documents::ListDocumentParams,
@@ -903,7 +953,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(vec![])
+            .filters(vec![].into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -936,7 +986,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(vec![])
+            .filters(vec![].into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -969,7 +1019,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(vec![])
+            .filters(vec![].into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -1002,7 +1052,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(vec![])
+            .filters(vec![].into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -1045,7 +1095,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(filters)
+            .filters(filters.into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -1057,7 +1107,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND ("d"."f"->'orgaddr'->>'zip'='11101') AND ("d"."f"->'wf1'->>'seq') IN ('1', '2')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'read-collection' AND "grant"."grant" = '{collection}') AND (("d"."f"->'orgaddr'->>'zip') = '11101' AND ("d"."f"->'wf1'->>'seq') IN ('1', '2'))) ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -1084,7 +1134,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(filters)
+            .filters(filters.into())
             .grants(Restricted(grants))
             .include_author_id(false)
             .build();
@@ -1096,7 +1146,7 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip') = '11101') ORDER BY "d"."f"->>'created' ASC"#
             )
         );
     }
@@ -1123,7 +1173,7 @@ mod tests {
             .extra_fields(vec!["title".to_string()])
             .exact_title(None)
             .sort_fields(Some(sort_fields))
-            .filters(filters)
+            .filters(filters.into())
             .grants(Restricted(grants))
             .include_author_id(true)
             .build();
@@ -1135,7 +1185,188 @@ mod tests {
         assert_eq!(
             sql,
             format!(
-                r#"SELECT "d"."id", "t"."new_f" AS "f", "e"."user" AS "author_id" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE LEFT JOIN "event" AS "e" ON "e"."category_id" = 1 AND "e"."document_id" = "d"."id" AND ("e"."payload"->'new'='true'::JSONB) WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip'='11101')) ORDER BY "d"."f"->>'created' ASC"#
+                r#"SELECT "d"."id", "t"."new_f" AS "f", "e"."user" AS "author_id" FROM "collection_document" AS "d" INNER JOIN LATERAL (SELECT jsonb_object_agg("key", "value") as "new_f" from jsonb_each("f") as x("key", "value") WHERE "key" in ('title')) AS "t" ON TRUE LEFT JOIN "event" AS "e" ON "e"."category_id" = 1 AND "e"."document_id" = "d"."id" AND ("e"."payload"->'new'='true'::JSONB) WHERE "d"."id" IN (SELECT DISTINCT "d"."id" FROM "collection_document" AS "d" JOIN "grant" ON "d"."id" = "grant"."document_id" WHERE "collection_id" = '{collection}' AND ("grant"."realm" = 'author' AND "grant"."grant" = '{userid}') AND ("d"."f"->'orgaddr'->>'zip') = '11101') ORDER BY "d"."f"->>'created' ASC"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_eq() {
+        // Arrange
+        let fov = SearchFilterFieldOpValue::builder()
+            .field("a".to_string())
+            .operation(OperationWithValue::Eq)
+            .value(json!("b"))
+            .build();
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .and_where(fov_to_condition(&fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(r#"SELECT "id" FROM "collection_document" WHERE ("d"."f"->>'a') = 'b'"#)
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_ne() {
+        // Arrange
+        let fov = SearchFilterFieldOpValue::builder()
+            .field("a.b".to_string())
+            .operation(OperationWithValue::Ne)
+            .value(json!("ninja"))
+            .build();
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .and_where(fov_to_condition(&fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE ("d"."f"->'a'->>'b') <> 'ninja'"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_startswith() {
+        // Arrange
+        let fov = SearchFilterFieldOpValue::builder()
+            .field("b.g".to_string())
+            .operation(OperationWithValue::StartsWith)
+            .value(json!("Fol"))
+            .build();
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .and_where(fov_to_condition(&fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE LOWER("d"."f"->'b'->>'g') LIKE 'fol%'"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_containstext() {
+        // Arrange
+        let fov = SearchFilterFieldOpValue::builder()
+            .field("g".to_string())
+            .operation(OperationWithValue::ContainsText)
+            .value(json!("olid"))
+            .build();
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .and_where(fov_to_condition(&fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE LOWER("d"."f"->>'g') LIKE '%olid%'"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_group1() {
+        // Arrange
+        let fov1 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("f1".to_string())
+                .operation(OperationWithValue::StartsWith)
+                .value(json!("P1"))
+                .build(),
+        );
+        let fov2 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("f2".to_string())
+                .operation(OperationWithValue::Eq)
+                .value(json!("P2"))
+                .build(),
+        );
+        let fov = SearchFilter::Group(SearchGroup::AndGroup(vec![fov1, fov2]));
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .cond_where(condition_for_filter(Condition::all(), &fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE LOWER("d"."f"->>'f1') LIKE 'p1%' AND ("d"."f"->>'f2') = 'P2'"#
+            )
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_group2() {
+        // Arrange
+        let fov1 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("f1".to_string())
+                .operation(OperationWithValue::StartsWith)
+                .value(json!("P1"))
+                .build(),
+        );
+        let fov2 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("f2".to_string())
+                .operation(OperationWithValue::Eq)
+                .value(json!("P2"))
+                .build(),
+        );
+        let fovi = SearchFilter::Group(SearchGroup::OrGroup(vec![fov1, fov2]));
+        let fov3 = SearchFilter::FieldOp(
+            SearchFilterFieldOp::builder()
+                .field("deleted".to_string())
+                .operation(Operation::NotNull)
+                .build(),
+        );
+        let fov = SearchFilter::Group(SearchGroup::AndGroup(vec![fovi, fov3]));
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .cond_where(condition_for_filter(Condition::all(), &fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE (LOWER("d"."f"->>'f1') LIKE 'p1%' OR ("d"."f"->>'f2') = 'P2') AND ("d"."f"->>'deleted') IS NOT NULL"#
             )
         );
     }

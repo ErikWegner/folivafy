@@ -634,6 +634,9 @@ components:
             - le
             - gt
             - ge
+            - startswith
+            - containstext
+            - in
         v:
           description: Value
           oneOf:
@@ -672,10 +675,10 @@ components:
     SearchFilter:
       description: A search filter
       oneOf:
-      - $ref: "#/components/schemas/SearchFilterFieldOpValue"
-      - $ref: "#/components/schemas/SearchFilterFieldOp"
-      - $ref: "#/components/schemas/SearchFilterAndGroup"
-      - $ref: "#/components/schemas/SearchFilterOrGroup"
+        - $ref: "#/components/schemas/SearchFilterFieldOpValue"
+        - $ref: "#/components/schemas/SearchFilterFieldOp"
+        - $ref: "#/components/schemas/SearchFilterAndGroup"
+        - $ref: "#/components/schemas/SearchFilterOrGroup"
     ValueString:
       description: A string value
       example: Foo
