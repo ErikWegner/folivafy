@@ -14,6 +14,7 @@ use sea_orm::DatabaseConnection;
 
 use serde::Deserialize;
 use tracing::warn;
+use typed_builder::TypedBuilder;
 use validator::Validate;
 
 use crate::api::grants::{hook_or_default_user_grants, GrantCollection};
@@ -28,11 +29,15 @@ use crate::{
     axumext::extractors::ValidatedQueryParams,
 };
 
-use super::db::{get_unlocked_collection_by_name, DbListDocumentParams, ListDocumentGrants};
+use super::{
+    db::{get_unlocked_collection_by_name, DbListDocumentParams, ListDocumentGrants},
+    search_documents::{SearchFilter, SearchFilterFieldOp},
+};
 
 lazy_static! {
-    static ref RE_EXTRA_FIELDS: Regex = Regex::new(r"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$").unwrap();
-    static ref RE_SORT_FIELDS: Regex = Regex::new(
+    pub(crate) static ref RE_EXTRA_FIELDS: Regex =
+        Regex::new(r"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$").unwrap();
+    pub(crate) static ref RE_SORT_FIELDS: Regex = Regex::new(
         r"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb](,[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb])*$"
     )
     .unwrap();
@@ -61,7 +66,7 @@ pub(crate) struct ListDocumentParams {
     pub(crate) pfilter: Option<String>,
 }
 
-pub(crate) async fn api_list_document(
+pub(crate) async fn api_list_documents(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
     ValidatedQueryParams(list_params): ValidatedQueryParams<ListDocumentParams>,
@@ -86,12 +91,27 @@ pub(crate) async fn api_list_document(
             .await?;
 
     let grants = ListDocumentGrants::Restricted(user_grants);
+    let mut request_filters = parse_pfilter(list_params.pfilter);
+    if let Some(title) = list_params.exact_title {
+        request_filters.push(FieldFilter::ExactFieldMatch {
+            field_name: "title".to_string(),
+            value: title,
+        });
+    }
 
     generic_list_documents(
         &ctx.db,
         collection.id,
         DeletedDocuments::Exclude,
-        list_params,
+        GenericListDocumentsParams::builder()
+            .sort_fields(list_params.sort_fields.clone())
+            .extra_fields(list_params.extra_fields.clone())
+            .filter(if request_filters.is_empty() {
+                None
+            } else {
+                Some(request_filters.into())
+            })
+            .build(),
         grants,
         pagination,
     )
@@ -104,11 +124,18 @@ pub(crate) fn parse_pfilter(s: Option<String>) -> Vec<FieldFilter> {
         .unwrap_or_default()
 }
 
+#[derive(Debug, TypedBuilder)]
+pub(crate) struct GenericListDocumentsParams {
+    extra_fields: Option<String>,
+    sort_fields: Option<String>,
+    filter: Option<SearchFilter>,
+}
+
 pub(crate) async fn generic_list_documents(
     db: &DatabaseConnection,
     collection_id: Uuid,
     deleted_documents: DeletedDocuments,
-    list_params: ListDocumentParams,
+    list_params: GenericListDocumentsParams,
     grants: ListDocumentGrants,
     pagination: Pagination,
 ) -> Result<Json<CollectionItemsList>, ApiErrors> {
@@ -126,26 +153,32 @@ pub(crate) async fn generic_list_documents(
         extra_fields.push(title);
     }
 
-    let filters = match deleted_documents {
-        DeletedDocuments::LimitToDeletedDocuments => FieldFilter::FieldIsNotNull {
-            field_name: DELETED_AT_FIELD.to_string(),
-        },
-        DeletedDocuments::Exclude => FieldFilter::FieldIsNull {
-            field_name: DELETED_AT_FIELD.to_string(),
-        },
-    };
+    let deleted_documents_condition = SearchFilter::FieldOp(
+        SearchFilterFieldOp::builder()
+            .field(DELETED_AT_FIELD.to_string())
+            .operation(match deleted_documents {
+                DeletedDocuments::LimitToDeletedDocuments => {
+                    super::search_documents::Operation::NotNull
+                }
+                DeletedDocuments::Exclude => super::search_documents::Operation::Null,
+            })
+            .build(),
+    );
 
-    let mut request_filters = parse_pfilter(list_params.pfilter);
-    let mut filters = vec![filters];
-    filters.append(&mut request_filters);
+    let filters = match list_params.filter {
+        Some(filters) => SearchFilter::Group(super::search_documents::SearchGroup::AndGroup(vec![
+            deleted_documents_condition,
+            filters,
+        ])),
+        None => deleted_documents_condition,
+    };
 
     let db_params = DbListDocumentParams::builder()
         .collection(collection_id)
-        .exact_title(list_params.exact_title)
         .grants(grants)
         .extra_fields(extra_fields)
         .sort_fields(list_params.sort_fields)
-        .filters(filters.into())
+        .filters(filters)
         .pagination(pagination.clone())
         .include_author_id(include_author)
         .build();

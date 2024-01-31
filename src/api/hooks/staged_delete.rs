@@ -9,8 +9,11 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 use crate::api::auth::User;
-use crate::api::db::{get_unlocked_collection_by_name, ListDocumentGrants};
-use crate::api::list_documents::{generic_list_documents, DeletedDocuments, ListDocumentParams};
+use crate::api::db::{get_unlocked_collection_by_name, FieldFilter, ListDocumentGrants};
+use crate::api::list_documents::{
+    generic_list_documents, parse_pfilter, DeletedDocuments, GenericListDocumentsParams,
+    ListDocumentParams,
+};
 use crate::api::types::Pagination;
 use crate::api::{
     db::{DELETED_AT_FIELD, DELETED_BY_FIELD},
@@ -227,12 +230,27 @@ pub(crate) async fn get_recoverables(
     }
 
     let grants = ListDocumentGrants::IgnoredForAdmin;
+    let mut request_filters = parse_pfilter(list_params.pfilter);
+    if let Some(title) = list_params.exact_title {
+        request_filters.push(FieldFilter::ExactFieldMatch {
+            field_name: "title".to_string(),
+            value: title,
+        });
+    }
 
     generic_list_documents(
         &db,
         collection.id,
         DeletedDocuments::LimitToDeletedDocuments,
-        list_params,
+        GenericListDocumentsParams::builder()
+            .sort_fields(list_params.sort_fields.clone())
+            .extra_fields(list_params.extra_fields.clone())
+            .filter(if request_filters.is_empty() {
+                None
+            } else {
+                Some(request_filters.into())
+            })
+            .build(),
         grants,
         pagination,
     )

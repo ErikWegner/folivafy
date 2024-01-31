@@ -2,10 +2,7 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 use std::sync::Arc;
-use tokio::sync::{
-    mpsc::{self},
-    oneshot,
-};
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -59,7 +56,6 @@ async fn cron(
             let mut counter = cron_limit;
             let dbparams = DbListDocumentParams::builder()
                 .collection(collection.id)
-                .exact_title(None)
                 .grants(IgnoredForCron)
                 .extra_fields(vec!["title".to_string()])
                 .sort_fields(None)

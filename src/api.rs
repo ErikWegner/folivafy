@@ -57,8 +57,9 @@ use self::{
     get_document::api_read_document,
     hooks::Hooks,
     list_collections::api_list_collections,
-    list_documents::api_list_document,
+    list_documents::api_list_documents,
     maintenance::api_rebuild_grants,
+    search_documents::api_search_documents,
     update_document::api_update_document,
 };
 
@@ -268,9 +269,13 @@ async fn api_routes(
             )
             .route(
                 "/collections/:collection_name",
-                get(api_list_document)
+                get(api_list_documents)
                     .post(api_create_document)
                     .put(api_update_document),
+            )
+            .route(
+                "/collections/:collection_name/search",
+                post(api_search_documents),
             )
             .route(
                 "/collections/:collection_name/:document_id",

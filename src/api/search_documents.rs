@@ -1,8 +1,27 @@
+use axum::{
+    extract::{Path, State},
+    Json,
+};
+use jwt_authorizer::JwtClaims;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::warn;
 use typed_builder::TypedBuilder;
+use validator::Validate;
 
-use super::db::FieldFilter;
+use crate::{axumext::extractors::ValidatedQueryParams, models::CollectionItemsList};
+
+use super::{
+    auth::User,
+    db::{get_unlocked_collection_by_name, FieldFilter, ListDocumentGrants},
+    grants::{hook_or_default_user_grants, GrantCollection},
+    list_documents::{
+        generic_list_documents, DeletedDocuments, GenericListDocumentsParams, RE_EXTRA_FIELDS,
+        RE_SORT_FIELDS,
+    },
+    types::Pagination,
+    ApiContext, ApiErrors,
+};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -141,6 +160,65 @@ impl From<Vec<FieldFilter>> for SearchFilter {
             value.into_iter().map(|v| (&v).into()).collect(),
         ))
     }
+}
+
+#[derive(Debug, Default, Deserialize, Validate)]
+#[serde(default)]
+pub(crate) struct SearchDocumentParams {
+    #[validate(regex = "RE_EXTRA_FIELDS")]
+    #[serde(rename = "extraFields")]
+    pub(crate) extra_fields: Option<String>,
+
+    #[validate(regex = "RE_SORT_FIELDS")]
+    #[serde(rename = "sort")]
+    pub(crate) sort_fields: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, Validate)]
+pub(crate) struct SearchDocumentsBody {
+    filter: Option<SearchFilter>,
+}
+
+pub(crate) async fn api_search_documents(
+    State(ctx): State<ApiContext>,
+    ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,
+    ValidatedQueryParams(search_params): ValidatedQueryParams<SearchDocumentParams>,
+    Path(collection_name): Path<String>,
+    JwtClaims(user): JwtClaims<User>,
+    Json(payload): Json<SearchDocumentsBody>,
+) -> Result<Json<CollectionItemsList>, ApiErrors> {
+    let collection = get_unlocked_collection_by_name(&ctx.db, &collection_name)
+        .await
+        .ok_or_else(|| ApiErrors::NotFound(collection_name.clone()))?;
+
+    let user_is_permitted = user.is_collection_admin(&collection_name)
+        || user.can_access_all_documents(&collection_name)
+        || user.is_collection_reader(&collection_name);
+    if !user_is_permitted {
+        warn!("User {} is not a collection reader", user.name_and_sub());
+        return Err(ApiErrors::PermissionDenied);
+    }
+
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
+
+    let grants = ListDocumentGrants::Restricted(user_grants);
+
+    generic_list_documents(
+        &ctx.db,
+        collection.id,
+        DeletedDocuments::Exclude,
+        GenericListDocumentsParams::builder()
+            .sort_fields(search_params.sort_fields.clone())
+            .extra_fields(search_params.extra_fields.clone())
+            .filter(payload.filter)
+            .build(),
+        grants,
+        pagination,
+    )
+    .await
 }
 
 #[cfg(test)]

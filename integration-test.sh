@@ -407,6 +407,25 @@ then
 fi
 
 
+echo "- Can search shapes"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"filter": {"or": [{"f":"title","o":"startswith","v":"Ci"},{"f":"title","o":"containstext","v":"ctang"}]}}' \
+  $API/collections/shapes/search?sort=title-\&extraFields=price,author_id)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price, .items[].f.author_id' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Rectangle Circle 14 9 98ebb628-4a46-4274-a9f0-eb7c6f385540 98ebb628-4a46-4274-a9f0-eb7c6f385540" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS\n$RESP"
+fi
+
+
 echo "- User can create d12 shape document"
 authorize_client $SHAPES_EDITOR_CLIENT $SHAPES_EDITOR_SECRET
 RESP=$(curl --silent \
@@ -475,7 +494,7 @@ then
       echo -e "${RED}Failure:${NC} editor is allowed to delete d12!\n$RESP"
 fi
 
-echo "List of deleted documents is empty"
+echo "- List of deleted documents is empty"
 authorize_client $SHAPES_REMOVER_CLIENT $SHAPES_REMOVER_SECRET
 RESP=$(curl --silent \
   --request GET \

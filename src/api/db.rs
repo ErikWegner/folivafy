@@ -103,9 +103,11 @@ pub(crate) enum FieldFilter {
         field_name: String,
         values: Vec<String>,
     },
+    #[allow(dead_code)]
     FieldIsNull {
         field_name: String,
     },
+    #[allow(dead_code)]
     FieldIsNotNull {
         field_name: String,
     },
@@ -197,7 +199,6 @@ pub(crate) enum ListDocumentGrants {
 #[derive(Debug, Clone, TypedBuilder)]
 pub(crate) struct DbListDocumentParams {
     pub(crate) collection: Uuid,
-    pub(crate) exact_title: Option<String>,
     pub(crate) grants: ListDocumentGrants,
     pub(crate) extra_fields: Vec<String>,
     pub(crate) sort_fields: Option<String>,
@@ -304,10 +305,6 @@ fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias)
     }
 
     q = modify_query(q, &params.filters);
-
-    if let Some(title) = &params.exact_title {
-        q = q.and_where(Expr::cust_with_values(r#""f"->>'title' = $1"#, [title]));
-    }
 
     (q.to_owned(), documents_alias)
 }
@@ -951,7 +948,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![].into())
             .grants(Restricted(grants))
@@ -984,7 +980,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![].into())
             .grants(Restricted(grants))
@@ -1017,7 +1012,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![].into())
             .grants(Restricted(grants))
@@ -1050,7 +1044,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(vec![].into())
             .grants(Restricted(grants))
@@ -1093,7 +1086,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(filters.into())
             .grants(Restricted(grants))
@@ -1132,7 +1124,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(filters.into())
             .grants(Restricted(grants))
@@ -1171,7 +1162,6 @@ mod tests {
         let params = DbListDocumentParams::builder()
             .collection(collection)
             .extra_fields(vec!["title".to_string()])
-            .exact_title(None)
             .sort_fields(Some(sort_fields))
             .filters(filters.into())
             .grants(Restricted(grants))
