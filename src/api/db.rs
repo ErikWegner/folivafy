@@ -37,7 +37,6 @@ use super::hooks::GrantSettingsOnEvents;
 use super::hooks::{
     StoreDocument, StoreNewDocument, StoreNewDocumentCollection, StoreNewDocumentOwner,
 };
-use super::search_documents::OperationWithValue;
 use super::search_documents::SearchFilter;
 use super::search_documents::SearchGroup;
 
@@ -357,12 +356,65 @@ fn fo_to_condition(fo: &super::search_documents::SearchFilterFieldOp) -> SimpleE
     }
 }
 
-fn fov_to_condition(fov: &super::search_documents::SearchFilterFieldOpValue) -> SimpleExpr {
-    let field_name = fov.field();
-    let value = fov.value().as_str().unwrap_or_default();
-    if value.is_empty() && fov.operation() != OperationWithValue::In {
-        return Expr::cust("1 = 0");
+fn fov_value_to_expr(val: &serde_json::Value) -> Option<SimpleExpr> {
+    match val {
+        JsonValue::Null => None,
+        JsonValue::Bool(b) => Some(Expr::value(*b)),
+        JsonValue::Number(n) => {
+            if n.is_i64() {
+                Some(Expr::value(n.as_i64().unwrap_or_default()))
+            } else if n.is_f64() {
+                Some(Expr::value(n.as_f64().unwrap_or_default()))
+            } else {
+                None
+            }
+        }
+        JsonValue::String(s) => {
+            if s.is_empty() {
+                None
+            } else {
+                Some(Expr::value(s.to_string()))
+            }
+        }
+        JsonValue::Array(a) => {
+            let all_items_are_integers = a.iter().all(|v| v.is_i64());
+            if all_items_are_integers {
+                Some(Expr::value(
+                    a.iter()
+                        .map(|v| v.as_i64().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                ))
+            } else {
+                let v = a
+                    .iter()
+                    .map(|v| {
+                        if v.is_string() {
+                            v.as_str().unwrap_or_default().to_string()
+                        } else {
+                            v.to_string()
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                if v.is_empty() {
+                    None
+                } else {
+                    // Convert all values to strings
+                    Some(Expr::value(v))
+                }
+            }
+        }
+        JsonValue::Object(_) => None,
     }
+}
+
+fn fov_to_condition(fov: &super::search_documents::SearchFilterFieldOpValue) -> SimpleExpr {
+    let kill_clause = || Expr::cust("1 = 0");
+    let field_name = fov.field();
+    let value = fov_value_to_expr(fov.value());
+    if value.is_none() {
+        return kill_clause();
+    }
+    let value = value.unwrap();
     let field = Expr::expr(Expr::cust(format!(
         r#""d"."f"{}"#,
         field_path_json(field_name),
@@ -370,39 +422,27 @@ fn fov_to_condition(fov: &super::search_documents::SearchFilterFieldOpValue) -> 
     match fov.operation() {
         super::search_documents::OperationWithValue::Eq => field.eq(value),
         super::search_documents::OperationWithValue::Ne => field.ne(value),
-        super::search_documents::OperationWithValue::Lt => field.lt(Expr::value(value)),
-        super::search_documents::OperationWithValue::Le => field.lte(Expr::value(value)),
-        super::search_documents::OperationWithValue::Gt => field.gt(Expr::value(value)),
-        super::search_documents::OperationWithValue::Ge => field.gte(Expr::value(value)),
+        super::search_documents::OperationWithValue::Lt => field.lt(value),
+        super::search_documents::OperationWithValue::Le => field.lte(value),
+        super::search_documents::OperationWithValue::Gt => field.gt(value),
+        super::search_documents::OperationWithValue::Ge => field.gte(value),
         super::search_documents::OperationWithValue::StartsWith => {
+            let value = fov.value().as_str().unwrap_or_default();
+            if value.is_empty() {
+                return kill_clause();
+            }
             Expr::expr(Func::lower(field)).like(format!("{}%", value.to_lowercase()))
         }
         super::search_documents::OperationWithValue::ContainsText => {
+            let value = fov.value().as_str().unwrap_or_default();
+            if value.is_empty() {
+                return kill_clause();
+            }
             Expr::expr(Func::lower(field)).like(format!("%{}%", value.to_lowercase()))
         }
-        super::search_documents::OperationWithValue::In => (|| -> Option<SimpleExpr> {
-            let v = fov.value().as_array()?;
-            if v.is_empty() {
-                return None;
-            }
-            let vv: Vec<String> = v
-                .iter()
-                .filter_map(|jv| {
-                    jv.as_str().and_then(|s| {
-                        if s.is_empty() {
-                            None
-                        } else {
-                            Some(s.to_string())
-                        }
-                    })
-                })
-                .collect();
-            if vv.is_empty() {
-                return None;
-            }
-            Some(field.is_in(vv))
-        })()
-        .unwrap_or_else(|| Expr::cust("1 = 0")),
+        super::search_documents::OperationWithValue::In => {
+            field.binary(sea_query::BinOper::In, value)
+        }
     }
 }
 
