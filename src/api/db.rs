@@ -379,9 +379,10 @@ fn fov_value_to_expr(val: &serde_json::Value) -> Option<SimpleExpr> {
         JsonValue::Array(a) => {
             let all_items_are_integers = a.iter().all(|v| v.is_i64());
             if all_items_are_integers {
-                Some(Expr::value(
+                Some(SimpleExpr::Tuple(
                     a.iter()
                         .map(|v| v.as_i64().unwrap_or_default())
+                        .map(|v| v.into())
                         .collect::<Vec<_>>(),
                 ))
             } else {
@@ -394,12 +395,13 @@ fn fov_value_to_expr(val: &serde_json::Value) -> Option<SimpleExpr> {
                             v.to_string()
                         }
                     })
+                    .map(|v| v.into())
                     .collect::<Vec<_>>();
                 if v.is_empty() {
                     None
                 } else {
                     // Convert all values to strings
-                    Some(Expr::value(v))
+                    Some(SimpleExpr::Tuple(v))
                 }
             }
         }

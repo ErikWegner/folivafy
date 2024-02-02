@@ -407,15 +407,29 @@ then
 fi
 
 
-echo "- Can list shapes starting with a \`contains\` filter value"
+echo "- Can list shapes with a \`contains\` filter value on geo.edges"
 authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
-RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?sort=geo.edges-\&extraFields=geo\&pfilter=geo.edges\%3D\%5B3,4,5\%5D)
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?sort=geo.edges-\&extraFields=geo\&pfilter=geo.edges\%3D\%5B2,3,4\%5D)
 if [ "$RESP" == "Unauthorized" ]
 then
       echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
 fi
 FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t, .g' | jq -s -r 'join(" ")')
-if [ "$FIELDS" != "Hexagon 6 Triangle 3" ]
+if [ "$FIELDS" != "Triangle 3" ]
+then
+      echo -e "${RED}Failure:${NC} list of documents with a \`contains\` filter value on geo.edges failed!\n$FIELDS\n$RESP"
+fi
+
+
+echo "- Can list shapes with a \`contains\` filter value"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?sort=geo.edges-\&extraFields=geo\&pfilter=title\%3D\%5BCircle,Triangle,Rectangle\%5D)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '[.items[] | {t: .f.title, g: .f.geo.edges}][] | .t, .g' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Circle  Rectangle  Triangle 3" ]
 then
       echo -e "${RED}Failure:${NC} list of documents with a \`contains\` filter value failed!\n$FIELDS\n$RESP"
 fi
