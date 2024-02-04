@@ -2,13 +2,14 @@ use axum::{extract::State, Json};
 use axum_macros::debug_handler;
 use entity::collection::Entity as Collection;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionsList;
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder, QuerySelect};
 use tracing::warn;
 
-use crate::{api::auth::User, axumext::extractors::ValidatedQueryParams};
-
-use super::{types::Pagination, ApiContext, ApiErrors};
+use crate::{
+    api::{auth::User, types::Pagination, ApiContext, ApiErrors},
+    axumext::extractors::ValidatedQueryParams,
+    models::{self, CollectionsList},
+};
 
 #[debug_handler]
 pub(crate) async fn api_list_collections(
@@ -38,7 +39,7 @@ pub(crate) async fn api_list_collections(
         total,
         items: items
             .iter()
-            .map(|dbitem| openapi::models::Collection {
+            .map(|dbitem| models::Collection {
                 locked: dbitem.locked,
                 name: dbitem.name.clone(),
                 oao: dbitem.oao,

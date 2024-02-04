@@ -12,7 +12,7 @@ use serde::{Serialize, Deserialize};
 type ServiceError = Box<dyn Error + Send + Sync + 'static>;
 
 pub const BASE_PATH: &str = "/api";
-pub const API_VERSION: &str = "1.0.0";
+pub const API_VERSION: &str = "2.3.0";
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[must_use]
@@ -37,7 +37,7 @@ pub enum GetCollectionsResponse {
 pub enum GetItemByIdResponse {
     /// successful operation
     SuccessfulOperation
-    (models::CollectionItem)
+    (models::CollectionItemDetails)
     ,
     /// Item not found
     ItemNotFound
@@ -46,6 +46,28 @@ pub enum GetItemByIdResponse {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[must_use]
 pub enum ListCollectionResponse {
+    /// successful operation
+    SuccessfulOperation
+    (models::CollectionItemsList)
+    ,
+    /// Collection not found
+    CollectionNotFound
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[must_use]
+pub enum ListRecoverablesInCollectionResponse {
+    /// successful operation
+    SuccessfulOperation
+    (models::CollectionItemsList)
+    ,
+    /// Collection not found
+    CollectionNotFound
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[must_use]
+pub enum SearchCollectionResponse {
     /// successful operation
     SuccessfulOperation
     (models::CollectionItemsList)
@@ -74,6 +96,24 @@ pub enum UpdateItemByIdResponse {
     ,
     /// Updating failed
     UpdatingFailed
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[must_use]
+pub enum CreateEventResponse {
+    /// successful operation
+    SuccessfulOperation
+    (String)
+    ,
+    /// Creating the collection failed
+    CreatingTheCollectionFailed
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub enum RebuildGrantsResponse {
+    /// Success
+    Success
+    (String)
 }
 
 /// API
@@ -106,7 +146,36 @@ pub trait Api<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
         context: &C) -> Result<ListCollectionResponse, ApiError>;
+
+    /// List recoverable items within the collection
+    async fn list_recoverables_in_collection(
+        &self,
+        collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
+        context: &C) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        context: &C) -> Result<SearchCollectionResponse, ApiError>;
 
     /// Create new item
     async fn store_into_collection(
@@ -121,6 +190,18 @@ pub trait Api<C: Send + Sync> {
         collection: String,
         collection_item: models::CollectionItem,
         context: &C) -> Result<UpdateItemByIdResponse, ApiError>;
+
+    /// Create event for document in collection
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        context: &C) -> Result<CreateEventResponse, ApiError>;
+
+    /// Rebuild grants for a collection
+    async fn rebuild_grants(
+        &self,
+        collection: String,
+        context: &C) -> Result<RebuildGrantsResponse, ApiError>;
 
 }
 
@@ -155,7 +236,36 @@ pub trait ApiNoContext<C: Send + Sync> {
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>;
+
+    /// List recoverable items within the collection
+    async fn list_recoverables_in_collection(
+        &self,
+        collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
+        ) -> Result<ListRecoverablesInCollectionResponse, ApiError>;
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        ) -> Result<SearchCollectionResponse, ApiError>;
 
     /// Create new item
     async fn store_into_collection(
@@ -170,6 +280,18 @@ pub trait ApiNoContext<C: Send + Sync> {
         collection: String,
         collection_item: models::CollectionItem,
         ) -> Result<UpdateItemByIdResponse, ApiError>;
+
+    /// Create event for document in collection
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        ) -> Result<CreateEventResponse, ApiError>;
+
+    /// Rebuild grants for a collection
+    async fn rebuild_grants(
+        &self,
+        collection: String,
+        ) -> Result<RebuildGrantsResponse, ApiError>;
 
 }
 
@@ -230,10 +352,47 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     async fn list_collection(
         &self,
         collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
         ) -> Result<ListCollectionResponse, ApiError>
     {
         let context = self.context().clone();
-        self.api().list_collection(collection, &context).await
+        self.api().list_collection(collection, exact_title, extra_fields, limit, offset, pfilter, sort, &context).await
+    }
+
+    /// List recoverable items within the collection
+    async fn list_recoverables_in_collection(
+        &self,
+        collection: String,
+        exact_title: Option<String>,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        pfilter: Option<String>,
+        sort: Option<String>,
+        ) -> Result<ListRecoverablesInCollectionResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().list_recoverables_in_collection(collection, exact_title, extra_fields, limit, offset, pfilter, sort, &context).await
+    }
+
+    /// List collection items
+    async fn search_collection(
+        &self,
+        collection: String,
+        search_collection_body: models::SearchCollectionBody,
+        extra_fields: Option<String>,
+        limit: Option<i32>,
+        offset: Option<i32>,
+        sort: Option<String>,
+        ) -> Result<SearchCollectionResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().search_collection(collection, search_collection_body, extra_fields, limit, offset, sort, &context).await
     }
 
     /// Create new item
@@ -256,6 +415,26 @@ impl<T: Api<C> + Send + Sync, C: Clone + Send + Sync> ApiNoContext<C> for Contex
     {
         let context = self.context().clone();
         self.api().update_item_by_id(collection, collection_item, &context).await
+    }
+
+    /// Create event for document in collection
+    async fn create_event(
+        &self,
+        create_event_body: models::CreateEventBody,
+        ) -> Result<CreateEventResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().create_event(create_event_body, &context).await
+    }
+
+    /// Rebuild grants for a collection
+    async fn rebuild_grants(
+        &self,
+        collection: String,
+        ) -> Result<RebuildGrantsResponse, ApiError>
+    {
+        let context = self.context().clone();
+        self.api().rebuild_grants(collection, &context).await
     }
 
 }

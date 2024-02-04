@@ -1,6 +1,16 @@
-# Folivafy
+# Folivafy Document Management Service
 
-A PostgreSQL backed document oriented database with document owner access control.
+This is a document management service designed to handle documents organized in
+collections. Collections can be either public or access can be granted on a
+per-document basis, ensuring flexibility and security in managing your documents.
+
+## Features
+
+- **Document Organization**: Documents are organized into collections for easy management and retrieval.
+- **Public Collections**: Collections whose items can be read by any authenticated user.
+- **Private Collections**: Maintain collections with restricted access, where permissions can be granted on a per-document basis.
+- **Access Control**: Granular access control allows you to manage who can view or edit documents within collections.
+- **Event Dispatch**: Dispatch events to documents to handle actions such as document deletion or workflow creation.
 
 ## Details
 
@@ -12,6 +22,8 @@ collection can only be read and edited by their owners and an additional group
 of administrators.
 
 Within a collection, documents can be stored and retrieved.
+
+The data is stored in a PostgreSQL database.
 
 ## Permissions
 
@@ -56,4 +68,78 @@ sea-orm-cli generate entity -o entity/src
 ```bash
 cat integration-test.sql | docker exec -i folivafy_devcontainer-db-1 psql -U postgres postgres
 docker exec -it --user $(id -u):$(id -g) folivafy_devcontainer-app-1 /bin/bash -c "cd /workspaces/folivafy ; ./integration-test.sh"
+```
+
+## Mail tests
+
+Use https://github.com/mailtutan/mailtutan as mail server: `cargo install mailtutan`
+
+Run with: `mailtutan`
+
+## Configuration
+
+Use a `.env` file and/or set the environment variables to override the `.env`
+file settings.
+
+### Two stage deletion
+
+By default, documents cannot be deleted. To enable deletion of documents,
+a provided handler can be registered for the desired collection.
+
+The value for `FOLIVAFY_ENABLE_DELETION` is a comma separated list. Each
+item in the list contains the name of the collection, the number of days
+for the first stage and the number of additional days for the second
+stage. These values are also comma separated and surrounded by parentheses.
+
+The user needs the permissions `C_<NAME-OF-COLLECTION>_READER` (or
+`C_<NAME-OF-COLLECTION>_ALLREADER`) and `C_<NAME-OF-COLLECTION>_REMOVER` to
+delete items. There are no further access checks on document level.
+
+#### Delete event
+
+To delete an item, post an event with the collection id and document id.
+The category is number 2.
+
+```json
+{
+  "category": 2,
+  "collection": "collection-name",
+  "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
+  "e": {}
+}
+```
+
+#### Recover event
+
+To recover an item, post an event with the collection id and document id.
+The category is number 3.
+
+```json
+{
+  "category": 3,
+  "collection": "collection-name",
+  "document": "235cf991-a12f-4939-80cf-8c86815b1ec0",
+  "e": {}
+}
+```
+
+### Example file
+
+```
+# Required settings
+FOLIVAFY_DATABASE=postgresql://dbuser:dbpassw@dbhost/database
+FOLIVAFY_JWT_ISSUER=https://keycloak/realms/my-realm
+FOLIVAFY_MAIL_SERVER=smtp.example.domain
+FOLIVAFY_MAIL_PORT=587
+FOLIVAFY_MAIL_USERNAME=smtplogin
+FOLIVAFY_MAIL_PASSWORD=smtppassword
+USERDATA_CLIENT_ID=clientname
+USERDATA_CLIENT_SECRET=clientsecret
+USERDATA_TOKEN_URL=https://identity/token/url
+USERDATA_USERINFO_URL=https://identity/users/{id}
+
+# Optional settings
+PORT=3000 # listen on all interfaces on this port
+FOLIVAFY_CRON_INTERVAL=5 # minutes
+FOLIVAFY_ENABLE_DELETION=(collection-name,31,62),(other-collection,5,40)
 ```

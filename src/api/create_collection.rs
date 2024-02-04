@@ -1,15 +1,13 @@
 use axum::{extract::State, http::StatusCode, Json};
 use axum_macros::debug_handler;
 use entity::collection;
-use garde::Validate;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CreateCollectionRequest;
 use sea_orm::{DbErr, EntityTrait, RuntimeErr, Set};
 use tracing::{error, info, warn};
+use validator::Validate;
 
-use crate::api::auth::User;
-
-use super::{ApiContext, ApiErrors};
+use crate::api::{auth::User, ApiContext, ApiErrors};
+use crate::models::CreateCollectionRequest;
 
 #[debug_handler]
 pub(crate) async fn api_create_collection(
@@ -21,7 +19,7 @@ pub(crate) async fn api_create_collection(
         warn!("User {} is not a collections admin", user.name_and_sub());
         return Err(ApiErrors::PermissionDenied);
     }
-    payload.validate(&()).map_err(ApiErrors::from)?;
+    payload.validate().map_err(ApiErrors::from)?;
     let mut collection = collection::ActiveModel {
         ..Default::default()
     };
@@ -39,10 +37,12 @@ pub(crate) async fn api_create_collection(
                     // We check the error code thrown by the database (PostgreSQL in this case),
                     // `23505` means `value violates unique constraint`: we have a duplicate key in the table.
                     if code == "23505" {
-                        ApiErrors::BadRequest("Duplicate collection name".to_string())
+                        ApiErrors::BadRequestJsonSimpleMsg("Duplicate collection name".to_string())
                     } else {
                         error!("Database runtime error: {}", e);
-                        ApiErrors::BadRequest(format!("Cannot create collection (code {})", code))
+                        ApiErrors::BadRequestJsonSimpleMsg(format!(
+                            "Cannot create collection (code {code})",
+                        ))
                     }
                 }
                 _ => {

@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use reqwest::Url;
 use sea_orm::prelude::Uuid;
 use serde::Deserialize;
-use tracing::debug;
+use tracing::{debug, warn};
 
 #[derive(Deserialize)]
 struct OpenIdConfiguration {
@@ -34,20 +34,46 @@ pub(crate) struct User {
 }
 
 impl User {
+    /// Checks whether the user has the "A_FOLIVAFY_COLLECTION_EDITOR" role, which grants access to
+    /// administrative tasks on collections level.
     pub(crate) fn is_collections_administrator(&self) -> bool {
         self.realm_access
             .roles
             .contains(&"A_FOLIVAFY_COLLECTION_EDITOR".to_string())
     }
 
+    /// Checks whether a user has the "C_COLLECTION_ALLREADER" role for a specific collection.
+    pub(crate) fn can_access_all_documents(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_ALLREADER", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
+    /// Checks whether a user has the "C_COLLECTION_ADMIN" role for a specific collection.
+    pub(crate) fn is_collection_admin(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_ADMIN", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+    }
+
+    /// Checks whether a user has the "C_COLLECTION_EDITOR" role for a specific collection.
     pub(crate) fn is_collection_editor(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_EDITOR", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
     }
 
+    /// Checks whether a user has the "C_COLLECTION_READER" role for a specific collection.
     pub(crate) fn is_collection_reader(&self, collection_name: &str) -> bool {
         let role_name = format!("C_{}_READER", collection_name.to_ascii_uppercase());
         self.realm_access.roles.contains(&role_name)
+    }
+
+    /// The is_collection_remover function returns true if the user has the
+    /// "C_COLLECTION_REMOVER" role and either the "C_COLLECTION_READER" role or the ability
+    /// to access all documents in the collection, or false otherwise.
+    pub(crate) fn is_collection_remover(&self, collection_name: &str) -> bool {
+        let role_name = format!("C_{}_REMOVER", collection_name.to_ascii_uppercase());
+        self.realm_access.roles.contains(&role_name)
+            && (self.is_collection_reader(collection_name)
+                || self.can_access_all_documents(collection_name))
     }
 
     pub(crate) fn name_and_sub(&self) -> String {
@@ -57,11 +83,29 @@ impl User {
     pub(crate) fn subuuid(&self) -> Uuid {
         Uuid::parse_str(self.sub.as_ref()).unwrap_or_default()
     }
+
+    pub(crate) fn preferred_username(&self) -> &str {
+        self.preferred_username.as_ref()
+    }
+
+    pub(crate) fn roles(&self) -> Vec<&str> {
+        self.realm_access
+            .roles
+            .iter()
+            .map(|role| role.as_str())
+            .collect()
+    }
 }
 
 /// Workaround for  https://github.com/Keats/jsonwebtoken/issues/252 not handling RSA-OAEP
-pub async fn cert_loader(issuer: &str) -> Result<String> {
+pub async fn cert_loader(issuer: &str, danger_accept_invalid_certs: bool) -> Result<String> {
     debug!("Loading certificates from {}", issuer);
+    if danger_accept_invalid_certs {
+        warn!("Accepting any certificate for {}", issuer);
+    }
+    let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(danger_accept_invalid_certs)
+        .build()?;
 
     let mut url = Url::parse(issuer).map_err(|e| anyhow!("Invalid issuer {}", e.to_string()))?;
 
@@ -72,7 +116,9 @@ pub async fn cert_loader(issuer: &str) -> Result<String> {
 
     let discovery_endpoint = url.to_string();
 
-    let openid_configuration = reqwest::get(&discovery_endpoint)
+    let openid_configuration = client
+        .get(&discovery_endpoint)
+        .send()
         .await
         .map_err(|e| {
             anyhow!(
@@ -91,7 +137,9 @@ pub async fn cert_loader(issuer: &str) -> Result<String> {
             )
         })?;
     let certs_uri = openid_configuration.jwks_uri;
-    let certs_response = reqwest::get(&certs_uri)
+    let certs_response = client
+        .get(&certs_uri)
+        .send()
         .await
         .map_err(|e| {
             anyhow!(

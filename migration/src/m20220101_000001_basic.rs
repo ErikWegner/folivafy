@@ -104,6 +104,23 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
+            .drop_index(Index::drop().name("idx-doc_col_owner").to_owned())
+            .await?;
+        manager
+            .drop_index(Index::drop().name("idx-doc_col").to_owned())
+            .await?;
+        manager
+            .drop_foreign_key(
+                ForeignKey::drop()
+                    .table(CollectionDocument::Table)
+                    .name("fk-doc-collection_id")
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(Table::drop().table(CollectionDocument::Table).to_owned())
+            .await?;
+        manager
             .drop_index(Index::drop().name("idx-col_name").to_owned())
             .await?;
         manager
@@ -125,7 +142,7 @@ enum Collection {
 }
 
 #[derive(Iden)]
-enum CollectionDocument {
+pub enum CollectionDocument {
     Table,
     Id,
     CollectionId,

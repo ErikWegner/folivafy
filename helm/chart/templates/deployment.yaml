@@ -34,24 +34,28 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: FOLIVAFY_DATABASE
-              value: {{ .Values.folivafy.FOLIVAFY_DATABASE }}
-            - name: FOLIVAFY_JWT_ISSUER
-              value: {{.Values.folivafy.FOLIVAFY_JWT_ISSUER }}
+            {{- range $key, $value := .Values.folivafy }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
             - name: RUST_LOG
               value: {{.Values.folivafy.LOGLEVEL }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-                #          livenessProbe:
-                #            httpGet:
-                #              path: /
-                #              port: http
-                #          readinessProbe:
-                #            httpGet:
-                #              path: /
-                #              port: http
+          livenessProbe:
+            httpGet:
+              path: /app/up
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /app/health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

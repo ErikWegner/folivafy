@@ -1,41 +1,76 @@
 #![allow(unused_qualifications)]
+#![allow(unused)]
 
 use crate::models;
 #[cfg(any(feature = "client", feature = "server"))]
 use crate::header;
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+/// Arbitrary event category
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CategoryId(i32);
+
+impl std::convert::From<i32> for CategoryId {
+    fn from(x: i32) -> Self {
+        CategoryId(x)
+    }
+}
+
+impl std::convert::From<CategoryId> for i32 {
+    fn from(x: CategoryId) -> Self {
+        x.0
+    }
+}
+
+impl std::ops::Deref for CategoryId {
+    type Target = i32;
+    fn deref(&self) -> &i32 {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for CategoryId {
+    fn deref_mut(&mut self) -> &mut i32 {
+        &mut self.0
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 32),
-            pattern(r"^[a-z][-a-z0-9]*$"),
+           regex = "RE_COLLECTION_NAME",
         )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 150),
         )]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`). 
     #[serde(rename = "oao")]
-    #[garde(skip)]
     pub oao: bool,
 
     /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`). 
     #[serde(rename = "locked")]
-    #[garde(skip)]
     pub locked: bool,
 
 }
 
+lazy_static::lazy_static! {
+    static ref RE_COLLECTION_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+}
+
 impl Collection {
     #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
     pub fn new(name: String, title: String, oao: bool, locked: bool, ) -> Collection {
         Collection {
             name,
@@ -171,23 +206,23 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItem {
     /// Document identifier
     #[serde(rename = "id")]
-    #[garde(skip)]
     pub id: uuid::Uuid,
 
     /// Field data
     #[serde(rename = "f")]
-    #[garde(skip)]
     pub f: serde_json::Value,
 
 }
 
+
 impl CollectionItem {
     #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
     pub fn new(id: uuid::Uuid, f: serde_json::Value, ) -> CollectionItem {
         CollectionItem {
             id,
@@ -301,35 +336,332 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CollectionItemDetails {
+    /// Document identifier
+    #[serde(rename = "id")]
+    pub id: uuid::Uuid,
+
+    /// Field data
+    #[serde(rename = "f")]
+    pub f: serde_json::Value,
+
+    #[serde(rename = "e")]
+    pub e: Vec<models::CollectionItemEvent>,
+
+}
+
+
+impl CollectionItemDetails {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(id: uuid::Uuid, f: serde_json::Value, e: Vec<models::CollectionItemEvent>, ) -> CollectionItemDetails {
+        CollectionItemDetails {
+            id,
+            f,
+            e,
+        }
+    }
+}
+
+/// Converts the CollectionItemDetails value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CollectionItemDetails {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+            // Skipping id in query parameter serialization
+
+            // Skipping f in query parameter serialization
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CollectionItemDetails value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CollectionItemDetails {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub id: Vec<uuid::Uuid>,
+            pub f: Vec<serde_json::Value>,
+            pub e: Vec<Vec<models::CollectionItemEvent>>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CollectionItemDetails".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "id" => intermediate_rep.id.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "f" => intermediate_rep.f.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "e" => return std::result::Result::Err("Parsing a container in this style is not supported in CollectionItemDetails".to_string()),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemDetails".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CollectionItemDetails {
+            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemDetails".to_string())?,
+            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in CollectionItemDetails".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemDetails".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CollectionItemDetails> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemDetails>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemDetails>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CollectionItemDetails - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemDetails> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CollectionItemDetails as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CollectionItemDetails - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CollectionItemEvent {
+    #[serde(rename = "id")]
+    #[validate(
+            range(min = 0),
+        )]
+    pub id: u32,
+
+    #[serde(rename = "ts")]
+    pub ts: chrono::DateTime::<chrono::Utc>,
+
+    /// Arbitrary event category
+    #[serde(rename = "category")]
+    pub category: i32,
+
+    /// Field data
+    #[serde(rename = "e")]
+    pub e: serde_json::Value,
+
+}
+
+
+impl CollectionItemEvent {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(id: u32, ts: chrono::DateTime::<chrono::Utc>, category: i32, e: serde_json::Value, ) -> CollectionItemEvent {
+        CollectionItemEvent {
+            id,
+            ts,
+            category,
+            e,
+        }
+    }
+}
+
+/// Converts the CollectionItemEvent value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CollectionItemEvent {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("id".to_string()),
+            Some(self.id.to_string()),
+
+            // Skipping ts in query parameter serialization
+
+
+            Some("category".to_string()),
+            Some(self.category.to_string()),
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CollectionItemEvent value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CollectionItemEvent {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub id: Vec<u32>,
+            pub ts: Vec<chrono::DateTime::<chrono::Utc>>,
+            pub category: Vec<i32>,
+            pub e: Vec<serde_json::Value>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CollectionItemEvent".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "id" => intermediate_rep.id.push(<u32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "ts" => intermediate_rep.ts.push(<chrono::DateTime::<chrono::Utc> as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CollectionItemEvent".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CollectionItemEvent {
+            id: intermediate_rep.id.into_iter().next().ok_or_else(|| "id missing in CollectionItemEvent".to_string())?,
+            ts: intermediate_rep.ts.into_iter().next().ok_or_else(|| "ts missing in CollectionItemEvent".to_string())?,
+            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CollectionItemEvent".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CollectionItemEvent".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CollectionItemEvent> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CollectionItemEvent>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CollectionItemEvent>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CollectionItemEvent - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CollectionItemEvent> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CollectionItemEvent as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CollectionItemEvent - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
-    #[garde(
+    #[validate(
             range(min = 1, max = 250),
         )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub total: u32,
 
     #[serde(rename = "items")]
-    #[garde(skip)]
     pub items: Vec<models::CollectionItem>,
 
 }
 
+
 impl CollectionItemsList {
     #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
     pub fn new(items: Vec<models::CollectionItem>, ) -> CollectionItemsList {
         CollectionItemsList {
             limit: 50,
@@ -506,35 +838,36 @@ impl std::ops::DerefMut for CollectionName {
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
-    #[garde(
+    #[validate(
             range(min = 1, max = 250),
         )]
     pub limit: u8,
 
     #[serde(rename = "offset")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub offset: u32,
 
     #[serde(rename = "total")]
-    #[garde(
+    #[validate(
             range(min = 0),
         )]
     pub total: u32,
 
     #[serde(rename = "items")]
-    #[garde(skip)]
     pub items: Vec<models::Collection>,
 
 }
 
+
 impl CollectionsList {
     #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
     pub fn new(items: Vec<models::Collection>, ) -> CollectionsList {
         CollectionsList {
             limit: 50,
@@ -667,33 +1000,37 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, garde::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 32),
-            pattern(r"^[a-z][-a-z0-9]*$"),
+           regex = "RE_CREATECOLLECTIONREQUEST_NAME",
         )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
-    #[garde(
+    #[validate(
             length(min = 1, max = 150),
         )]
     pub title: String,
 
     /// Owner access only?
     #[serde(rename = "oao")]
-    #[garde(skip)]
     pub oao: bool,
 
 }
 
+lazy_static::lazy_static! {
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+}
+
 impl CreateCollectionRequest {
     #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
     pub fn new(name: String, title: String, oao: bool, ) -> CreateCollectionRequest {
         CreateCollectionRequest {
             name,
@@ -820,6 +1157,169 @@ impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderVal
 }
 
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct CreateEventBody {
+    /// Arbitrary event category
+    #[serde(rename = "category")]
+    pub category: i32,
+
+    /// Path name of the collection
+    #[serde(rename = "collection")]
+    #[validate(
+            length(min = 1, max = 32),
+           regex = "RE_CREATEEVENTBODY_COLLECTION",
+        )]
+    pub collection: String,
+
+    /// Document identifier
+    #[serde(rename = "document")]
+    pub document: uuid::Uuid,
+
+    /// Field data
+    #[serde(rename = "e")]
+    pub e: serde_json::Value,
+
+}
+
+lazy_static::lazy_static! {
+    static ref RE_CREATEEVENTBODY_COLLECTION: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+}
+
+impl CreateEventBody {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(category: i32, collection: String, document: uuid::Uuid, e: serde_json::Value, ) -> CreateEventBody {
+        CreateEventBody {
+            category,
+            collection,
+            document,
+            e,
+        }
+    }
+}
+
+/// Converts the CreateEventBody value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for CreateEventBody {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("category".to_string()),
+            Some(self.category.to_string()),
+
+
+            Some("collection".to_string()),
+            Some(self.collection.to_string()),
+
+            // Skipping document in query parameter serialization
+
+            // Skipping e in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a CreateEventBody value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for CreateEventBody {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub category: Vec<i32>,
+            pub collection: Vec<String>,
+            pub document: Vec<uuid::Uuid>,
+            pub e: Vec<serde_json::Value>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing CreateEventBody".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "category" => intermediate_rep.category.push(<i32 as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "collection" => intermediate_rep.collection.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "document" => intermediate_rep.document.push(<uuid::Uuid as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "e" => intermediate_rep.e.push(<serde_json::Value as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing CreateEventBody".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(CreateEventBody {
+            category: intermediate_rep.category.into_iter().next().ok_or_else(|| "category missing in CreateEventBody".to_string())?,
+            collection: intermediate_rep.collection.into_iter().next().ok_or_else(|| "collection missing in CreateEventBody".to_string())?,
+            document: intermediate_rep.document.into_iter().next().ok_or_else(|| "document missing in CreateEventBody".to_string())?,
+            e: intermediate_rep.e.into_iter().next().ok_or_else(|| "e missing in CreateEventBody".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<CreateEventBody> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<CreateEventBody>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<CreateEventBody>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for CreateEventBody - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<CreateEventBody> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <CreateEventBody as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into CreateEventBody - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
 /// Document identifier
 #[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
@@ -846,6 +1346,1022 @@ impl std::ops::Deref for DocumentId {
 
 impl std::ops::DerefMut for DocumentId {
     fn deref_mut(&mut self) -> &mut uuid::Uuid {
+        &mut self.0
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchCollectionBody {
+    #[serde(rename = "filter")]
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub filter: Option<models::SearchFilter>,
+
+}
+
+
+impl SearchCollectionBody {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new() -> SearchCollectionBody {
+        SearchCollectionBody {
+            filter: None,
+        }
+    }
+}
+
+/// Converts the SearchCollectionBody value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchCollectionBody {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+            // Skipping filter in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchCollectionBody value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchCollectionBody {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub filter: Vec<models::SearchFilter>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchCollectionBody".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "filter" => intermediate_rep.filter.push(<models::SearchFilter as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchCollectionBody".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchCollectionBody {
+            filter: intermediate_rep.filter.into_iter().next(),
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchCollectionBody> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchCollectionBody>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchCollectionBody>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchCollectionBody - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchCollectionBody> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchCollectionBody as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchCollectionBody - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+/// A search filter
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilter {
+    /// Field name
+    #[serde(rename = "f")]
+    pub f: String,
+
+    /// Operator
+    // Note: inline enums are not fully supported by openapi-generator
+    #[serde(rename = "o")]
+    pub o: String,
+
+    #[serde(rename = "v")]
+    pub v: models::SearchFilterFieldOpValueV,
+
+    /// A list of search filters
+    #[serde(rename = "and")]
+    pub and: Vec<models::SearchFilter>,
+
+    /// A list of search filters
+    #[serde(rename = "or")]
+    pub or: Vec<models::SearchFilter>,
+
+}
+
+
+impl SearchFilter {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(f: String, o: String, v: models::SearchFilterFieldOpValueV, and: Vec<models::SearchFilter>, or: Vec<models::SearchFilter>, ) -> SearchFilter {
+        SearchFilter {
+            f,
+            o,
+            v,
+            and,
+            or,
+        }
+    }
+}
+
+/// Converts the SearchFilter value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilter {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("f".to_string()),
+            Some(self.f.to_string()),
+
+
+            Some("o".to_string()),
+            Some(self.o.to_string()),
+
+            // Skipping v in query parameter serialization
+
+            // Skipping and in query parameter serialization
+
+            // Skipping or in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilter value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilter {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub f: Vec<String>,
+            pub o: Vec<String>,
+            pub v: Vec<models::SearchFilterFieldOpValueV>,
+            pub and: Vec<Vec<models::SearchFilter>>,
+            pub or: Vec<Vec<models::SearchFilter>>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilter".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "f" => intermediate_rep.f.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "o" => intermediate_rep.o.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "v" => intermediate_rep.v.push(<models::SearchFilterFieldOpValueV as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    "and" => return std::result::Result::Err("Parsing a container in this style is not supported in SearchFilter".to_string()),
+                    "or" => return std::result::Result::Err("Parsing a container in this style is not supported in SearchFilter".to_string()),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilter".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilter {
+            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in SearchFilter".to_string())?,
+            o: intermediate_rep.o.into_iter().next().ok_or_else(|| "o missing in SearchFilter".to_string())?,
+            v: intermediate_rep.v.into_iter().next().ok_or_else(|| "v missing in SearchFilter".to_string())?,
+            and: intermediate_rep.and.into_iter().next().ok_or_else(|| "and missing in SearchFilter".to_string())?,
+            or: intermediate_rep.or.into_iter().next().ok_or_else(|| "or missing in SearchFilter".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilter> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilter>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilter>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilter - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilter> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilter as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilter - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilterAndGroup {
+    /// A list of search filters
+    #[serde(rename = "and")]
+    pub and: Vec<models::SearchFilter>,
+
+}
+
+
+impl SearchFilterAndGroup {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(and: Vec<models::SearchFilter>, ) -> SearchFilterAndGroup {
+        SearchFilterAndGroup {
+            and,
+        }
+    }
+}
+
+/// Converts the SearchFilterAndGroup value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilterAndGroup {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+            // Skipping and in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilterAndGroup value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilterAndGroup {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub and: Vec<Vec<models::SearchFilter>>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilterAndGroup".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    "and" => return std::result::Result::Err("Parsing a container in this style is not supported in SearchFilterAndGroup".to_string()),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilterAndGroup".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilterAndGroup {
+            and: intermediate_rep.and.into_iter().next().ok_or_else(|| "and missing in SearchFilterAndGroup".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilterAndGroup> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilterAndGroup>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilterAndGroup>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilterAndGroup - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilterAndGroup> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilterAndGroup as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilterAndGroup - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilterFieldOp {
+    /// Field name
+    #[serde(rename = "f")]
+    pub f: String,
+
+    /// Operator
+    // Note: inline enums are not fully supported by openapi-generator
+    #[serde(rename = "o")]
+    pub o: String,
+
+}
+
+
+impl SearchFilterFieldOp {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(f: String, o: String, ) -> SearchFilterFieldOp {
+        SearchFilterFieldOp {
+            f,
+            o,
+        }
+    }
+}
+
+/// Converts the SearchFilterFieldOp value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilterFieldOp {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("f".to_string()),
+            Some(self.f.to_string()),
+
+
+            Some("o".to_string()),
+            Some(self.o.to_string()),
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilterFieldOp value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilterFieldOp {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub f: Vec<String>,
+            pub o: Vec<String>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilterFieldOp".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "f" => intermediate_rep.f.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "o" => intermediate_rep.o.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilterFieldOp".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilterFieldOp {
+            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in SearchFilterFieldOp".to_string())?,
+            o: intermediate_rep.o.into_iter().next().ok_or_else(|| "o missing in SearchFilterFieldOp".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilterFieldOp> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilterFieldOp>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilterFieldOp>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilterFieldOp - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilterFieldOp> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilterFieldOp as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilterFieldOp - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilterFieldOpValue {
+    /// Field name
+    #[serde(rename = "f")]
+    pub f: String,
+
+    /// Operator
+    // Note: inline enums are not fully supported by openapi-generator
+    #[serde(rename = "o")]
+    pub o: String,
+
+    #[serde(rename = "v")]
+    pub v: models::SearchFilterFieldOpValueV,
+
+}
+
+
+impl SearchFilterFieldOpValue {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(f: String, o: String, v: models::SearchFilterFieldOpValueV, ) -> SearchFilterFieldOpValue {
+        SearchFilterFieldOpValue {
+            f,
+            o,
+            v,
+        }
+    }
+}
+
+/// Converts the SearchFilterFieldOpValue value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilterFieldOpValue {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+
+            Some("f".to_string()),
+            Some(self.f.to_string()),
+
+
+            Some("o".to_string()),
+            Some(self.o.to_string()),
+
+            // Skipping v in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilterFieldOpValue value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilterFieldOpValue {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub f: Vec<String>,
+            pub o: Vec<String>,
+            pub v: Vec<models::SearchFilterFieldOpValueV>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilterFieldOpValue".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    #[allow(clippy::redundant_clone)]
+                    "f" => intermediate_rep.f.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "o" => intermediate_rep.o.push(<String as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    #[allow(clippy::redundant_clone)]
+                    "v" => intermediate_rep.v.push(<models::SearchFilterFieldOpValueV as std::str::FromStr>::from_str(val).map_err(|x| x.to_string())?),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilterFieldOpValue".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilterFieldOpValue {
+            f: intermediate_rep.f.into_iter().next().ok_or_else(|| "f missing in SearchFilterFieldOpValue".to_string())?,
+            o: intermediate_rep.o.into_iter().next().ok_or_else(|| "o missing in SearchFilterFieldOpValue".to_string())?,
+            v: intermediate_rep.v.into_iter().next().ok_or_else(|| "v missing in SearchFilterFieldOpValue".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilterFieldOpValue> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilterFieldOpValue>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilterFieldOpValue>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilterFieldOpValue - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilterFieldOpValue> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilterFieldOpValue as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilterFieldOpValue - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+/// Value
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilterFieldOpValueV {
+}
+
+
+impl SearchFilterFieldOpValueV {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new() -> SearchFilterFieldOpValueV {
+        SearchFilterFieldOpValueV {
+        }
+    }
+}
+
+/// Converts the SearchFilterFieldOpValueV value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilterFieldOpValueV {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilterFieldOpValueV value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilterFieldOpValueV {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilterFieldOpValueV".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilterFieldOpValueV".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilterFieldOpValueV {
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilterFieldOpValueV> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilterFieldOpValueV>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilterFieldOpValueV>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilterFieldOpValueV - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilterFieldOpValueV> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilterFieldOpValueV as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilterFieldOpValueV - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct SearchFilterOrGroup {
+    /// A list of search filters
+    #[serde(rename = "or")]
+    pub or: Vec<models::SearchFilter>,
+
+}
+
+
+impl SearchFilterOrGroup {
+    #[allow(clippy::new_without_default)]
+    #[allow(dead_code)]
+    pub fn new(or: Vec<models::SearchFilter>, ) -> SearchFilterOrGroup {
+        SearchFilterOrGroup {
+            or,
+        }
+    }
+}
+
+/// Converts the SearchFilterOrGroup value to the Query Parameters representation (style=form, explode=false)
+/// specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde serializer
+impl std::string::ToString for SearchFilterOrGroup {
+    fn to_string(&self) -> String {
+        let params: Vec<Option<String>> = vec![
+            // Skipping or in query parameter serialization
+
+        ];
+
+        params.into_iter().flatten().collect::<Vec<_>>().join(",")
+    }
+}
+
+/// Converts Query Parameters representation (style=form, explode=false) to a SearchFilterOrGroup value
+/// as specified in https://swagger.io/docs/specification/serialization/
+/// Should be implemented in a serde deserializer
+impl std::str::FromStr for SearchFilterOrGroup {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        /// An intermediate representation of the struct to use for parsing.
+        #[derive(Default)]
+        #[allow(dead_code)]
+        struct IntermediateRep {
+            pub or: Vec<Vec<models::SearchFilter>>,
+        }
+
+        let mut intermediate_rep = IntermediateRep::default();
+
+        // Parse into intermediate representation
+        let mut string_iter = s.split(',');
+        let mut key_result = string_iter.next();
+
+        while key_result.is_some() {
+            let val = match string_iter.next() {
+                Some(x) => x,
+                None => return std::result::Result::Err("Missing value while parsing SearchFilterOrGroup".to_string())
+            };
+
+            if let Some(key) = key_result {
+                #[allow(clippy::match_single_binding)]
+                match key {
+                    "or" => return std::result::Result::Err("Parsing a container in this style is not supported in SearchFilterOrGroup".to_string()),
+                    _ => return std::result::Result::Err("Unexpected key while parsing SearchFilterOrGroup".to_string())
+                }
+            }
+
+            // Get the next key
+            key_result = string_iter.next();
+        }
+
+        // Use the intermediate representation to return the struct
+        std::result::Result::Ok(SearchFilterOrGroup {
+            or: intermediate_rep.or.into_iter().next().ok_or_else(|| "or missing in SearchFilterOrGroup".to_string())?,
+        })
+    }
+}
+
+// Methods for converting between header::IntoHeaderValue<SearchFilterOrGroup> and hyper::header::HeaderValue
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<header::IntoHeaderValue<SearchFilterOrGroup>> for hyper::header::HeaderValue {
+    type Error = String;
+
+    fn try_from(hdr_value: header::IntoHeaderValue<SearchFilterOrGroup>) -> std::result::Result<Self, Self::Error> {
+        let hdr_value = hdr_value.to_string();
+        match hyper::header::HeaderValue::from_str(&hdr_value) {
+             std::result::Result::Ok(value) => std::result::Result::Ok(value),
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Invalid header value for SearchFilterOrGroup - value: {} is invalid {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+#[cfg(any(feature = "client", feature = "server"))]
+impl std::convert::TryFrom<hyper::header::HeaderValue> for header::IntoHeaderValue<SearchFilterOrGroup> {
+    type Error = String;
+
+    fn try_from(hdr_value: hyper::header::HeaderValue) -> std::result::Result<Self, Self::Error> {
+        match hdr_value.to_str() {
+             std::result::Result::Ok(value) => {
+                    match <SearchFilterOrGroup as std::str::FromStr>::from_str(value) {
+                        std::result::Result::Ok(value) => std::result::Result::Ok(header::IntoHeaderValue(value)),
+                        std::result::Result::Err(err) => std::result::Result::Err(
+                            format!("Unable to convert header value '{}' into SearchFilterOrGroup - {}",
+                                value, err))
+                    }
+             },
+             std::result::Result::Err(e) => std::result::Result::Err(
+                 format!("Unable to convert header: {:?} to string: {}",
+                     hdr_value, e))
+        }
+    }
+}
+
+
+/// A boolean value
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct ValueBoolean(bool);
+
+impl std::convert::From<bool> for ValueBoolean {
+    fn from(x: bool) -> Self {
+        ValueBoolean(x)
+    }
+}
+
+impl std::convert::From<ValueBoolean> for bool {
+    fn from(x: ValueBoolean) -> Self {
+        x.0
+    }
+}
+
+impl std::ops::Deref for ValueBoolean {
+    type Target = bool;
+    fn deref(&self) -> &bool {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ValueBoolean {
+    fn deref_mut(&mut self) -> &mut bool {
+        &mut self.0
+    }
+}
+
+
+/// A number value
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct ValueNumber(f64);
+
+impl std::convert::From<f64> for ValueNumber {
+    fn from(x: f64) -> Self {
+        ValueNumber(x)
+    }
+}
+
+impl std::convert::From<ValueNumber> for f64 {
+    fn from(x: ValueNumber) -> Self {
+        x.0
+    }
+}
+
+impl std::ops::Deref for ValueNumber {
+    type Target = f64;
+    fn deref(&self) -> &f64 {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ValueNumber {
+    fn deref_mut(&mut self) -> &mut f64 {
+        &mut self.0
+    }
+}
+
+
+/// A string value
+#[derive(Debug, Clone, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "conversion", derive(frunk::LabelledGeneric))]
+pub struct ValueString(String);
+
+impl std::convert::From<String> for ValueString {
+    fn from(x: String) -> Self {
+        ValueString(x)
+    }
+}
+
+impl std::string::ToString for ValueString {
+    fn to_string(&self) -> String {
+       self.0.to_string()
+    }
+}
+
+impl std::str::FromStr for ValueString {
+    type Err = std::string::ParseError;
+    fn from_str(x: &str) -> std::result::Result<Self, Self::Err> {
+        std::result::Result::Ok(ValueString(x.to_string()))
+    }
+}
+
+impl std::convert::From<ValueString> for String {
+    fn from(x: ValueString) -> Self {
+        x.0
+    }
+}
+
+impl std::ops::Deref for ValueString {
+    type Target = String;
+    fn deref(&self) -> &String {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ValueString {
+    fn deref_mut(&mut self) -> &mut String {
         &mut self.0
     }
 }

@@ -3,10 +3,9 @@ use std::env;
 use anyhow::Context;
 
 use dotenvy::dotenv;
+use folivafy::{api::hooks::Hooks, migrate, register_staged_delete_handler};
 use sea_orm::{ConnectOptions, Database};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use migration::{Migrator, MigratorTrait};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,9 +26,19 @@ async fn main() -> anyhow::Result<()> {
     .await
     .context("could not connect to database_url")?;
 
-    Migrator::up(&db, None).await?;
+    migrate(&db).await?;
 
-    folivafy::api::serve(db).await?;
+    let cron_interval = std::time::Duration::from_secs(
+        60 * std::cmp::max(
+            1,
+            env::var("FOLIVAFY_CRON_INTERVAL")
+                .unwrap_or_else(|_| "5".to_string())
+                .parse()
+                .with_context(|| "could not parse FOLIVAFY_CRON_INTERVAL")?,
+        ),
+    );
+    let hooks = register_staged_delete_handler(Hooks::new())?;
+    folivafy::api::serve(db, hooks, cron_interval).await?;
 
     Ok(())
 }

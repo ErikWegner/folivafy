@@ -4,30 +4,40 @@ use axum::{
     Json,
 };
 use axum_macros::debug_handler;
-use entity::collection_document::{self, Entity as Documents};
-use garde::Validate;
 use jwt_authorizer::JwtClaims;
-use openapi::models::CollectionItem;
-use sea_orm::{error::DbErr, prelude::Uuid, ActiveModelTrait, EntityTrait, RuntimeErr, Set};
+use sea_orm::{prelude::Uuid, TransactionError, TransactionTrait};
+use serde_json::json;
+use std::sync::Arc;
 use tracing::{debug, error, warn};
+use validator::Validate;
 
-use crate::api::auth::User;
+use crate::api::{
+    auth,
+    db::{
+        get_accessible_document, get_collection_by_name, save_document_events_mails, DbGrantUpdate,
+    },
+    dto::{self, GrantForDocument},
+    grants::default_document_grants,
+    hooks::{HookUpdateContext, RequestContext},
+    select_document_for_update, ApiContext, ApiErrors,
+};
+use crate::models::CollectionItem;
 
-use super::{db::get_collection_by_name, ApiContext, ApiErrors};
+use super::grants::{hook_or_default_user_grants, GrantCollection};
 
 #[debug_handler]
 pub(crate) async fn api_update_document(
     State(ctx): State<ApiContext>,
     Path(collection_name): Path<String>,
-    JwtClaims(user): JwtClaims<User>,
+    JwtClaims(user): JwtClaims<auth::User>,
     Json(payload): Json<CollectionItem>,
 ) -> Result<(StatusCode, String), ApiErrors> {
     // Validate the payload
-    payload.validate(&()).map_err(ApiErrors::from)?;
+    payload.validate().map_err(ApiErrors::from)?;
 
     let document_id = payload.id.to_string();
-    let uuid = Uuid::parse_str(&document_id)
-        .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
+    let document_uuid = Uuid::parse_str(&document_id)
+        .map_err(|_| ApiErrors::BadRequestJsonSimpleMsg("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
     if collection.is_none() {
@@ -40,52 +50,150 @@ pub(crate) async fn api_update_document(
     }
 
     let collection = collection.unwrap();
-    let document = Documents::find_by_id(uuid)
-        .one(&ctx.db)
-        .await?
-        .and_then(|doc| {
-            if collection.oao && doc.owner != user.subuuid() {
-                None
-            } else {
-                Some(doc)
-            }
-        });
+    // Check if collection is locked
+    if collection.locked {
+        warn!(
+            "User {} tried to update document in locked collection {}",
+            user.name_and_sub(),
+            collection_name
+        );
+        return Err(ApiErrors::BadRequestJsonSimpleMsg(
+            "Read only collection".into(),
+        ));
+    }
+
+    let dto_collection: GrantCollection = (&collection).into();
+    let user_grants =
+        hook_or_default_user_grants(&ctx.hooks, &dto_collection, &user, ctx.data_service.clone())
+            .await?;
+
+    let document = get_accessible_document(
+        &ctx,
+        &user_grants,
+        user.subuuid(),
+        &collection,
+        document_uuid,
+    )
+    .await?;
 
     if document.is_none() {
         return Err(ApiErrors::NotFound(format!(
             "Document {document_id} not found"
         )));
     }
-    let mut document: collection_document::ActiveModel = document.unwrap().into();
-    document.f = Set(payload.f);
-    let _ = document.update(&ctx.db).await.map_err(|err| match err {
-        DbErr::Exec(RuntimeErr::SqlxError(error)) => match error {
-            sqlx::error::Error::Database(e) => {
-                let code: String = e.code().unwrap_or_default().to_string();
-                // We check the error code thrown by the database (PostgreSQL in this case),
-                // `23505` means `value violates unique constraint`: we have a duplicate key in the table.
-                if code == "23505" {
-                    ApiErrors::BadRequest("Duplicate document".to_string())
-                } else {
-                    error!("Database runtime error: {}", e);
-                    ApiErrors::BadRequest(format!("Cannot create document (code {})", code))
-                }
-            }
-            _ => {
-                error!("Database runtime error: {}", error);
-                ApiErrors::InternalServerError
-            }
-        },
-        _ => {
-            println!("{:?}", err);
-            error!("Database error: {}", err);
-            ApiErrors::InternalServerError
-        }
-    })?;
 
-    debug!(
-        "Document {:?} updated in collection {}",
-        document_id, collection_name
-    );
-    Ok((StatusCode::CREATED, "Document updated".to_string()))
+    let hook_processor = ctx.hooks.get_update_hook(&collection.name);
+    let trigger_cron_ctx = ctx.clone();
+
+    ctx.db
+        .transaction::<_, (StatusCode, String), ApiErrors>(|txn| {
+            Box::pin(async move {
+                let document = select_document_for_update(document_uuid, txn)
+                    .await?
+                    .and_then(|doc| {
+                        if collection.oao && doc.owner != user.subuuid() {
+                            None
+                        } else {
+                            Some(doc)
+                        }
+                    });
+                if document.is_none() {
+                    debug!("Document {} not found", document_uuid);
+                    return Err(ApiErrors::PermissionDenied);
+                }
+                let document = document.unwrap();
+
+                let before_document: dto::CollectionDocument = (&document).into();
+                let mut after_document: dto::CollectionDocument = (payload).into();
+                let mut events: Vec<dto::Event> = vec![];
+                let mut mails: Vec<dto::MailMessage> = vec![];
+                let mut dbgrants: DbGrantUpdate = DbGrantUpdate::Keep;
+                let mut trigger_cron = false;
+                let request_context = Arc::new(RequestContext::new(
+                    &collection.name,
+                    collection.id,
+                    dto::UserWithRoles::read_from(&user),
+                ));
+                if let Some(ref hook_processor) = hook_processor {
+                    let ctx = HookUpdateContext::new(
+                        before_document,
+                        after_document,
+                        ctx.data_service,
+                        request_context,
+                    );
+                    let hook_result = hook_processor.on_updating(&ctx).await?;
+                    trigger_cron = hook_result.trigger_cron;
+                    drop(ctx);
+
+                    match hook_result.document {
+                        crate::api::hooks::DocumentResult::Store(document) => {
+                            after_document = document;
+                        }
+                        crate::api::hooks::DocumentResult::NoUpdate => {
+                            return Err(ApiErrors::BadRequestJsonSimpleMsg(
+                                "Not accepted for storage".into(),
+                            ))
+                        }
+                        crate::api::hooks::DocumentResult::Err(err) => return Err(err),
+                    }
+                    events.extend(hook_result.events);
+                    mails.extend(hook_result.mails);
+                    dbgrants = match hook_result.grants {
+                        crate::api::hooks::GrantSettings::Default => DbGrantUpdate::Replace(
+                            default_document_grants(collection.oao, collection.id, user.subuuid())
+                                .into_iter()
+                                .map(|g| GrantForDocument::new(g, document.id))
+                                .collect(),
+                        ),
+                        crate::api::hooks::GrantSettings::Replace(grants) => {
+                            DbGrantUpdate::Replace(grants)
+                        }
+                        crate::api::hooks::GrantSettings::NoChange => DbGrantUpdate::Keep,
+                    }
+                }
+
+                events.insert(
+                    0,
+                    dto::Event::new(
+                        document_uuid,
+                        crate::api::CATEGORY_DOCUMENT_UPDATES,
+                        json!({
+                            "user": {
+                                "id": user.subuuid(),
+                                "name": user.preferred_username(),
+                            },
+                        }),
+                    ),
+                );
+
+                let dtouser = dto::User::read_from(&user);
+                save_document_events_mails(
+                    txn,
+                    &dtouser,
+                    Some(after_document),
+                    None,
+                    events,
+                    dbgrants,
+                    mails,
+                )
+                .await
+                .map_err(|e| {
+                    error!("Update document error: {:?}", e);
+                    ApiErrors::InternalServerError
+                })?;
+                debug!(
+                    "Document {:?} updated in collection {}",
+                    document_id, collection_name
+                );
+                trigger_cron_ctx
+                    .trigger_cron_with_condition(trigger_cron)
+                    .await;
+                Ok((StatusCode::CREATED, "Document updated".to_string()))
+            })
+        })
+        .await
+        .map_err(|err| match err {
+            TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
+            TransactionError::Transaction(t) => t,
+        })
 }
