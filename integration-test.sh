@@ -124,7 +124,7 @@ RESP=$(curl --silent \
   $API/collections)
 if [ "$RESP" != "Collection shapes created" ]
 then
-      echo -e "${RED}Failure:${NC} user is not allowed to create a collection!"
+      echo -e "${RED}Failure:${NC} user is not allowed to create a collection!\n$RESP"
 fi
 
 
@@ -136,9 +136,9 @@ RESP=$(curl --silent \
   --header "Content-Type: application/json" \
   --data '{"name": "shapes","title": "Shapes","oao": false}' \
   $API/collections)
-if [ "$RESP" != "Duplicate collection name" ]
+if [ "$RESP" != "{\"message\":\"Duplicate collection name\"}" ]
 then
-      echo -e "${RED}Failure:${NC} user is not allowed to create a collection!"
+      echo -e "${RED}Failure:${NC} user is not allowed to create a collection!\n$RESP"
 fi
 
 
@@ -208,7 +208,7 @@ RESP=$(curl --silent \
   --header "Content-Type: application/json" \
   --data '{"id": "ea25fa9d-4650-41ae-a1fa-00bd226b648f","f": {"title": "Rectangle", "price": 14}}' \
   $API/collections/shapes)
-if [ "$RESP" != "Duplicate document" ]
+if [ "$RESP" != "{\"message\":\"Duplicate document\"}" ]
 then
       echo -e "${RED}Failure:${NC} duplicate rectangle document!\n$RESP"
 fi
@@ -562,7 +562,7 @@ RESP=$(curl --silent \
   --header "Content-Type: application/json" \
   --data '{"category": 2,"collection": "shapes", "document": "dd326434-c1f4-4b07-a933-298bd3eb45dd","e": {}}' \
   $API/events)
-if [ "$RESP" != "Document already deleted" ]
+if [ "$RESP" != "{\"message\":\"Document already deleted\"}" ]
 then
       echo -e "${RED}Failure:${NC} Remover is allowed to delete d12 twice!\n$RESP"
 fi
@@ -629,7 +629,7 @@ RESP=$(curl --silent \
   --header "Content-Type: application/json" \
   --data '{"category": 3,"collection": "shapes", "document": "be7c1d84-e27d-42a0-8abd-54a1b2c17e36","e": {}}' \
   $API/events)
-if [ "$RESP" != "Document is not in deleted stage" ]
+if [ "$RESP" != "{\"message\":\"Document is not in deleted stage\"}" ]
 then
       echo -e "${RED}Failure:${NC} Remover is allowed to recover hexagon!\n$RESP"
 fi

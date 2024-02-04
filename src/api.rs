@@ -16,6 +16,7 @@ pub(crate) mod types;
 mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
+use serde_json::json;
 
 use std::sync::Arc;
 use tokio::signal;
@@ -90,14 +91,25 @@ impl ApiContext {
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum ApiErrors {
     #[error("Internal server error")]
+    /// An internal server error has occurred.
     InternalServerError,
     #[error("Bad request: {0}")]
-    BadRequestJson(String),
+    /// A text error that get wraps inside a json structure
+    BadRequestJsonSimpleMsg(String),
     #[error("Bad request: {0}")]
+    /// An already json formatted error message
+    BadRequestJsonMsg(String),
+    #[error("Bad request: {0}")]
+    /// A json error
+    BadRequestJson(serde_json::Value),
+    #[error("Bad request: {0}")]
+    /// A text error
     BadRequest(String),
     #[error("Not found: {0}")]
+    /// A 404 error
     NotFound(String),
     #[error("Unauthorized")]
+    /// A 401 error
     PermissionDenied,
 }
 
@@ -114,13 +126,40 @@ impl IntoResponse for ApiErrors {
                 "Internal Server Error".to_string(),
             )
                 .into_response(),
-            ApiErrors::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
-            ApiErrors::BadRequestJson(jsonstring) => Response::builder()
+            ApiErrors::BadRequestJsonSimpleMsg(msg) => {
+                let body = json!({ "message": msg });
+                let body = serde_json::to_string(&body).unwrap_or_else(|e| {
+                    tracing::error!("Error serializing json: {}", e);
+                    r#"{"msg":"Bad request"}"#.to_string()
+                });
+
+                Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap()
+                    .into_response()
+            }
+            ApiErrors::BadRequestJsonMsg(body) => Response::builder()
                 .status(StatusCode::BAD_REQUEST)
                 .header("Content-Type", "application/json")
-                .body(Body::from(jsonstring))
+                .body(Body::from(body))
                 .unwrap()
                 .into_response(),
+            ApiErrors::BadRequestJson(jsonvalue) => {
+                let body = serde_json::to_string(&jsonvalue).unwrap_or_else(|e| {
+                    tracing::error!("Error serializing json: {}", e);
+                    r#"{"msg":"Bad request"}"#.to_string()
+                });
+
+                Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap()
+                    .into_response()
+            }
+            ApiErrors::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg).into_response(),
             ApiErrors::NotFound(msg) => (StatusCode::NOT_FOUND, msg).into_response(),
         }
     }
@@ -134,7 +173,9 @@ impl From<DbErr> for ApiErrors {
                     let code: String = e.code().unwrap_or_default().to_string();
 
                     error!("Database runtime error: {}", e);
-                    ApiErrors::BadRequest(format!("Cannot append event, code {})", code))
+                    ApiErrors::BadRequestJsonSimpleMsg(
+                        format!("Cannot append event, code {code})",),
+                    )
                 }
                 _ => {
                     error!("Database runtime error: {:?}", error);
@@ -157,7 +198,9 @@ struct ValidationErrors {
 
 impl From<validator::ValidationErrors> for ApiErrors {
     fn from(err: validator::ValidationErrors) -> Self {
-        ApiErrors::BadRequest(serde_json::to_string(&err).unwrap_or("Validation error".to_owned()))
+        ApiErrors::BadRequestJsonMsg(
+            serde_json::to_string(&err).unwrap_or("Validation error".to_owned()),
+        )
     }
 }
 

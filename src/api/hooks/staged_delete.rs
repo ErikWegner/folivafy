@@ -65,7 +65,7 @@ impl StagedDelete {
         );
         if context.before_document().is_deleted() {
             info!("Document already deleted");
-            return Err(ApiErrors::BadRequest(
+            return Err(ApiErrors::BadRequestJsonSimpleMsg(
                 "Document already deleted".to_string(),
             ));
         }
@@ -108,7 +108,7 @@ impl StagedDelete {
         );
         if !context.before_document().is_deleted() {
             info!("Document is not in deleted state");
-            return Err(ApiErrors::BadRequest(
+            return Err(ApiErrors::BadRequestJsonSimpleMsg(
                 "Document is not in deleted stage".to_string(),
             ));
         }
@@ -183,7 +183,9 @@ impl EventCreatingHook for StagedDelete {
             CATEGORY_DOCUMENT_RECOVER => self.recover_document_event(context).await,
             _ => {
                 warn!("Unknown event category {}", context.event.category());
-                Err(ApiErrors::BadRequest("Event not accepted".to_string()))
+                Err(ApiErrors::BadRequestJsonSimpleMsg(
+                    "Event not accepted".to_string(),
+                ))
             }
         }
     }

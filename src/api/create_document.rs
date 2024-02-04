@@ -53,7 +53,9 @@ pub(crate) async fn api_create_document(
             user.name_and_sub(),
             collection_name
         );
-        return Err(ApiErrors::BadRequest("Read only collection".into()));
+        return Err(ApiErrors::BadRequestJsonSimpleMsg(
+            "Read only collection".into(),
+        ));
     }
 
     let collection_id = collection.id;
@@ -82,7 +84,9 @@ pub(crate) async fn api_create_document(
             }
             crate::api::hooks::DocumentResult::NoUpdate => {
                 debug!("Not accepted for storage");
-                return Err(ApiErrors::BadRequest("Not accepted for storage".into()));
+                return Err(ApiErrors::BadRequestJsonSimpleMsg(
+                    "Not accepted for storage".into(),
+                ));
             }
             crate::api::hooks::DocumentResult::Err(err) => return Err(err),
         }
@@ -135,7 +139,9 @@ pub(crate) async fn api_create_document(
                         let code = e.code().unwrap_or_default().to_string();
                         debug!("DB error code: {}", code);
                         if code == "23505" {
-                            return ApiErrors::BadRequest("Duplicate document".to_string());
+                            return ApiErrors::BadRequestJsonSimpleMsg(
+                                "Duplicate document".to_string(),
+                            );
                         }
                     }
 

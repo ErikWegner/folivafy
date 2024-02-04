@@ -25,7 +25,7 @@ pub(crate) async fn api_read_document(
     JwtClaims(user): JwtClaims<User>,
 ) -> Result<Json<CollectionItemDetails>, ApiErrors> {
     let document_uuid = Uuid::parse_str(&document_id)
-        .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
+        .map_err(|_| ApiErrors::BadRequestJsonSimpleMsg("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
     if collection.is_none() {

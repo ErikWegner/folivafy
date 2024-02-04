@@ -37,7 +37,7 @@ pub(crate) async fn api_update_document(
 
     let document_id = payload.id.to_string();
     let document_uuid = Uuid::parse_str(&document_id)
-        .map_err(|_| ApiErrors::BadRequest("Invalid uuid".to_string()))?;
+        .map_err(|_| ApiErrors::BadRequestJsonSimpleMsg("Invalid uuid".to_string()))?;
 
     let collection = get_collection_by_name(&ctx.db, &collection_name).await;
     if collection.is_none() {
@@ -57,7 +57,9 @@ pub(crate) async fn api_update_document(
             user.name_and_sub(),
             collection_name
         );
-        return Err(ApiErrors::BadRequest("Read only collection".into()));
+        return Err(ApiErrors::BadRequestJsonSimpleMsg(
+            "Read only collection".into(),
+        ));
     }
 
     let dto_collection: GrantCollection = (&collection).into();
@@ -128,7 +130,9 @@ pub(crate) async fn api_update_document(
                             after_document = document;
                         }
                         crate::api::hooks::DocumentResult::NoUpdate => {
-                            return Err(ApiErrors::BadRequest("Not accepted for storage".into()))
+                            return Err(ApiErrors::BadRequestJsonSimpleMsg(
+                                "Not accepted for storage".into(),
+                            ))
                         }
                         crate::api::hooks::DocumentResult::Err(err) => return Err(err),
                     }

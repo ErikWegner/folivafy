@@ -55,13 +55,17 @@ pub(crate) async fn api_create_event(
             user.name_and_sub(),
             collection_name
         );
-        return Err(ApiErrors::BadRequest("Read only collection".into()));
+        return Err(ApiErrors::BadRequestJsonSimpleMsg(
+            "Read only collection".into(),
+        ));
     }
     let hook = ctx.hooks.get_event_hook(&collection.name, payload.category);
 
     if hook.is_none() {
         debug!("No hook was executed");
-        return Err(ApiErrors::BadRequest("Event not accepted".to_string()));
+        return Err(ApiErrors::BadRequestJsonSimpleMsg(
+            "Event not accepted".to_string(),
+        ));
     }
     let hook = hook.unwrap();
     let post_hook = hook.clone();
