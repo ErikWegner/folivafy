@@ -948,7 +948,7 @@ then
 fi
 
 
-echo "- Can list shapes with author_id filter"
+echo "- Can search shapes with author_id filter"
 # Create new document as SHAPES_EDITOR2
 authorize_client $SHAPES_EDITOR2_CLIENT $SHAPES_EDITOR2_SECRET
 RESP=$(curl --silent \
@@ -1002,6 +1002,25 @@ then
 fi
 FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
 if [ "$FIELDS" != "editor2_shape_1 " ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS++\n$RESP"
+fi
+
+
+echo "- Can list shapes with author_id filter"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?pfilter=author_id\%3D${SHAPES_EDITOR_UID}\&extraFields=price)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "5" ]
+then
+      echo -e "${RED}Failure:${NC} list of filtered documents does not match for author_id=${SHAPES_EDITOR_UID}!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Circle Triangle Hexagon d12 Square 9   144 " ]
 then
       echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS++\n$RESP"
 fi
