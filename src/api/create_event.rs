@@ -133,7 +133,7 @@ pub(crate) async fn api_create_event(
             TransactionError::Connection(c) => Into::<ApiErrors>::into(c),
             TransactionError::Transaction(t) => t,
         })
-        .map(|res| {
+        .inspect(|_res| {
             // Start thread for background task
             tokio::spawn(async move {
                 let cdctx = HookCreatedEventContext::new(
@@ -161,6 +161,5 @@ pub(crate) async fn api_create_event(
                         .await;
                 }
             });
-            res
         })
 }

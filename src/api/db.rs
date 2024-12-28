@@ -11,8 +11,7 @@ use sea_orm::{
 };
 use sea_orm::{DbErr, ModelTrait, QuerySelect};
 use sea_query::{
-    all, Alias, Cond, Condition, Expr, Func, Iden, JoinType, Order, Query, SelectStatement,
-    SimpleExpr,
+    all, Alias, Cond, Condition, Expr, Func, JoinType, Order, Query, SelectStatement, SimpleExpr,
 };
 use serde::Deserialize;
 use std::ops::Sub;
@@ -264,18 +263,6 @@ fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
         );
     }
     grant_conditions
-}
-
-struct SortField(String);
-
-impl Iden for SortField {
-    fn prepare(&self, s: &mut dyn std::fmt::Write, _q: sea_query::Quote) {
-        self.unquoted(s);
-    }
-
-    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
-        write!(s, "{}", self.0).unwrap();
-    }
 }
 
 fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {

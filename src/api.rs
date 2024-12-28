@@ -38,7 +38,6 @@ use axum::{
 use axum_macros::FromRef;
 use jwt_authorizer::{authorizer::IntoLayer, Authorizer, JwtAuthorizer, Validation};
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait};
-use serde::Serialize;
 use thiserror::Error;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
@@ -189,11 +188,6 @@ impl From<DbErr> for ApiErrors {
             }
         }
     }
-}
-
-#[derive(Serialize, Debug)]
-struct ValidationErrors {
-    errors: Vec<String>,
 }
 
 impl From<validator::ValidationErrors> for ApiErrors {

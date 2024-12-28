@@ -326,7 +326,7 @@ impl From<&entity::event::Model> for ExistingEvent {
             category: model.category_id,
             payload: model.payload.clone(),
             user_id: model.user,
-            timestamp: model.timestamp.unwrap_or_default().timestamp(),
+            timestamp: model.timestamp.unwrap_or_default().and_utc().timestamp(),
         }
     }
 }
