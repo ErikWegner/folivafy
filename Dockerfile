@@ -1,11 +1,11 @@
 ## Build stage
 ## Build mimalloc
-FROM alpine:3.18 as mimallocbuilder
+FROM alpine:3.20 AS mimallocbuilder
 RUN apk add git build-base cmake linux-headers
 RUN cd /; git clone --depth 1 https://github.com/microsoft/mimalloc; cd mimalloc; mkdir build; cd build; cmake ..; make -j$(nproc); make install
 
 ## Build folivafy binary
-FROM rust:1.75.0-alpine3.18 AS builder
+FROM rust:1.83.0-alpine3.20 AS builder
 
 WORKDIR /usr/src
 RUN USER=root cargo new folivafy && cd folivafy && cargo new entity --lib && cargo new migration --lib
@@ -25,7 +25,7 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 RUN strip -s /usr/src/folivafy/target/x86_64-unknown-linux-musl/release/folivafy
 
 ## Put together final image
-FROM alpine:3.18 AS runtime
+FROM alpine:3.20 AS runtime
 COPY --from=mimallocbuilder /mimalloc/build/*.so.* /lib/
 RUN ln -s /lib/libmimalloc.so.2.1 /lib/libmimalloc.so
 ENV LD_PRELOAD=/lib/libmimalloc.so

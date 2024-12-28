@@ -1,12 +1,15 @@
 [package]
 name = "folivafy"
-version = "3.0.2"
+version = "3.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
 members = [".", "entity", "migration"]
+
+[jobs.test]
+command = ["cargo", "test", "--workspace"]
 
 [dependencies]
 anyhow = "1.0"
