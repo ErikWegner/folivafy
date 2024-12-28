@@ -1,0 +1,4 @@
+CREATE ROLE keycloakuser WITH LOGIN PASSWORD 'zhTCZbEAd8uQn0g';
+CREATE DATABASE keycloak WITH OWNER keycloakuser;
+GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloakuser;
+

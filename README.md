@@ -66,6 +66,7 @@ sea-orm-cli generate entity -o entity/src
 ## Integration tests
 
 ```bash
+docker compose -f .devcontainer/docker-compose.yml up -d
 cat integration-test.sql | docker exec -i folivafy_devcontainer-db-1 psql -U postgres postgres
 docker exec -it --user $(id -u):$(id -g) folivafy_devcontainer-app-1 /bin/bash -c "cd /workspaces/folivafy ; ./integration-test.sh"
 ```

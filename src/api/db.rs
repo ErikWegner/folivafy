@@ -11,8 +11,7 @@ use sea_orm::{
 };
 use sea_orm::{DbErr, ModelTrait, QuerySelect};
 use sea_query::{
-    all, Alias, Cond, Condition, Expr, Func, Iden, JoinType, Order, Query, SelectStatement,
-    SimpleExpr,
+    all, Alias, Cond, Condition, Expr, Func, JoinType, Order, Query, SelectStatement, SimpleExpr,
 };
 use serde::Deserialize;
 use std::ops::Sub;
@@ -266,18 +265,6 @@ fn grants_conditions(user_grants: &Vec<dto::Grant>) -> Condition {
     grant_conditions
 }
 
-struct SortField(String);
-
-impl Iden for SortField {
-    fn prepare(&self, s: &mut dyn std::fmt::Write, _q: sea_query::Quote) {
-        self.unquoted(s);
-    }
-
-    fn unquoted(&self, s: &mut dyn std::fmt::Write) {
-        write!(s, "{}", self.0).unwrap();
-    }
-}
-
 fn base_documents_sql(params: &DbListDocumentParams) -> (SelectStatement, Alias) {
     let documents_alias = Alias::new("d");
     let mut b = Query::select();
@@ -344,12 +331,21 @@ fn condition_for_filter(condition: Condition, filters: &SearchFilter) -> Conditi
     }
 }
 
+fn fo_field_expr(field_name: &str) -> Expr {
+    if field_name == "author_id" {
+        // Since author_id is an artificial field, map it to the owner field
+        Expr::expr(Expr::cust(r#""d"."owner"::text"#.to_string()))
+    } else {
+        Expr::expr(Expr::cust(format!(
+            r#""d"."f"{}"#,
+            field_path_json(field_name),
+        )))
+    }
+}
+
 fn fo_to_condition(fo: &super::search_documents::SearchFilterFieldOp) -> SimpleExpr {
     let field_name = fo.field();
-    let field = Expr::expr(Expr::cust(format!(
-        r#""d"."f"{}"#,
-        field_path_json(field_name),
-    )));
+    let field = fo_field_expr(field_name);
     match fo.operation() {
         super::search_documents::Operation::Null => field.is_null(),
         super::search_documents::Operation::NotNull => field.is_not_null(),
@@ -417,10 +413,7 @@ fn fov_to_condition(fov: &super::search_documents::SearchFilterFieldOpValue) -> 
         return kill_clause();
     }
     let value = value.unwrap();
-    let field = Expr::expr(Expr::cust(format!(
-        r#""d"."f"{}"#,
-        field_path_json(field_name),
-    )));
+    let field = fo_field_expr(field_name);
     match fov.operation() {
         super::search_documents::OperationWithValue::Eq => field.eq(value),
         super::search_documents::OperationWithValue::Ne => field.ne(value),
@@ -1243,6 +1236,43 @@ mod tests {
         assert_eq!(
             query,
             format!(r#"SELECT "id" FROM "collection_document" WHERE ("d"."f"->>'a') = 'b'"#)
+        );
+    }
+
+    #[test]
+    fn test_fov_to_cond_eq_author_id() {
+        // Arrange
+        let owner_guid = Uuid::new_v4().to_string();
+        let fov1 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("a".to_string())
+                .operation(OperationWithValue::Eq)
+                .value(json!("b"))
+                .build(),
+        );
+        let fov2 = SearchFilter::FieldOpValue(
+            SearchFilterFieldOpValue::builder()
+                .field("author_id".to_string())
+                .operation(OperationWithValue::Eq)
+                .value(json!(owner_guid))
+                .build(),
+        );
+        let fov = SearchFilter::Group(SearchGroup::AndGroup(vec![fov1, fov2]));
+
+        // Act
+        let query = Query::select()
+            .column(CollectionDocument::Id)
+            .from(CollectionDocument::Table)
+            .cond_where(condition_for_filter(Condition::all(), &fov))
+            .to_owned()
+            .to_string(PostgresQueryBuilder);
+
+        // Assert
+        assert_eq!(
+            query,
+            format!(
+                r#"SELECT "id" FROM "collection_document" WHERE ("d"."f"->>'a') = 'b' AND ("d"."owner"::text) = '{owner_guid}'"#
+            )
         );
     }
 

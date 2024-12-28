@@ -15,6 +15,12 @@ COLADMIN_SECRET=q3RRoqv6tQNP8PRVJq0WdQOU1WKmbU6X
 # Account with role Editor for Shapes collection
 SHAPES_EDITOR_CLIENT=inttest_shapes_editor
 SHAPES_EDITOR_SECRET=Ha7hcGzlHHYQc0rMS9vtlaecDHunTG8I
+SHAPES_EDITOR_UID="98ebb628-4a46-4274-a9f0-eb7c6f385540"
+
+# Second account with role Editor for Shapes collection
+SHAPES_EDITOR2_CLIENT=inttest_shapes_editor2
+SHAPES_EDITOR2_SECRET=IXUYvPVxuKQUuTNoaZvqhXYhDM80kfH3
+SHAPES_EDITOR2_UID="9b289584-bffc-497f-a275-82c9b1bdb5fb"
 
 # Account with role Remove for Shapes collection
 SHAPES_REMOVER_CLIENT=inttest_shapes_remover
@@ -939,6 +945,84 @@ CONTENT=$(echo $RESP | jq -c -r '.|=(.e[]|=(del(.ts)))' | jq -c -r '.|=(.e[]|=(d
 if [ "$CONTENT" != '{"id":"ff901d16-a533-4ad7-9e75-d69407440804","f":{"content":"FooFoo","title":"Alpaca letter 1/b"},"e":[{"category":1,"e":{"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}},{"category":1,"e":{"new":true,"user":{"id":"f299112d-9110-48fc-8769-9d5bab6e37fb","name":"service-account-inttest_letters_alpaca"}}}]}' ]
 then
       echo -e "${RED}Failure:${NC} Alpaca letter 1 content (3)!\n$RESP\n$CONTENT"
+fi
+
+
+echo "- Can search shapes with author_id filter"
+# Create new document as SHAPES_EDITOR2
+authorize_client $SHAPES_EDITOR2_CLIENT $SHAPES_EDITOR2_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{"id": "de3ebbe8-cb47-4aa9-b8f1-6cc82a5b1204","f": {"title": "editor2_shape_1"}}' \
+  $API/collections/shapes)
+if [ "$RESP" != "Document saved" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to save editor2_shape_1 document!\n$RESP"
+fi
+# Read shapes created bei SHAPRE_EDITOR
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data "{\"filter\": {\"f\":\"author_id\",\"o\":\"eq\",\"v\": \"${SHAPES_EDITOR_UID}\"}}" \
+  $API/collections/shapes/search?extraFields=price)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "5" ]
+then
+      echo -e "${RED}Failure:${NC} list of filtered documents does not match for author_id=${SHAPES_EDITOR_UID}!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Circle Triangle Hexagon d12 Square 9   144 " ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS++\n$RESP"
+fi
+# Read shapes created bei SHAPRE_EDITOR2
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent \
+  --request POST \
+  --header "Authorization: Bearer $OIDCTOKEN" \
+  --header "Content-Type: application/json" \
+  --data "{\"filter\": {\"f\":\"author_id\",\"o\":\"eq\",\"v\": \"${SHAPES_EDITOR2_UID}\"}}" \
+  $API/collections/shapes/search)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "1" ]
+then
+      echo -e "${RED}Failure:${NC} list of filtered documents does not match!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "editor2_shape_1 " ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS++\n$RESP"
+fi
+
+
+echo "- Can list shapes with author_id filter"
+authorize_client $SHAPES_READER_CLIENT $SHAPES_READER_SECRET
+RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections/shapes?pfilter=author_id\%3D${SHAPES_EDITOR_UID}\&extraFields=price)
+if [ "$RESP" == "Unauthorized" ]
+then
+      echo -e "${RED}Failure:${NC} user is not allowed to list documents!\n$RESP"
+fi
+TOTAL=$(echo $RESP | jq -r '.total')
+if [ "$TOTAL" != "5" ]
+then
+      echo -e "${RED}Failure:${NC} list of filtered documents does not match for author_id=${SHAPES_EDITOR_UID}!\n$RESP"
+fi
+FIELDS=$(echo $RESP | jq '.items[].f.title, .items[].f.price' | jq -s -r 'join(" ")')
+if [ "$FIELDS" != "Circle Triangle Hexagon d12 Square 9   144 " ]
+then
+      echo -e "${RED}Failure:${NC} list of documents is missing fields!\n$FIELDS++\n$RESP"
 fi
 
 
