@@ -165,11 +165,11 @@ impl From<Vec<FieldFilter>> for SearchFilter {
 #[derive(Debug, Default, Deserialize, Validate)]
 #[serde(default)]
 pub(crate) struct SearchDocumentParams {
-    #[validate(regex = "RE_EXTRA_FIELDS")]
+    #[validate(regex(path= *RE_EXTRA_FIELDS))]
     #[serde(rename = "extraFields")]
     pub(crate) extra_fields: Option<String>,
 
-    #[validate(regex = "RE_SORT_FIELDS")]
+    #[validate(regex(path= *RE_SORT_FIELDS))]
     #[serde(rename = "sort")]
     pub(crate) sort_fields: Option<String>,
 }

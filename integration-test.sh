@@ -93,7 +93,7 @@ authorize_client $NO_ROLE_CLIENT $NO_ROLE_SECRET
 RESP=$(curl --silent --header "Authorization: Bearer $OIDCTOKEN" $API/collections)
 if [ "$RESP" != "Unauthorized" ]
 then
-      echo -e "${RED}Failure:${NC} user is allowed to list collections!"
+      echo -e "${RED}Failure:${NC} user is allowed to list collections!\n${RESP}\n"
 fi
 
 

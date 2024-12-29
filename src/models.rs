@@ -36,7 +36,7 @@ impl std::ops::DerefMut for CategoryId {
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[validate(length(min = 1, max = 32), regex = "RE_COLLECTION_NAME")]
+    #[validate(length(min = 1, max = 32), regex(path= *RE_COLLECTION_NAME))]
     pub name: String,
 
     /// Human readable name of the collection
@@ -873,7 +873,7 @@ impl std::str::FromStr for CollectionsList {
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
-    #[validate(length(min = 1, max = 32), regex = "RE_CREATECOLLECTIONREQUEST_NAME")]
+    #[validate(length(min = 1, max = 32), regex(path= *RE_CREATECOLLECTIONREQUEST_NAME))]
     pub name: String,
 
     /// Human readable name of the collection
@@ -1004,7 +1004,7 @@ pub struct CreateEventBody {
 
     /// Path name of the collection
     #[serde(rename = "collection")]
-    #[validate(length(min = 1, max = 32), regex = "RE_CREATEEVENTBODY_COLLECTION")]
+    #[validate(length(min = 1, max = 32), regex(path= *RE_CREATEEVENTBODY_COLLECTION))]
     pub collection: String,
 
     /// Document identifier
