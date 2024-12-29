@@ -1,6 +1,6 @@
 [package]
 name = "folivafy"
-version = "3.1.0"
+version = "4.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -43,7 +43,7 @@ sea-orm = { version = "0.12", features = [
     "runtime-tokio-rustls",
     "sqlx-postgres",
 ] }
-sea-query = { version = "0", features = ["with-chrono"] }
+sea-query = { version = "0.30.7", features = ["with-chrono"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio-rustls"] }
