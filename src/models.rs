@@ -45,11 +45,13 @@ pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
     #[validate(length(min = 1, max = 32), regex(path= *RE_COLLECTION_NAME))]
+    #[schema(example = "shapes", min_length = 1, max_length = 32)]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
+    #[schema(example = "Shapes", min_length = 1, max_length = 150)]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
@@ -58,6 +60,7 @@ pub struct Collection {
 
     /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
     #[serde(rename = "locked")]
+    #[schema(example = false)]
     pub locked: bool,
 }
 
@@ -748,10 +751,12 @@ impl std::ops::DerefMut for CollectionName {
 pub struct CollectionsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]
+    #[schema(example = 100, minimum = 1, maximum = 250)]
     pub limit: u8,
 
     #[serde(rename = "offset")]
     #[validate(range(min = 0))]
+    #[schema(example = 100)]
     pub offset: u32,
 
     #[serde(rename = "total")]
@@ -894,15 +899,26 @@ impl std::str::FromStr for CollectionsList {
     validator::Validate,
     utoipa::ToSchema,
 )]
+#[schema(
+    description = "Create a new collection",
+    example = json!({"name": "room-reservations", "title": "Room reservations", "oao": false}))
+    ]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
     #[validate(length(min = 1, max = 32), regex(path= *RE_CREATECOLLECTIONREQUEST_NAME))]
+    #[schema(
+        min_length = 1,
+        max_length = 32,
+        pattern = r"^[a-z][-a-z0-9]*$",
+        example = "shapes"
+    )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
+    #[schema(min_length = 1, max_length = 150, example = "Two-dimensional shapes")]
     pub title: String,
 
     /// Owner access only?

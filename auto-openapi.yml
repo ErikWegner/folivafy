@@ -1,15 +1,38 @@
 openapi: 3.1.0
 info:
-  title: folivafy
-  description: Document and workflow management API
+  title: Folivafy
+  description: Backend for documents, validated forms and workflows
   license:
-    name: ''
+    name: AGPL-3.0 license
+    url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
+    identifier: ' AGPL-3.0-only'
   version: 4.0.0
 paths:
   /api/collections:
     get:
-      tags: []
+      tags:
+      - admininistration
       operationId: api_list_collections
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 250
+          minimum: 1
+        example: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+        example: 0
       responses:
         '200':
           description: List of collections
@@ -22,7 +45,8 @@ paths:
         '500':
           description: Internal server error
     post:
-      tags: []
+      tags:
+      - admininistration
       operationId: api_create_collection
       requestBody:
         description: Create a new collection
@@ -53,15 +77,22 @@ components:
         locked:
           type: boolean
           description: Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
+          example: false
         name:
           type: string
           description: Path name of the collection
+          example: shapes
+          maxLength: 32
+          minLength: 1
         oao:
           type: boolean
           description: Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
         title:
           type: string
           description: Human readable name of the collection
+          example: Shapes
+          maxLength: 150
+          minLength: 1
     CollectionsList:
       type: object
       required:
@@ -77,10 +108,13 @@ components:
         limit:
           type: integer
           format: int32
-          minimum: 0
+          example: 100
+          maximum: 250
+          minimum: 1
         offset:
           type: integer
           format: int32
+          example: 100
           minimum: 0
         total:
           type: integer
@@ -88,6 +122,7 @@ components:
           minimum: 0
     CreateCollectionRequest:
       type: object
+      description: Create a new collection
       required:
       - name
       - title
@@ -96,9 +131,23 @@ components:
         name:
           type: string
           description: Path name of the collection
+          example: shapes
+          maxLength: 32
+          minLength: 1
+          pattern: ^[a-z][-a-z0-9]*$
         oao:
           type: boolean
           description: Owner access only?
         title:
           type: string
           description: Human readable name of the collection
+          example: Two-dimensional shapes
+          maxLength: 150
+          minLength: 1
+      example:
+        name: room-reservations
+        oao: false
+        title: Room reservations
+tags:
+- name: admininistration
+  description: Administrative tasks

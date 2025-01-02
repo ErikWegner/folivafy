@@ -70,10 +70,23 @@ pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
+const TAG_ADMINISTRATION: &str = "admininistration";
+
 #[derive(OpenApi)]
 #[openapi(
-    info(description = "Document and workflow management API"),
-    paths(api_create_collection, api_list_collections,)
+    info(
+        description = "Backend for documents, validated forms and workflows",
+        license(
+            identifier = " AGPL-3.0-only",
+            name = "AGPL-3.0 license",
+            url = "https://github.com/ErikWegner/folivafy/blob/main/LICENSE",
+        ),
+        title = "Folivafy"
+    ),
+    paths(api_create_collection, api_list_collections,),
+    tags(
+        (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
+    ),
 )]
 pub struct ApiDoc;
 

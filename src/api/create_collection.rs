@@ -19,7 +19,8 @@ use crate::models::CreateCollectionRequest;
         (status = BAD_REQUEST, description = "Invalid request payload" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),
-    request_body(content = CreateCollectionRequest, description = "Create a new collection", content_type = "application/json")
+    request_body(content = CreateCollectionRequest, description = "Create a new collection", content_type = "application/json"),
+    tag = super::TAG_ADMINISTRATION,
 )]
 pub(crate) async fn api_create_collection(
     State(ctx): State<ApiContext>,
