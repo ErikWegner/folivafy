@@ -68,6 +68,102 @@ paths:
         '500':
           description: Internal server error
   /api/collections/{collection_name}:
+    get:
+      tags:
+      - collection
+      summary: List collection items (documents).
+      description: Get a list of items within the collection, i. e. list all documents.
+      operationId: listCollectionItems
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 250
+          minimum: 1
+        example: 50
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+        example: 0
+      - name: exactTitle
+        in: query
+        description: Search for documents with this exact title (upper and lower case are respected)
+        required: false
+        schema:
+          type: string
+      - name: extraFields
+        in: query
+        description: A comma separated list of document fields that should be contained in the response
+        required: false
+        schema:
+          type: string
+          pattern: ^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$
+        example: price,length
+      - name: sort
+        in: query
+        description: |-
+          A comma separated list of document fields that should be used to sort the collection.
+
+          The sort order is determined by the last character in the field name:
+           - `+` for ascending order, the field is a direct child of the document's field `f`
+           - `-` for descending order, the field is a direct child of the document's field `f`
+           - `f` for ascending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+           - `b` for descending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+
+          Example: `price+,length-,my_workflow.signature.dateb` will order documents by price (ascending), length (descending) and signature date (descending).
+        required: false
+        schema:
+          type: string
+          default: created+
+          pattern: ^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb](,[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb])*$
+        example: email+,created-
+      - name: pfilter
+        in: query
+        description: |-
+          A pound sign (`&`) separated list of filter conditions.
+
+          Each filter condition consists of a field name and a value. Supported operators are: equality, value in array, starts with, contains.
+
+          Examples:
+           - `f1='v12'` matches documents where field `f1` equals `"v12"`
+           - `a='k'&f1=4` matches documents where field `a` equals `"k"` and field `f1` equals `4`
+           - `a='k'&f3=['p1','p4','p9']` matches documents where field `a` equals `"k"` and field `f3` is one of the values `"p1"`, `"p4"`, or `"p9"`
+           - `az=@'kl'` matches documents where field `az` starts with `"kl"`
+           - `pt=~'imi'` matches documents where field `pt` contains the substring `"imi"`
+        required: false
+        schema:
+          type: string
+      - name: collection_name
+        in: path
+        description: Name of the collection
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][-a-z0-9]*$
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItemsList'
+        '400':
+          description: Invalid request
+        '401':
+          description: User is not a collection reader
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
     post:
       tags:
       - collection
@@ -96,6 +192,43 @@ paths:
           description: Invalid request
         '401':
           description: User is not a collection editor
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
+  /api/collections/{collection_name}/{document_id}:
+    get:
+      tags:
+      - collection
+      summary: Get item
+      description: Get item data, i. e. read the document from the collection.
+      operationId: getItemById
+      parameters:
+      - name: collection_name
+        in: path
+        description: Name of the collection
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][-a-z0-9]*$
+      - name: document_id
+        in: path
+        description: UUID of the document
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Document data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItemDetails'
+        '400':
+          description: Invalid request
+        '401':
+          description: User is not a collection reader
         '404':
           description: Collection not found
         '500':
@@ -157,6 +290,95 @@ components:
           price: 14
           title: Rectangle
         id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
+    CollectionItemDetails:
+      type: object
+      description: Item (document) within a collection with additional events
+      required:
+      - id
+      - f
+      - e
+      properties:
+        e:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionItemEvent'
+        f:
+          description: Field data
+        id:
+          type: string
+          format: uuid
+          description: Document identifier
+      examples:
+      - e:
+        - category: 102
+          e:
+            remark: Created by user c99b42eb-c557-42ed-adb2-b026fe88d6d5
+            seq: 50
+            title: CREATED
+          id: 145
+          ts: 2024-12-31T09:23:28.751293Z
+        - category: 1
+          e:
+            new: true
+            user:
+              id: c99b42eb-c557-42ed-adb2-b026fe88d6d5
+              name: example-user
+          id: 144
+          ts: 2024-12-31T09:23:28.751293Z
+        f:
+          price: 14
+          title: Rectangle
+        id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
+    CollectionItemEvent:
+      type: object
+      required:
+      - id
+      - ts
+      - category
+      - e
+      properties:
+        category:
+          type: integer
+          format: int32
+          description: Arbitrary event category
+        e:
+          description: Event data
+        id:
+          type: integer
+          format: int32
+          minimum: 0
+        ts:
+          type: string
+          format: date-time
+    CollectionItemsList:
+      type: object
+      required:
+      - limit
+      - offset
+      - total
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionItem'
+        limit:
+          type: integer
+          format: int32
+          examples:
+          - 100
+          maximum: 250
+          minimum: 1
+        offset:
+          type: integer
+          format: int32
+          examples:
+          - 100
+          minimum: 0
+        total:
+          type: integer
+          format: int32
+          minimum: 0
     CollectionsList:
       type: object
       required:

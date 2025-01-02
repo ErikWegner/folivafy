@@ -336,7 +336,43 @@ impl std::str::FromStr for CollectionItem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, utoipa::ToSchema, validator::Validate)]
+#[schema(
+    description = "Item (document) within a collection with additional events",
+    examples(
+        json!({
+            "id" :"9f818bff-a1b4-487a-9706-29a5ac1cf898",
+            "f": {
+                "title": "Rectangle",
+                "price": 14
+            },
+            "e": [
+                {
+                    "id": 145,
+                    "ts": "2024-12-31T09:23:28.751293Z",
+                    "category": 102,
+                    "e": {
+                        "remark": "Created by user c99b42eb-c557-42ed-adb2-b026fe88d6d5",
+                        "seq": 50,
+                        "title": "CREATED"
+                    }
+                },
+                {
+                    "id": 144,
+                    "ts": "2024-12-31T09:23:28.751293Z",
+                    "category": 1,
+                    "e": {
+                        "new": true,
+                        "user": {
+                            "id": "c99b42eb-c557-42ed-adb2-b026fe88d6d5",
+                            "name": "example-user"
+                        }
+                    }
+                }
+            ]
+        })
+    ),
+)]
 pub struct CollectionItemDetails {
     /// Document identifier
     #[serde(rename = "id")]
@@ -449,7 +485,7 @@ impl std::str::FromStr for CollectionItemDetails {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, utoipa::ToSchema, validator::Validate)]
 pub struct CollectionItemEvent {
     #[serde(rename = "id")]
     #[validate(range(min = 0))]
@@ -462,7 +498,7 @@ pub struct CollectionItemEvent {
     #[serde(rename = "category")]
     pub category: i32,
 
-    /// Field data
+    /// Event data
     #[serde(rename = "e")]
     pub e: serde_json::Value,
 }
@@ -595,14 +631,24 @@ impl std::str::FromStr for CollectionItemEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate
+)]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]
+    #[schema(examples(100), minimum = 1, maximum = 250)]
     pub limit: u8,
 
     #[serde(rename = "offset")]
     #[validate(range(min = 0))]
+    #[schema(examples(100))]
     pub offset: u32,
 
     #[serde(rename = "total")]
