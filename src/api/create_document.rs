@@ -29,7 +29,7 @@ use super::grants::default_document_grants;
 #[debug_handler]
 #[utoipa::path(
     post,
-    path = "/api/collections/{collection_name}",
+    path = "/collections/{collection_name}",
     operation_id = "storeIntoCollection",
     params(
         ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),

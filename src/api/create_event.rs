@@ -28,7 +28,7 @@ use crate::models::CreateEventBody;
 #[debug_handler]
 #[utoipa::path(
     post,
-    path = "/api/events",
+    path = "/events",
     operation_id = "createEvent",
     responses(
         (status = CREATED, description = "Event created successfully" ),

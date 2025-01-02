@@ -17,7 +17,7 @@ use crate::{
 #[debug_handler]
 #[utoipa::path(
     get,
-    path="/api/collections",
+    path="/collections",
     operation_id = "getCollections",
     params(
         Pagination,

@@ -9,13 +9,6 @@ info:
   version: 2.3.0
 servers:
   - url: /api
-tags:
-  - name: administration
-    description: Administrative tasks
-  - name: collection
-    description: Handling documents within the collection
-  - name: event
-    description: Events for documents
 paths:
   /collections:
     get:
@@ -690,3 +683,10 @@ components:
     ValueBoolean:
       description: A boolean value
       type: boolean
+tags:
+  - name: administration
+    description: Administrative tasks
+  - name: collection
+    description: Handling documents within the collection
+  - name: event
+    description: Events for documents

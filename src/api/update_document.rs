@@ -31,7 +31,7 @@ use super::grants::{hook_or_default_user_grants, GrantCollection};
 #[debug_handler]
 #[utoipa::path(
     put,
-    path = "/api/collections/{collection_name}",
+    path = "/collections/{collection_name}",
     operation_id = "updateItemById",
     params(
         ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),

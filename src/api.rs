@@ -81,8 +81,9 @@ const TAG_MAINTENANCE: &str = "maintenance";
             name = "AGPL-3.0 license",
             url = "https://github.com/ErikWegner/folivafy/blob/main/LICENSE",
         ),
-        title = "Folivafy"
+        title = "Folivafy",
     ),
+    servers((url = "/api")),
     paths(
         api_create_collection,
         api_create_document,

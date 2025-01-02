@@ -15,7 +15,7 @@ use crate::models::CreateCollectionRequest;
 #[debug_handler]
 #[utoipa::path(
     post,
-    path="/api/collections",
+    path="/collections",
     operation_id = "createCollection",
     responses(
         (status = CREATED, description = "Collection created successfully" ),

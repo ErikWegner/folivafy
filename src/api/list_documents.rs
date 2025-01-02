@@ -102,7 +102,7 @@ pub(crate) struct ListDocumentParams {
 /// Get a list of items within the collection, i. e. list all documents.
 #[utoipa::path(
     get,
-    path = "/api/collections/{collection_name}",
+    path = "/collections/{collection_name}",
     operation_id = "listCollectionItems",
     params(
         Pagination,

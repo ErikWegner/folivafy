@@ -24,7 +24,7 @@ use super::grants::{hook_or_default_user_grants, GrantCollection};
 #[debug_handler]
 #[utoipa::path(
     get,
-    path = "/api/collections/{collection_name}/{document_id}",
+    path = "/collections/{collection_name}/{document_id}",
     operation_id = "getItemById",
     params(
         ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
