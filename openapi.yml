@@ -153,7 +153,7 @@ paths:
           description: successful operation
         "400":
           description: Updating failed
-  /collections/{collection}/searches:
+  /collections/{collection}/search:
     post:
       description: Search a list of items within the collection
       operationId: searchCollection
@@ -640,9 +640,9 @@ components:
         v:
           description: Value
           oneOf:
-            - $ref: '#/components/schemas/ValueString'
-            - $ref: '#/components/schemas/ValueBoolean'
-            - $ref: '#/components/schemas/ValueNumber'
+            - $ref: "#/components/schemas/ValueString"
+            - $ref: "#/components/schemas/ValueBoolean"
+            - $ref: "#/components/schemas/ValueNumber"
       type: object
     SearchFilterFieldOp:
       required:

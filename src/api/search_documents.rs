@@ -23,7 +23,7 @@ use super::{
     ApiContext, ApiErrors,
 };
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum OperationWithValue {
     Eq,
@@ -37,12 +37,18 @@ pub(crate) enum OperationWithValue {
     In,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, TypedBuilder)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, TypedBuilder, utoipa::ToSchema)]
 pub(crate) struct SearchFilterFieldOpValue {
+    /// The name of the field to filter. Can contain dots to access nested fields.
     #[serde(rename = "f")]
+    #[schema(examples("name", "price.currency"))]
     field: String,
+
+    /// Operator
     #[serde(rename = "o")]
     operation: OperationWithValue,
+
+    /// The value to compare with the field. Can be string, boolean or number
     #[serde(rename = "v")]
     value: Value,
 }
@@ -61,17 +67,20 @@ impl SearchFilterFieldOpValue {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Operation {
     Null,
     NotNull,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, TypedBuilder)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, TypedBuilder, utoipa::ToSchema)]
 pub(crate) struct SearchFilterFieldOp {
+    /// Field name
     #[serde(rename = "f")]
     field: String,
+
+    /// Operator
     #[serde(rename = "o")]
     operation: Operation,
 }
@@ -86,16 +95,22 @@ impl SearchFilterFieldOp {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub(crate) enum SearchGroup {
+    /// Join filters using AND operation
     #[serde(rename = "and")]
+    #[schema(no_recursion)]
     AndGroup(Vec<SearchFilter>),
+
+    /// Join filters using OR operation
     #[serde(rename = "or")]
+    #[schema(no_recursion)]
     OrGroup(Vec<SearchFilter>),
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 #[serde(untagged)]
+#[schema(description = "A search filter")]
 pub(crate) enum SearchFilter {
     FieldOpValue(SearchFilterFieldOpValue),
     FieldOp(SearchFilterFieldOp),
@@ -162,23 +177,54 @@ impl From<Vec<FieldFilter>> for SearchFilter {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Validate)]
+#[derive(Debug, Default, Deserialize, Validate, utoipa::IntoParams)]
 #[serde(default)]
+#[into_params(parameter_in = Query)]
 pub(crate) struct SearchDocumentParams {
+    /// A comma separated list of document fields that should be contained in the response
     #[validate(regex(path= *RE_EXTRA_FIELDS))]
     #[serde(rename = "extraFields")]
+    #[param(
+        example = "price,length",
+        pattern = r#"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"#
+    )]
     pub(crate) extra_fields: Option<String>,
 
+    /// A comma separated list of document fields that should be contained in the response
     #[validate(regex(path= *RE_SORT_FIELDS))]
     #[serde(rename = "sort")]
+    #[param(
+        example = "price,length",
+        pattern = r#"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"#
+    )]
     pub(crate) sort_fields: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize, Validate)]
+#[derive(Debug, Default, Deserialize, Validate, utoipa::ToSchema)]
+#[schema(description = "Search filters")]
 pub(crate) struct SearchDocumentsBody {
     filter: Option<SearchFilter>,
 }
 
+/// Search items
+///
+/// Search a list of items within the collection
+#[utoipa::path(
+    post,
+    path = "/collections/{collection_name}/search",
+    operation_id = "searchCollection",
+    params(
+        Pagination,
+        SearchDocumentParams,
+        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+    ),
+    responses(
+
+    ),
+    request_body(content = SearchDocumentsBody, description = "Create a new document", content_type = "application/json"),
+    tag = super::TAG_COLLECTION,
+)
+]
 pub(crate) async fn api_search_documents(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,

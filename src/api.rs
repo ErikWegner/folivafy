@@ -60,7 +60,7 @@ use self::{
     list_collections::{__path_api_list_collections, api_list_collections},
     list_documents::{__path_api_list_documents, api_list_documents},
     maintenance::api_rebuild_grants,
-    search_documents::api_search_documents,
+    search_documents::{__path_api_search_documents, api_search_documents},
     update_document::{__path_api_update_document, api_update_document},
 };
 
@@ -87,6 +87,7 @@ const TAG_COLLECTION: &str = "collection";
         api_list_collections,
         api_list_documents,
         api_read_document,
+        api_search_documents,
         api_update_document,
     ),
     tags(
