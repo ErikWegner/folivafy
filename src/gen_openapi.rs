@@ -4,7 +4,7 @@ use folivafy::api::ApiDoc;
 use utoipa::OpenApi;
 
 fn gen_my_openapi() -> String {
-    ApiDoc::openapi().to_pretty_json().unwrap()
+    ApiDoc::openapi().to_yaml().unwrap()
 }
 
 fn main() {

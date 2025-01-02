@@ -12,6 +12,15 @@ use crate::{
 };
 
 #[debug_handler]
+#[utoipa::path(
+    get,
+    path="/api/collections",
+    responses(
+        (status = OK, description = "List of collections", body = CollectionsList ),
+        (status = UNAUTHORIZED, description = "User is not a collections admin" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+)]
 pub(crate) async fn api_list_collections(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,

@@ -32,7 +32,15 @@ impl std::ops::DerefMut for CategoryId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
@@ -728,7 +736,15 @@ impl std::ops::DerefMut for CollectionName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Deserialize,
+    serde::Serialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]

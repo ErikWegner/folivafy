@@ -14,7 +14,6 @@ mod maintenance;
 mod search_documents;
 pub(crate) mod types;
 mod update_document;
-use crate::api::create_collection::__path_api_create_collection;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 use serde_json::json;
@@ -52,12 +51,14 @@ use crate::{
 
 use self::{
     auth::{cert_loader, User},
+    create_collection::__path_api_create_collection,
     create_collection::api_create_collection,
     create_document::api_create_document,
     create_event::api_create_event,
     data_service::FolivafyDataService,
     get_document::api_read_document,
     hooks::Hooks,
+    list_collections::__path_api_list_collections,
     list_collections::api_list_collections,
     list_documents::api_list_documents,
     maintenance::api_rebuild_grants,
@@ -70,7 +71,10 @@ pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
 #[derive(OpenApi)]
-#[openapi(paths(api_create_collection))]
+#[openapi(
+    info(description = "Document and workflow management API"),
+    paths(api_create_collection, api_list_collections,)
+)]
 pub struct ApiDoc;
 
 #[derive(Clone, FromRef)]

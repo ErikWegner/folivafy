@@ -15,7 +15,7 @@ use crate::models::CreateCollectionRequest;
     path="/api/collections",
     responses(
         (status = CREATED, description = "Collection created successfully" ),
-        (status = FORBIDDEN, description = "User is not a collections admin" ),
+        (status = UNAUTHORIZED, description = "User is not a collections admin" ),
         (status = BAD_REQUEST, description = "Invalid request payload" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),

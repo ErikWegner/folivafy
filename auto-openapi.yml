@@ -1,70 +1,104 @@
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "folivafy",
-    "description": "",
-    "license": {
-      "name": ""
-    },
-    "version": "4.0.0"
-  },
-  "paths": {
-    "/api/collections": {
-      "post": {
-        "tags": [],
-        "operationId": "api_create_collection",
-        "requestBody": {
-          "description": "Create a new collection",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCollectionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Collection created successfully"
-          },
-          "400": {
-            "description": "Invalid request payload"
-          },
-          "403": {
-            "description": "User is not a collections admin"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "CreateCollectionRequest": {
-        "type": "object",
-        "required": [
-          "name",
-          "title",
-          "oao"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Path name of the collection"
-          },
-          "oao": {
-            "type": "boolean",
-            "description": "Owner access only?"
-          },
-          "title": {
-            "type": "string",
-            "description": "Human readable name of the collection"
-          }
-        }
-      }
-    }
-  }
-}
+openapi: 3.1.0
+info:
+  title: folivafy
+  description: Document and workflow management API
+  license:
+    name: ''
+  version: 4.0.0
+paths:
+  /api/collections:
+    get:
+      tags: []
+      operationId: api_list_collections
+      responses:
+        '200':
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionsList'
+        '401':
+          description: User is not a collections admin
+        '500':
+          description: Internal server error
+    post:
+      tags: []
+      operationId: api_create_collection
+      requestBody:
+        description: Create a new collection
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+        required: true
+      responses:
+        '201':
+          description: Collection created successfully
+        '400':
+          description: Invalid request payload
+        '401':
+          description: User is not a collections admin
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    Collection:
+      type: object
+      required:
+      - name
+      - title
+      - oao
+      - locked
+      properties:
+        locked:
+          type: boolean
+          description: Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
+        name:
+          type: string
+          description: Path name of the collection
+        oao:
+          type: boolean
+          description: Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
+        title:
+          type: string
+          description: Human readable name of the collection
+    CollectionsList:
+      type: object
+      required:
+      - limit
+      - offset
+      - total
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collection'
+        limit:
+          type: integer
+          format: int32
+          minimum: 0
+        offset:
+          type: integer
+          format: int32
+          minimum: 0
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+    CreateCollectionRequest:
+      type: object
+      required:
+      - name
+      - title
+      - oao
+      properties:
+        name:
+          type: string
+          description: Path name of the collection
+        oao:
+          type: boolean
+          description: Owner access only?
+        title:
+          type: string
+          description: Human readable name of the collection
