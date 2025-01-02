@@ -48,16 +48,17 @@ pub struct Collection {
     #[schema(
         examples("shapes", "applications", "reservations"),
         min_length = 1,
-        max_length = 32,
+        max_length = 32
     )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
-    #[schema(examples("Shapes", "Job applications", "Car reservations"),
+    #[schema(
+        examples("Shapes", "Job applications", "Car reservations"),
         min_length = 1,
-        max_length = 150,
+        max_length = 150
     )]
     pub title: String,
 
@@ -215,7 +216,7 @@ impl std::str::FromStr for Collection {
             "f": {
                 "title": "Rectangle",
                 "price": 14
-            }    
+            }
         })
     ),
 )]
@@ -233,7 +234,7 @@ pub struct CollectionItem {
                 "f": {
                     "title": "Rectangle",
                     "price": 14
-                }    
+                }
             })
         )
     )]
@@ -336,7 +337,15 @@ impl std::str::FromStr for CollectionItem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, utoipa::ToSchema, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 #[schema(
     description = "Item (document) within a collection with additional events",
     examples(
@@ -485,7 +494,15 @@ impl std::str::FromStr for CollectionItemDetails {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, utoipa::ToSchema, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct CollectionItemEvent {
     #[serde(rename = "id")]
     #[validate(range(min = 0))]
@@ -638,7 +655,7 @@ impl std::str::FromStr for CollectionItemEvent {
     serde::Serialize,
     serde::Deserialize,
     utoipa::ToSchema,
-    validator::Validate
+    validator::Validate,
 )]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
@@ -1001,14 +1018,14 @@ pub struct CreateCollectionRequest {
         min_length = 1,
         max_length = 32,
         pattern = r"^[a-z][-a-z0-9]*$",
-        examples("shapes"),
+        examples("shapes")
     )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
-    #[schema(min_length = 1, max_length = 150, examples("Two-dimensional shapes"),)]
+    #[schema(min_length = 1, max_length = 150, examples("Two-dimensional shapes"))]
     pub title: String,
 
     /// Owner access only?
@@ -1134,7 +1151,7 @@ impl std::str::FromStr for CreateCollectionRequest {
     serde::Serialize,
     serde::Deserialize,
     utoipa::ToSchema,
-    validator::Validate
+    validator::Validate,
 )]
 #[schema(
     description = "Information about the new event",
