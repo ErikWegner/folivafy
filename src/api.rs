@@ -68,7 +68,7 @@ pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
-const TAG_ADMINISTRATION: &str = "admininistration";
+const TAG_ADMINISTRATION: &str = "administration";
 const TAG_COLLECTION: &str = "collection";
 const TAG_EVENT: &str = "event";
 const TAG_MAINTENANCE: &str = "maintenance";
