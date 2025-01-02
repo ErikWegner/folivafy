@@ -9,10 +9,14 @@ use validator::Validate;
 use crate::api::{auth::User, ApiContext, ApiErrors};
 use crate::models::CreateCollectionRequest;
 
+/// Create a collection
+///
+/// Create a new collection on this server
 #[debug_handler]
 #[utoipa::path(
     post,
     path="/api/collections",
+    operation_id = "createCollection",
     responses(
         (status = CREATED, description = "Collection created successfully" ),
         (status = UNAUTHORIZED, description = "User is not a collections admin" ),

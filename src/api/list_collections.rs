@@ -11,10 +11,14 @@ use crate::{
     models::{self, CollectionsList},
 };
 
+/// List available collections
+///
+/// List all available collections on this server
 #[debug_handler]
 #[utoipa::path(
     get,
     path="/api/collections",
+    operation_id = "getCollections",
     params(
         Pagination,
     ),

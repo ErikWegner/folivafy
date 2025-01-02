@@ -5,14 +5,15 @@ info:
   license:
     name: AGPL-3.0 license
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
-    identifier: ' AGPL-3.0-only'
   version: 4.0.0
 paths:
   /api/collections:
     get:
       tags:
       - admininistration
-      operationId: api_list_collections
+      summary: List available collections
+      description: List all available collections on this server
+      operationId: getCollections
       parameters:
       - name: limit
         in: query
@@ -47,7 +48,9 @@ paths:
     post:
       tags:
       - admininistration
-      operationId: api_create_collection
+      summary: Create a collection
+      description: Create a new collection on this server
+      operationId: createCollection
       requestBody:
         description: Create a new collection
         content:
@@ -64,6 +67,39 @@ paths:
           description: User is not a collections admin
         '500':
           description: Internal server error
+  /api/collections/{collection_name}:
+    post:
+      tags:
+      - collection
+      summary: Create new item
+      description: Create a new item in this collection
+      operationId: storeIntoCollection
+      parameters:
+      - name: collection_name
+        in: path
+        description: Name of the collection
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][-a-z0-9]*$
+      requestBody:
+        description: Create a new document
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionItem'
+        required: true
+      responses:
+        '201':
+          description: Document created successfully
+        '400':
+          description: Invalid request
+        '401':
+          description: User is not a collection editor
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
 components:
   schemas:
     Collection:
@@ -77,11 +113,16 @@ components:
         locked:
           type: boolean
           description: Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
-          example: false
+          examples:
+          - false
+          - true
         name:
           type: string
           description: Path name of the collection
-          example: shapes
+          examples:
+          - shapes
+          - applications
+          - reservations
           maxLength: 32
           minLength: 1
         oao:
@@ -90,9 +131,32 @@ components:
         title:
           type: string
           description: Human readable name of the collection
-          example: Shapes
+          examples:
+          - Shapes
+          - Job applications
+          - Car reservations
           maxLength: 150
           minLength: 1
+    CollectionItem:
+      type: object
+      description: Item (document) within a collection
+      required:
+      - id
+      - f
+      properties:
+        f:
+          description: Field data
+        id:
+          type: string
+          format: uuid
+          description: Document identifier
+          examples:
+          - 9f818bff-a1b4-487a-9706-29a5ac1cf898
+      examples:
+      - f:
+          price: 14
+          title: Rectangle
+        id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
     CollectionsList:
       type: object
       required:
@@ -108,13 +172,15 @@ components:
         limit:
           type: integer
           format: int32
-          example: 100
+          examples:
+          - 100
           maximum: 250
           minimum: 1
         offset:
           type: integer
           format: int32
-          example: 100
+          examples:
+          - 100
           minimum: 0
         total:
           type: integer
@@ -122,7 +188,7 @@ components:
           minimum: 0
     CreateCollectionRequest:
       type: object
-      description: Create a new collection
+      description: Information about the new collection
       required:
       - name
       - title
@@ -131,7 +197,8 @@ components:
         name:
           type: string
           description: Path name of the collection
-          example: shapes
+          examples:
+          - shapes
           maxLength: 32
           minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
@@ -141,13 +208,16 @@ components:
         title:
           type: string
           description: Human readable name of the collection
-          example: Two-dimensional shapes
+          examples:
+          - Two-dimensional shapes
           maxLength: 150
           minLength: 1
-      example:
-        name: room-reservations
+      examples:
+      - name: room-reservations
         oao: false
         title: Room reservations
 tags:
 - name: admininistration
   description: Administrative tasks
+- name: collection
+  description: Handling documents within the collection

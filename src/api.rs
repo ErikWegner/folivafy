@@ -51,15 +51,13 @@ use crate::{
 
 use self::{
     auth::{cert_loader, User},
-    create_collection::__path_api_create_collection,
-    create_collection::api_create_collection,
-    create_document::api_create_document,
+    create_collection::{__path_api_create_collection, api_create_collection},
+    create_document::{__path_api_create_document, api_create_document},
     create_event::api_create_event,
     data_service::FolivafyDataService,
     get_document::api_read_document,
     hooks::Hooks,
-    list_collections::__path_api_list_collections,
-    list_collections::api_list_collections,
+    list_collections::{__path_api_list_collections, api_list_collections},
     list_documents::api_list_documents,
     maintenance::api_rebuild_grants,
     search_documents::api_search_documents,
@@ -71,21 +69,26 @@ pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
 const TAG_ADMINISTRATION: &str = "admininistration";
+const TAG_COLLECTION: &str = "collection";
 
 #[derive(OpenApi)]
 #[openapi(
     info(
         description = "Backend for documents, validated forms and workflows",
         license(
-            identifier = " AGPL-3.0-only",
             name = "AGPL-3.0 license",
             url = "https://github.com/ErikWegner/folivafy/blob/main/LICENSE",
         ),
         title = "Folivafy"
     ),
-    paths(api_create_collection, api_list_collections,),
+    paths(
+        api_create_collection,
+        api_create_document,
+        api_list_collections,
+    ),
     tags(
         (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
+        (name = TAG_COLLECTION, description = "Handling documents within the collection"),
     ),
 )]
 pub struct ApiDoc;

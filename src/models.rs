@@ -45,13 +45,20 @@ pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
     #[validate(length(min = 1, max = 32), regex(path= *RE_COLLECTION_NAME))]
-    #[schema(example = "shapes", min_length = 1, max_length = 32)]
+    #[schema(
+        examples("shapes", "applications", "reservations"),
+        min_length = 1,
+        max_length = 32,
+    )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
-    #[schema(example = "Shapes", min_length = 1, max_length = 150)]
+    #[schema(examples("Shapes", "Job applications", "Car reservations"),
+        min_length = 1,
+        max_length = 150,
+    )]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
@@ -60,7 +67,7 @@ pub struct Collection {
 
     /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
     #[serde(rename = "locked")]
-    #[schema(example = false)]
+    #[schema(examples(false, true))]
     pub locked: bool,
 }
 
@@ -191,14 +198,45 @@ impl std::str::FromStr for Collection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
+#[schema(
+    description = "Item (document) within a collection",
+    examples(
+        json!({
+            "id" :"9f818bff-a1b4-487a-9706-29a5ac1cf898",
+            "f": {
+                "title": "Rectangle",
+                "price": 14
+            }    
+        })
+    ),
+)]
 pub struct CollectionItem {
     /// Document identifier
     #[serde(rename = "id")]
+    #[schema(examples("9f818bff-a1b4-487a-9706-29a5ac1cf898"), format = Uuid)]
     pub id: uuid::Uuid,
 
     /// Field data
     #[serde(rename = "f")]
+    #[schema(
+        examples(
+            json!({
+                "f": {
+                    "title": "Rectangle",
+                    "price": 14
+                }    
+            })
+        )
+    )]
     pub f: serde_json::Value,
 }
 
@@ -751,12 +789,12 @@ impl std::ops::DerefMut for CollectionName {
 pub struct CollectionsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]
-    #[schema(example = 100, minimum = 1, maximum = 250)]
+    #[schema(examples(100), minimum = 1, maximum = 250)]
     pub limit: u8,
 
     #[serde(rename = "offset")]
     #[validate(range(min = 0))]
-    #[schema(example = 100)]
+    #[schema(examples(100))]
     pub offset: u32,
 
     #[serde(rename = "total")]
@@ -900,9 +938,15 @@ impl std::str::FromStr for CollectionsList {
     utoipa::ToSchema,
 )]
 #[schema(
-    description = "Create a new collection",
-    example = json!({"name": "room-reservations", "title": "Room reservations", "oao": false}))
-    ]
+    description = "Information about the new collection",
+    examples(
+        json!({
+            "name": "room-reservations",
+            "title": "Room reservations",
+            "oao": false
+        })
+    ),
+)]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
@@ -911,14 +955,14 @@ pub struct CreateCollectionRequest {
         min_length = 1,
         max_length = 32,
         pattern = r"^[a-z][-a-z0-9]*$",
-        example = "shapes"
+        examples("shapes"),
     )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
-    #[schema(min_length = 1, max_length = 150, example = "Two-dimensional shapes")]
+    #[schema(min_length = 1, max_length = 150, examples("Two-dimensional shapes"),)]
     pub title: String,
 
     /// Owner access only?
@@ -926,8 +970,9 @@ pub struct CreateCollectionRequest {
     pub oao: bool,
 }
 
+const COLLECTIONREQUEST_NAME_PATTERN: &str = r"^[a-z][-a-z0-9]*$";
 lazy_static::lazy_static! {
-    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(COLLECTIONREQUEST_NAME_PATTERN).unwrap();
 }
 
 impl CreateCollectionRequest {
