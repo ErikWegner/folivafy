@@ -30,9 +30,6 @@ use crate::models::CreateEventBody;
     post,
     path = "/api/events",
     operation_id = "createEvent",
-    params(
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
-    ),
     responses(
         (status = CREATED, description = "Event created successfully" ),
         (status = UNAUTHORIZED, description = "User is not a collection reader" ),

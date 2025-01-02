@@ -209,6 +209,34 @@ fn has_remover_role(user: &UserWithRoles, collection_name: &str) -> bool {
     user.has_role(&remove_role_name)
 }
 
+/// List recoverable items within the collection
+///
+/// Get a list of recoverable items within the collection. Requires
+/// activation of the two-staged-deletion.
+///
+/// ### Required permissions
+///
+/// * `C_COLLECTIONNAME_READER` and `C_COLLECTIONNAME_REMOVER` to
+/// recover documents from the first stage.
+/// * `C_COLLECTIONNAME_ADMIN` to recover documents from the second stage.
+#[utoipa::path(
+    get,
+    path = "/recoverables/{collection_name}",
+    operation_id = "listRecoverablesInCollection",
+    params(
+        Pagination,
+        ListDocumentParams,
+        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+    ),
+    responses(
+        (status = OK, description = "List of documents", body = CollectionItemsList ),
+        (status = UNAUTHORIZED, description = "User is not a collection reader" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    tags = [crate::api::TAG_COLLECTION, crate::api::TAG_MAINTENANCE],
+)]
 pub(crate) async fn get_recoverables(
     State(db): State<DatabaseConnection>,
     Path(collection_name): Path<String>,

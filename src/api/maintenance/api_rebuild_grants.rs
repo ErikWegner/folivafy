@@ -16,7 +16,7 @@ use tracing::{debug, error};
 #[debug_handler]
 #[utoipa::path(
     post,
-    path = "/api/maintenance/{collection}/rebuild-grants",
+    path = "/api/maintenance/{collection_name}/rebuild-grants",
     operation_id = "rebuildGrants",
     params(
         ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),

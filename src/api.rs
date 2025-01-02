@@ -93,6 +93,7 @@ const TAG_MAINTENANCE: &str = "maintenance";
         api_rebuild_grants,
         api_search_documents,
         api_update_document,
+        staged_delete::get_recoverables,
     ),
     tags(
         (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
