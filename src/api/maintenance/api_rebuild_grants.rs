@@ -10,7 +10,25 @@ use jwt_authorizer::JwtClaims;
 use sea_orm::{TransactionError, TransactionTrait};
 use tracing::{debug, error};
 
+/// Rebuild grants for a collection
+///
+/// Iterate over all documents and refresh grants.
 #[debug_handler]
+#[utoipa::path(
+    post,
+    path = "/api/maintenance/{collection}/rebuild-grants",
+    operation_id = "rebuildGrants",
+    params(
+        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+    ),
+    responses(
+        (status = CREATED, description = "Grants rebuilt successfully" ),
+        (status = UNAUTHORIZED, description = "User is not a collection admin" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    tag = crate::api::TAG_MAINTENANCE,
+)]
 pub(crate) async fn api_rebuild_grants(
     State(ctx): State<ApiContext>,
     JwtClaims(user): JwtClaims<User>,

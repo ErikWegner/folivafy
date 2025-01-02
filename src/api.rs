@@ -59,7 +59,7 @@ use self::{
     hooks::Hooks,
     list_collections::{__path_api_list_collections, api_list_collections},
     list_documents::{__path_api_list_documents, api_list_documents},
-    maintenance::api_rebuild_grants,
+    maintenance::api_rebuild_grants::{self, __path_api_rebuild_grants},
     search_documents::{__path_api_search_documents, api_search_documents},
     update_document::{__path_api_update_document, api_update_document},
 };
@@ -71,6 +71,7 @@ pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 const TAG_ADMINISTRATION: &str = "admininistration";
 const TAG_COLLECTION: &str = "collection";
 const TAG_EVENT: &str = "event";
+const TAG_MAINTENANCE: &str = "maintenance";
 
 #[derive(OpenApi)]
 #[openapi(
@@ -89,12 +90,15 @@ const TAG_EVENT: &str = "event";
         api_list_collections,
         api_list_documents,
         api_read_document,
+        api_rebuild_grants,
         api_search_documents,
         api_update_document,
     ),
     tags(
         (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
         (name = TAG_COLLECTION, description = "Handling documents within the collection"),
+        (name = TAG_EVENT, description = "Events for documents"),
+        (name = TAG_MAINTENANCE, description = "Maintenance tasks"),
     ),
 )]
 pub struct ApiDoc;

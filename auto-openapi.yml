@@ -306,6 +306,30 @@ paths:
           description: Collection not found
         '500':
           description: Internal server error
+  /api/maintenance/{collection}/rebuild-grants:
+    post:
+      tags:
+      - maintenance
+      summary: Rebuild grants for a collection
+      description: Iterate over all documents and refresh grants.
+      operationId: rebuildGrants
+      parameters:
+      - name: collection_name
+        in: path
+        description: Name of the collection
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][-a-z0-9]*$
+      responses:
+        '201':
+          description: Grants rebuilt successfully
+        '401':
+          description: User is not a collection admin
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
   /collections/{collection_name}/search:
     post:
       tags:
@@ -686,3 +710,7 @@ tags:
   description: Administrative tasks
 - name: collection
   description: Handling documents within the collection
+- name: event
+  description: Events for documents
+- name: maintenance
+  description: Maintenance tasks
