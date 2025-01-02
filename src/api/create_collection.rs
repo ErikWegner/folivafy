@@ -9,7 +9,23 @@ use validator::Validate;
 use crate::api::{auth::User, ApiContext, ApiErrors};
 use crate::models::CreateCollectionRequest;
 
+/// Create a collection
+///
+/// Create a new collection on this server
 #[debug_handler]
+#[utoipa::path(
+    post,
+    path="/collections",
+    operation_id = "createCollection",
+    responses(
+        (status = CREATED, description = "Collection created successfully" ),
+        (status = UNAUTHORIZED, description = "User is not a collections admin" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    request_body(content = CreateCollectionRequest, description = "Create a new collection", content_type = "application/json"),
+    tag = super::TAG_ADMINISTRATION,
+)]
 pub(crate) async fn api_create_collection(
     State(ctx): State<ApiContext>,
     JwtClaims(user): JwtClaims<User>,

@@ -11,7 +11,24 @@ use crate::{
     models::{self, CollectionsList},
 };
 
+/// List available collections
+///
+/// List all available collections on this server
 #[debug_handler]
+#[utoipa::path(
+    get,
+    path="/collections",
+    operation_id = "getCollections",
+    params(
+        Pagination,
+    ),
+    responses(
+        (status = OK, description = "List of collections", body = CollectionsList ),
+        (status = UNAUTHORIZED, description = "User is not a collections admin" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    tag = super::TAG_ADMINISTRATION,
+)]
 pub(crate) async fn api_list_collections(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,

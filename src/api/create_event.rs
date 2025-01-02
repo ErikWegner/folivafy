@@ -15,7 +15,31 @@ use crate::api::{
 };
 use crate::models::CreateEventBody;
 
+/// Create a new event.
+///
+/// Create an event for the given document in a given collection. The collection must not be locked.
+///
+/// ### Required permissions
+///
+/// To create an event, the user must have one of the following permission:
+///
+/// * `C_COLLECTIONNAME_READER`
+/// * `C_COLLECTIONNAME_ALLREADER`
 #[debug_handler]
+#[utoipa::path(
+    post,
+    path = "/events",
+    operation_id = "createEvent",
+    responses(
+        (status = CREATED, description = "Event created successfully" ),
+        (status = UNAUTHORIZED, description = "User is not a collection reader" ),
+        (status = NOT_FOUND, description = "Document not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    request_body(content = CreateEventBody, description = "Create a new event", content_type = "application/json"),
+    tag = super::TAG_EVENT,
+)]
 pub(crate) async fn api_create_event(
     State(ctx): State<ApiContext>,
     JwtClaims(user): JwtClaims<auth::User>,

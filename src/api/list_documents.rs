@@ -48,24 +48,83 @@ pub(crate) enum DeletedDocuments {
     Exclude,
 }
 
-#[derive(Debug, Default, Deserialize, Validate)]
+#[derive(Debug, Default, Deserialize, Validate, utoipa::IntoParams)]
 #[serde(default)]
+#[into_params(parameter_in = Query)]
 pub(crate) struct ListDocumentParams {
+    /// Search for documents with this exact title (upper and lower case are respected)
     #[serde(rename = "exactTitle")]
     pub(crate) exact_title: Option<String>,
 
+    /// A comma separated list of document fields that should be contained in the response
     #[validate(regex(path= *RE_EXTRA_FIELDS))]
     #[serde(rename = "extraFields")]
+    #[param(
+        example = "price,length",
+        pattern = r#"^[a-zA-Z0-9_]+(,[a-zA-Z0-9_]+)*$"#
+    )]
     pub(crate) extra_fields: Option<String>,
 
+    /// A comma separated list of document fields that should be used to sort the collection.
+    ///
+    /// The sort order is determined by the last character in the field name:
+    ///  - `+` for ascending order, the field is a direct child of the document's field `f`
+    ///  - `-` for descending order, the field is a direct child of the document's field `f`
+    ///  - `f` for ascending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+    ///  - `b` for descending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+    ///
+    /// Example: `price+,length-,my_workflow.signature.dateb` will order documents by price (ascending), length (descending) and signature date (descending).
     #[validate(regex(path= *RE_SORT_FIELDS))]
     #[serde(rename = "sort")]
+    #[param(
+        default = "created+",
+        example = "email+,created-",
+        pattern = r#"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb](,[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb])*$"#
+    )]
     pub(crate) sort_fields: Option<String>,
 
+    /// A pound sign (`&`) separated list of filter conditions.
+    ///
+    /// Each filter condition consists of a field name and a value. Supported operators are: equality, value in array, starts with, contains.
+    ///
+    /// Examples:
+    ///  - `f1='v12'` matches documents where field `f1` equals `"v12"`
+    ///  - `a='k'&f1=4` matches documents where field `a` equals `"k"` and field `f1` equals `4`
+    ///  - `a='k'&f3=['p1','p4','p9']` matches documents where field `a` equals `"k"` and field `f3` is one of the values `"p1"`, `"p4"`, or `"p9"`
+    ///  - `az=@'kl'` matches documents where field `az` starts with `"kl"`
+    ///  - `pt=~'imi'` matches documents where field `pt` contains the substring `"imi"`
     #[serde(rename = "pfilter")]
     pub(crate) pfilter: Option<String>,
 }
 
+/// List collection items (documents).
+///
+/// Get a list of items within the collection, i. e. list all documents.
+#[utoipa::path(
+    get,
+    path = "/collections/{collection_name}",
+    operation_id = "listCollectionItems",
+    params(
+        Pagination,
+        ListDocumentParams,
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
+    ),
+    responses(
+        (status = OK, description = "List of documents", body = CollectionItemsList ),
+        (status = UNAUTHORIZED, description = "User is not a collection reader" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    tag = super::TAG_COLLECTION,
+)]
 pub(crate) async fn api_list_documents(
     State(ctx): State<ApiContext>,
     ValidatedQueryParams(pagination): ValidatedQueryParams<Pagination>,

@@ -17,6 +17,7 @@ mod update_document;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 use serde_json::json;
+use utoipa::OpenApi;
 
 use std::sync::Arc;
 use tokio::signal;
@@ -50,22 +51,59 @@ use crate::{
 
 use self::{
     auth::{cert_loader, User},
-    create_collection::api_create_collection,
-    create_document::api_create_document,
-    create_event::api_create_event,
+    create_collection::{__path_api_create_collection, api_create_collection},
+    create_document::{__path_api_create_document, api_create_document},
+    create_event::{__path_api_create_event, api_create_event},
     data_service::FolivafyDataService,
-    get_document::api_read_document,
+    get_document::{__path_api_read_document, api_read_document},
     hooks::Hooks,
-    list_collections::api_list_collections,
-    list_documents::api_list_documents,
-    maintenance::api_rebuild_grants,
-    search_documents::api_search_documents,
-    update_document::api_update_document,
+    list_collections::{__path_api_list_collections, api_list_collections},
+    list_documents::{__path_api_list_documents, api_list_documents},
+    maintenance::api_rebuild_grants::{self, __path_api_rebuild_grants},
+    search_documents::{__path_api_search_documents, api_search_documents},
+    update_document::{__path_api_update_document, api_update_document},
 };
 
 pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
+
+const TAG_ADMINISTRATION: &str = "administration";
+const TAG_COLLECTION: &str = "collection";
+const TAG_EVENT: &str = "event";
+const TAG_MAINTENANCE: &str = "maintenance";
+
+#[derive(OpenApi)]
+#[openapi(
+    info(
+        description = "Backend for documents, validated forms and workflows",
+        license(
+            name = "AGPL-3.0 license",
+            url = "https://github.com/ErikWegner/folivafy/blob/main/LICENSE",
+        ),
+        title = "Folivafy",
+    ),
+    servers((url = "/api")),
+    paths(
+        api_create_collection,
+        api_create_document,
+        api_create_event,
+        api_list_collections,
+        api_list_documents,
+        api_read_document,
+        api_rebuild_grants,
+        api_search_documents,
+        api_update_document,
+        staged_delete::get_recoverables,
+    ),
+    tags(
+        (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
+        (name = TAG_COLLECTION, description = "Handling documents within the collection"),
+        (name = TAG_EVENT, description = "Events for documents"),
+        (name = TAG_MAINTENANCE, description = "Maintenance tasks"),
+    ),
+)]
+pub struct ApiDoc;
 
 #[derive(Clone, FromRef)]
 pub(crate) struct ApiContext {

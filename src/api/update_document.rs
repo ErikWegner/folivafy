@@ -25,7 +25,34 @@ use crate::models::CollectionItem;
 
 use super::grants::{hook_or_default_user_grants, GrantCollection};
 
+/// Replace item
+///
+/// Replace the item data
 #[debug_handler]
+#[utoipa::path(
+    put,
+    path = "/collections/{collection_name}",
+    operation_id = "updateItemById",
+    params(
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
+    ),
+    responses(
+        (status = CREATED, description = "Document updated" ),
+        (status = UNAUTHORIZED, description = "User is not a collection editor" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    request_body(content = CollectionItem, description = "Create a new document", content_type = "application/json"),
+    tag = super::TAG_COLLECTION,
+)]
 pub(crate) async fn api_update_document(
     State(ctx): State<ApiContext>,
     Path(collection_name): Path<String>,

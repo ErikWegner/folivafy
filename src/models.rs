@@ -32,16 +32,34 @@ impl std::ops::DerefMut for CategoryId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct Collection {
     /// Path name of the collection
     #[serde(rename = "name")]
     #[validate(length(min = 1, max = 32), regex(path= *RE_COLLECTION_NAME))]
+    #[schema(
+        examples("shapes", "applications", "reservations"),
+        min_length = 1,
+        max_length = 32
+    )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
+    #[schema(
+        examples("Shapes", "Job applications", "Car reservations"),
+        min_length = 1,
+        max_length = 150
+    )]
     pub title: String,
 
     /// Owner access only. Indicates if documents within the collection are _owner access only_ (value `true`) or all documents in the collection can be read by all users (`false`).
@@ -50,6 +68,7 @@ pub struct Collection {
 
     /// Indicates if new documents within the collection can be created (value `false`) or the collection is set to read only (`true`).
     #[serde(rename = "locked")]
+    #[schema(examples(false, true))]
     pub locked: bool,
 }
 
@@ -180,14 +199,45 @@ impl std::str::FromStr for Collection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
+#[schema(
+    description = "Item (document) within a collection",
+    examples(
+        json!({
+            "id" :"9f818bff-a1b4-487a-9706-29a5ac1cf898",
+            "f": {
+                "title": "Rectangle",
+                "price": 14
+            }
+        })
+    ),
+)]
 pub struct CollectionItem {
     /// Document identifier
     #[serde(rename = "id")]
+    #[schema(examples("9f818bff-a1b4-487a-9706-29a5ac1cf898"), format = Uuid)]
     pub id: uuid::Uuid,
 
     /// Field data
     #[serde(rename = "f")]
+    #[schema(
+        examples(
+            json!({
+                "f": {
+                    "title": "Rectangle",
+                    "price": 14
+                }
+            })
+        )
+    )]
     pub f: serde_json::Value,
 }
 
@@ -287,7 +337,51 @@ impl std::str::FromStr for CollectionItem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
+#[schema(
+    description = "Item (document) within a collection with additional events",
+    examples(
+        json!({
+            "id" :"9f818bff-a1b4-487a-9706-29a5ac1cf898",
+            "f": {
+                "title": "Rectangle",
+                "price": 14
+            },
+            "e": [
+                {
+                    "id": 145,
+                    "ts": "2024-12-31T09:23:28.751293Z",
+                    "category": 102,
+                    "e": {
+                        "remark": "Created by user c99b42eb-c557-42ed-adb2-b026fe88d6d5",
+                        "seq": 50,
+                        "title": "CREATED"
+                    }
+                },
+                {
+                    "id": 144,
+                    "ts": "2024-12-31T09:23:28.751293Z",
+                    "category": 1,
+                    "e": {
+                        "new": true,
+                        "user": {
+                            "id": "c99b42eb-c557-42ed-adb2-b026fe88d6d5",
+                            "name": "example-user"
+                        }
+                    }
+                }
+            ]
+        })
+    ),
+)]
 pub struct CollectionItemDetails {
     /// Document identifier
     #[serde(rename = "id")]
@@ -400,7 +494,15 @@ impl std::str::FromStr for CollectionItemDetails {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct CollectionItemEvent {
     #[serde(rename = "id")]
     #[validate(range(min = 0))]
@@ -413,7 +515,7 @@ pub struct CollectionItemEvent {
     #[serde(rename = "category")]
     pub category: i32,
 
-    /// Field data
+    /// Event data
     #[serde(rename = "e")]
     pub e: serde_json::Value,
 }
@@ -546,14 +648,24 @@ impl std::str::FromStr for CollectionItemEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct CollectionItemsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]
+    #[schema(examples(100), minimum = 1, maximum = 250)]
     pub limit: u8,
 
     #[serde(rename = "offset")]
     #[validate(range(min = 0))]
+    #[schema(examples(100))]
     pub offset: u32,
 
     #[serde(rename = "total")]
@@ -728,14 +840,24 @@ impl std::ops::DerefMut for CollectionName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Deserialize,
+    serde::Serialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
 pub struct CollectionsList {
     #[serde(rename = "limit")]
     #[validate(range(min = 1, max = 250))]
+    #[schema(examples(100), minimum = 1, maximum = 250)]
     pub limit: u8,
 
     #[serde(rename = "offset")]
     #[validate(range(min = 0))]
+    #[schema(examples(100))]
     pub offset: u32,
 
     #[serde(rename = "total")]
@@ -869,16 +991,41 @@ impl std::str::FromStr for CollectionsList {
         })
     }
 }
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    validator::Validate,
+    utoipa::ToSchema,
+)]
+#[schema(
+    description = "Information about the new collection",
+    examples(
+        json!({
+            "name": "room-reservations",
+            "title": "Room reservations",
+            "oao": false
+        })
+    ),
+)]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]
     #[validate(length(min = 1, max = 32), regex(path= *RE_CREATECOLLECTIONREQUEST_NAME))]
+    #[schema(
+        min_length = 1,
+        max_length = 32,
+        pattern = r"^[a-z][-a-z0-9]*$",
+        examples("shapes")
+    )]
     pub name: String,
 
     /// Human readable name of the collection
     #[serde(rename = "title")]
     #[validate(length(min = 1, max = 150))]
+    #[schema(min_length = 1, max_length = 150, examples("Two-dimensional shapes"))]
     pub title: String,
 
     /// Owner access only?
@@ -886,8 +1033,9 @@ pub struct CreateCollectionRequest {
     pub oao: bool,
 }
 
+const COLLECTIONREQUEST_NAME_PATTERN: &str = r"^[a-z][-a-z0-9]*$";
 lazy_static::lazy_static! {
-    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(r"^[a-z][-a-z0-9]*$").unwrap();
+    static ref RE_CREATECOLLECTIONREQUEST_NAME: regex::Regex = regex::Regex::new(COLLECTIONREQUEST_NAME_PATTERN).unwrap();
 }
 
 impl CreateCollectionRequest {
@@ -996,7 +1144,29 @@ impl std::str::FromStr for CreateCollectionRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate,
+)]
+#[schema(
+    description = "Information about the new event",
+    examples(
+        json!({
+            "category": 1020,
+            "collection": "shapes",
+            "document": "0a804901-a425-4f85-bb37-56827bf5f083",
+            "e": {
+                "title": "Approved",
+                "mail": false
+            }
+        })
+    )
+)]
 pub struct CreateEventBody {
     /// Arbitrary event category
     #[serde(rename = "category")]
@@ -1011,7 +1181,7 @@ pub struct CreateEventBody {
     #[serde(rename = "document")]
     pub document: uuid::Uuid,
 
-    /// Field data
+    /// Event data fields
     #[serde(rename = "e")]
     pub e: serde_json::Value,
 }

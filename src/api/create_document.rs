@@ -23,7 +23,34 @@ use crate::models::CollectionItem;
 
 use super::grants::default_document_grants;
 
+/// Create new item
+///
+/// Create a new item in this collection
 #[debug_handler]
+#[utoipa::path(
+    post,
+    path = "/collections/{collection_name}",
+    operation_id = "storeIntoCollection",
+    params(
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
+    ),
+    responses(
+        (status = CREATED, description = "Document created successfully" ),
+        (status = UNAUTHORIZED, description = "User is not a collection editor" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    request_body(content = CollectionItem, description = "Create a new document", content_type = "application/json"),
+    tag = super::TAG_COLLECTION,
+)]
 pub(crate) async fn api_create_document(
     State(ctx): State<ApiContext>,
     JwtClaims(user): JwtClaims<auth::User>,
