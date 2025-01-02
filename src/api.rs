@@ -14,9 +14,11 @@ mod maintenance;
 mod search_documents;
 pub(crate) mod types;
 mod update_document;
+use crate::api::create_collection::__path_api_create_collection;
 pub use entity::collection::Model as Collection;
 use entity::collection_document::Entity as Documents;
 use serde_json::json;
+use utoipa::OpenApi;
 
 use std::sync::Arc;
 use tokio::signal;
@@ -66,6 +68,10 @@ use self::{
 pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
 pub const CATEGORY_DOCUMENT_DELETE: i32 = 2;
 pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
+
+#[derive(OpenApi)]
+#[openapi(paths(api_create_collection))]
+pub struct ApiDoc;
 
 #[derive(Clone, FromRef)]
 pub(crate) struct ApiContext {

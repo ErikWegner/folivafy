@@ -1,0 +1,70 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "folivafy",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "4.0.0"
+  },
+  "paths": {
+    "/api/collections": {
+      "post": {
+        "tags": [],
+        "operationId": "api_create_collection",
+        "requestBody": {
+          "description": "Create a new collection",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Collection created successfully"
+          },
+          "400": {
+            "description": "Invalid request payload"
+          },
+          "403": {
+            "description": "User is not a collections admin"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateCollectionRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "title",
+          "oao"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Path name of the collection"
+          },
+          "oao": {
+            "type": "boolean",
+            "description": "Owner access only?"
+          },
+          "title": {
+            "type": "string",
+            "description": "Human readable name of the collection"
+          }
+        }
+      }
+    }
+  }
+}

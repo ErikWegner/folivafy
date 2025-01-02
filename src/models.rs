@@ -869,7 +869,15 @@ impl std::str::FromStr for CollectionsList {
         })
     }
 }
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    validator::Validate,
+    utoipa::ToSchema,
+)]
 pub struct CreateCollectionRequest {
     /// Path name of the collection
     #[serde(rename = "name")]

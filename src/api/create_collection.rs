@@ -10,6 +10,17 @@ use crate::api::{auth::User, ApiContext, ApiErrors};
 use crate::models::CreateCollectionRequest;
 
 #[debug_handler]
+#[utoipa::path(
+    post,
+    path="/api/collections",
+    responses(
+        (status = CREATED, description = "Collection created successfully" ),
+        (status = FORBIDDEN, description = "User is not a collections admin" ),
+        (status = BAD_REQUEST, description = "Invalid request payload" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
+    ),
+    request_body(content = CreateCollectionRequest, description = "Create a new collection", content_type = "application/json")
+)]
 pub(crate) async fn api_create_collection(
     State(ctx): State<ApiContext>,
     JwtClaims(user): JwtClaims<User>,
