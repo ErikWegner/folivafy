@@ -32,7 +32,14 @@ use super::grants::default_document_grants;
     path = "/collections/{collection_name}",
     operation_id = "storeIntoCollection",
     params(
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
     ),
     responses(
         (status = CREATED, description = "Document created successfully" ),

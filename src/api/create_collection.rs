@@ -20,7 +20,7 @@ use crate::models::CreateCollectionRequest;
     responses(
         (status = CREATED, description = "Collection created successfully" ),
         (status = UNAUTHORIZED, description = "User is not a collections admin" ),
-        (status = BAD_REQUEST, description = "Invalid request payload" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),
     request_body(content = CreateCollectionRequest, description = "Create a new collection", content_type = "application/json"),

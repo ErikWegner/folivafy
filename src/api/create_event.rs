@@ -33,7 +33,7 @@ use crate::models::CreateEventBody;
     responses(
         (status = CREATED, description = "Event created successfully" ),
         (status = UNAUTHORIZED, description = "User is not a collection reader" ),
-        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = NOT_FOUND, description = "Document not found" ),
         (status = BAD_REQUEST, description = "Invalid request" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),

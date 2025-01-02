@@ -27,13 +27,20 @@ use super::grants::{hook_or_default_user_grants, GrantCollection};
     path = "/collections/{collection_name}/{document_id}",
     operation_id = "getItemById",
     params(
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
         ("document_id" = String, Path, description = "UUID of the document", format = Uuid )
     ),
     responses(
         (status = OK, description = "Document data", body = CollectionItemDetails ),
         (status = UNAUTHORIZED, description = "User is not a collection reader" ),
-        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = NOT_FOUND, description = "Document not found" ),
         (status = BAD_REQUEST, description = "Invalid request" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),

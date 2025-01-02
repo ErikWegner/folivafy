@@ -226,11 +226,18 @@ fn has_remover_role(user: &UserWithRoles, collection_name: &str) -> bool {
     params(
         Pagination,
         ListDocumentParams,
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
     ),
     responses(
         (status = OK, description = "List of documents", body = CollectionItemsList ),
-        (status = UNAUTHORIZED, description = "User is not a collection reader" ),
+        (status = UNAUTHORIZED, description = "User is not a collection remover or admin" ),
         (status = NOT_FOUND, description = "Collection not found" ),
         (status = BAD_REQUEST, description = "Invalid request" ),
         (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),

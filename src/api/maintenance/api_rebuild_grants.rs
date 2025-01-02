@@ -19,7 +19,14 @@ use tracing::{debug, error};
     path = "/maintenance/{collection_name}/rebuild-grants",
     operation_id = "rebuildGrants",
     params(
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
     ),
     responses(
         (status = CREATED, description = "Grants rebuilt successfully" ),

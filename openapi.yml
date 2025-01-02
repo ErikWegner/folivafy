@@ -6,7 +6,7 @@ info:
   license:
     name: AGPL-3.0 license
     url: https://github.com/ErikWegner/folivafy/blob/main/LICENSE
-  version: 2.3.0
+  version: 4.0.0
 servers:
   - url: /api
 paths:
@@ -17,6 +17,9 @@ paths:
       summary: List available collections
       description: List all available collections on this server
       operationId: getCollections
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
       responses:
         "200":
           description: Successful operation
@@ -24,6 +27,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CollectionsList"
+        "401":
+          description: User is not a collections admin
+        "500":
+          description: Internal server error
     post:
       tags:
         - administration
@@ -72,6 +79,10 @@ paths:
           description: successful operation
         "400":
           description: Creating the collection failed
+        "401":
+          description: User is not a collections admin
+        "500":
+          description: Internal server error
   /collections/{collection}:
     get:
       description: Get a list of items within the collection
@@ -91,8 +102,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollectionItemsList"
           description: successful operation
+        "400":
+          description: Invalid request
+        "401":
+          description: User is not a collection reader
         "404":
           description: Collection not found
+        "500":
+          description: Internal server error
       summary: List collection items
       tags:
         - collection
@@ -120,7 +137,13 @@ paths:
                 example: 201 Created
           description: successful operation
         "400":
-          description: Creating the collection failed
+          description: Invalid request
+        "401":
+          description: User is not a collection editor
+        "404":
+          description: Collection not found
+        "500":
+          description: Internal server error
     put:
       tags:
         - collection
@@ -145,7 +168,13 @@ paths:
                 example: 201 Created
           description: successful operation
         "400":
-          description: Updating failed
+          description: Invalid request
+        "401":
+          description: User is not a collection editor
+        "404":
+          description: Collection not found
+        "500":
+          description: Internal server error
   /collections/{collection}/search:
     post:
       description: Search a list of items within the collection
@@ -170,8 +199,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollectionItemsList"
           description: successful operation
+        "400":
+          description: Invalid request
+        "401":
+          description: User is not a collection reader
         "404":
           description: Collection not found
+        "500":
+          description: Internal server error
       summary: List collection items
       tags:
         - collection
@@ -189,8 +224,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollectionItemDetails"
           description: successful operation
+        "400":
+          description: Invalid request
+        "401":
+          description: User is not a collection reader
         "404":
-          description: Item not found
+          description: Document not found
+        "500":
+          description: Internal server error
       summary: Get item
       tags:
         - collection
@@ -222,7 +263,13 @@ paths:
                 example: 201 Created
           description: successful operation
         "400":
-          description: Creating the collection failed
+          description: Invalid request
+        "401":
+          description: User is not a collection reader
+        "404":
+          description: Document not found
+        "500":
+          description: Internal server error
       summary: Create event for document in collection
       tags:
         - event
@@ -240,6 +287,12 @@ paths:
               schema:
                 type: string
                 example: 201 OK
+        "401":
+          description: User is not a collection admin
+        "404":
+          description: Collection not found
+        "500":
+          description: Internal server error
       summary: Rebuild grants for a collection
       tags:
         - maintenance
@@ -270,8 +323,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/CollectionItemsList"
           description: successful operation
+        "400":
+          description: Invalid request
+        "401":
+          description: User is not a collection remover or admin
         "404":
           description: Collection not found
+        "500":
+          description: Internal server error
       summary: List recoverable items within the collection
       tags:
         - collection
@@ -304,6 +363,8 @@ components:
       required: false
       schema:
         type: integer
+        default: 50
+        maximum: 250
         minimum: 1
       example: 25
     Offset:
@@ -313,6 +374,7 @@ components:
       required: false
       schema:
         type: integer
+        default: 0
         minimum: 0
       example: 0
     PFilter:
@@ -320,8 +382,17 @@ components:
       name: pfilter
       schema:
         type: string
-      description: |
-        Filter some columns
+        description: |-
+          A pound sign (`&`) separated list of filter conditions.
+
+          Each filter condition consists of a field name and a value. Supported operators are: equality, value in array, starts with, contains.
+
+          Examples:
+           - `f1='v12'` matches documents where field `f1` equals `"v12"`
+           - `a='k'&f1=4` matches documents where field `a` equals `"k"` and field `f1` equals `4`
+           - `a='k'&f3=['p1','p4','p9']` matches documents where field `a` equals `"k"` and field `f3` is one of the values `"p1"`, `"p4"`, or `"p9"`
+           - `az=@'kl'` matches documents where field `az` starts with `"kl"`
+           - `pt=~'imi'` matches documents where field `pt` contains the substring `"imi"`
       examples:
         simple:
           summary: A simple filter
@@ -344,14 +415,16 @@ components:
       schema:
         type: string
         pattern: ^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb](,[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*[\+\-fb])*$
-      description: |
-        A comma separated list of document fields that should
-        be used to sort the collection.
+        description: |-
+          A comma separated list of document fields that should be used to sort the collection.
 
-        * Append a `+` to sort text ascending,
-        * append a `-` to sort text descending.
-        * Append a `f` to sort the native field value ascending (forward),
-        * append a `b` to sort the native field value descending (backwards).
+          The sort order is determined by the last character in the field name:
+           - `+` for ascending order, the field is a direct child of the document's field `f`
+           - `-` for descending order, the field is a direct child of the document's field `f`
+           - `f` for ascending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+           - `b` for descending order, the field is in dotted notation, e. g. `my_workflow.signature.date`
+
+          Example: `price+,length-,my_workflow.signature.dateb` will order documents by price (ascending), length (descending) and signature date (descending).
       example: price+,length-
     CollectionNameParam:
       description: Path name of the collection
@@ -476,7 +549,7 @@ components:
         offset: 0
         limit: 20
         items:
-          - id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+          - id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
             f:
               title: Rectangle
           - id: e109a39d-fb8b-4d15-9794-9f3b2eca9132
@@ -508,7 +581,7 @@ components:
       type: object
     CollectionItem:
       example:
-        id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+        id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
         f:
           title: Rectangle
           price: 14
@@ -523,7 +596,7 @@ components:
       type: object
     CollectionItemDetails:
       example:
-        id: false9f818bff-a1b4-487a-9706-29a5ac1cf898
+        id: 9f818bff-a1b4-487a-9706-29a5ac1cf898
         f:
           title: Rectangle
           price: 14

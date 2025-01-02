@@ -64,7 +64,7 @@ paths:
         '201':
           description: Collection created successfully
         '400':
-          description: Invalid request payload
+          description: Invalid request
         '401':
           description: User is not a collections admin
         '500':
@@ -150,6 +150,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       responses:
         '200':
@@ -179,6 +181,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       requestBody:
         description: Create a new document
@@ -211,6 +215,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       requestBody:
         description: Create a new document
@@ -279,6 +285,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       requestBody:
         description: Create a new document
@@ -287,7 +295,21 @@ paths:
             schema:
               $ref: '#/components/schemas/SearchDocumentsBody'
         required: true
-      responses: {}
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItemsList'
+        '400':
+          description: Invalid request
+        '401':
+          description: User is not a collection reader
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
   /collections/{collection_name}/{document_id}:
     get:
       tags:
@@ -302,6 +324,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       - name: document_id
         in: path
@@ -322,7 +346,7 @@ paths:
         '401':
           description: User is not a collection reader
         '404':
-          description: Collection not found
+          description: Document not found
         '500':
           description: Internal server error
   /events:
@@ -355,7 +379,7 @@ paths:
         '401':
           description: User is not a collection reader
         '404':
-          description: Collection not found
+          description: Document not found
         '500':
           description: Internal server error
   /maintenance/{collection_name}/rebuild-grants:
@@ -372,6 +396,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       responses:
         '201':
@@ -472,6 +498,8 @@ paths:
         required: true
         schema:
           type: string
+          maxLength: 32
+          minLength: 1
           pattern: ^[a-z][-a-z0-9]*$
       responses:
         '200':
@@ -483,7 +511,7 @@ paths:
         '400':
           description: Invalid request
         '401':
-          description: User is not a collection reader
+          description: User is not a collection remover or admin
         '404':
           description: Collection not found
         '500':

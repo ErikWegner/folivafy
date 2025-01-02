@@ -216,10 +216,21 @@ pub(crate) struct SearchDocumentsBody {
     params(
         Pagination,
         SearchDocumentParams,
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
     ),
     responses(
-
+        (status = OK, description = "List of documents", body = CollectionItemsList ),
+        (status = UNAUTHORIZED, description = "User is not a collection reader" ),
+        (status = NOT_FOUND, description = "Collection not found" ),
+        (status = BAD_REQUEST, description = "Invalid request" ),
+        (status = INTERNAL_SERVER_ERROR, description = "Internal server error"),
     ),
     request_body(content = SearchDocumentsBody, description = "Create a new document", content_type = "application/json"),
     tag = super::TAG_COLLECTION,

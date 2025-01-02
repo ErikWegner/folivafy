@@ -34,7 +34,14 @@ use super::grants::{hook_or_default_user_grants, GrantCollection};
     path = "/collections/{collection_name}",
     operation_id = "updateItemById",
     params(
-        ("collection_name" = String, Path, description = "Name of the collection", pattern = r"^[a-z][-a-z0-9]*$" ),
+        (
+            "collection_name" = String,
+            Path,
+            description = "Name of the collection",
+            min_length = 1,
+            max_length = 32,
+            pattern = r"^[a-z][-a-z0-9]*$",
+        ),
     ),
     responses(
         (status = CREATED, description = "Document updated" ),
