@@ -1127,7 +1127,29 @@ impl std::str::FromStr for CreateCollectionRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, validator::Validate)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+    validator::Validate
+)]
+#[schema(
+    description = "Information about the new event",
+    examples(
+        json!({
+            "category": 1020,
+            "collection": "shapes",
+            "document": "0a804901-a425-4f85-bb37-56827bf5f083",
+            "e": {
+                "title": "Approved",
+                "mail": false
+            }
+        })
+    )
+)]
 pub struct CreateEventBody {
     /// Arbitrary event category
     #[serde(rename = "category")]
@@ -1142,7 +1164,7 @@ pub struct CreateEventBody {
     #[serde(rename = "document")]
     pub document: uuid::Uuid,
 
-    /// Field data
+    /// Event data fields
     #[serde(rename = "e")]
     pub e: serde_json::Value,
 }

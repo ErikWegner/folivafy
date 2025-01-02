@@ -265,6 +265,47 @@ paths:
           description: Collection not found
         '500':
           description: Internal server error
+  /api/events:
+    post:
+      tags:
+      - event
+      summary: Create a new event.
+      description: |-
+        Create an event for the given document in a given collection. The collection must not be locked.
+
+        ### Required permissions
+
+        To create an event, the user must have one of the following permission:
+
+        * `C_COLLECTIONNAME_READER`
+        * `C_COLLECTIONNAME_ALLREADER`
+      operationId: createEvent
+      parameters:
+      - name: collection_name
+        in: path
+        description: Name of the collection
+        required: true
+        schema:
+          type: string
+          pattern: ^[a-z][-a-z0-9]*$
+      requestBody:
+        description: Create a new event
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+        required: true
+      responses:
+        '201':
+          description: Event created successfully
+        '400':
+          description: Invalid request
+        '401':
+          description: User is not a collection reader
+        '404':
+          description: Collection not found
+        '500':
+          description: Internal server error
   /collections/{collection_name}/search:
     post:
       tags:
@@ -528,6 +569,35 @@ components:
       - name: room-reservations
         oao: false
         title: Room reservations
+    CreateEventBody:
+      type: object
+      description: Information about the new event
+      required:
+      - category
+      - collection
+      - document
+      - e
+      properties:
+        category:
+          type: integer
+          format: int32
+          description: Arbitrary event category
+        collection:
+          type: string
+          description: Path name of the collection
+        document:
+          type: string
+          format: uuid
+          description: Document identifier
+        e:
+          description: Event data fields
+      examples:
+      - category: 1020
+        collection: shapes
+        document: 0a804901-a425-4f85-bb37-56827bf5f083
+        e:
+          mail: false
+          title: Approved
     Operation:
       type: string
       enum:

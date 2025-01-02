@@ -53,7 +53,7 @@ use self::{
     auth::{cert_loader, User},
     create_collection::{__path_api_create_collection, api_create_collection},
     create_document::{__path_api_create_document, api_create_document},
-    create_event::api_create_event,
+    create_event::{__path_api_create_event, api_create_event},
     data_service::FolivafyDataService,
     get_document::{__path_api_read_document, api_read_document},
     hooks::Hooks,
@@ -70,6 +70,7 @@ pub const CATEGORY_DOCUMENT_RECOVER: i32 = 3;
 
 const TAG_ADMINISTRATION: &str = "admininistration";
 const TAG_COLLECTION: &str = "collection";
+const TAG_EVENT: &str = "event";
 
 #[derive(OpenApi)]
 #[openapi(
@@ -84,6 +85,7 @@ const TAG_COLLECTION: &str = "collection";
     paths(
         api_create_collection,
         api_create_document,
+        api_create_event,
         api_list_collections,
         api_list_documents,
         api_read_document,
