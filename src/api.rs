@@ -61,7 +61,7 @@ use self::{
     list_documents::{__path_api_list_documents, api_list_documents},
     maintenance::api_rebuild_grants,
     search_documents::api_search_documents,
-    update_document::api_update_document,
+    update_document::{__path_api_update_document, api_update_document},
 };
 
 pub const CATEGORY_DOCUMENT_UPDATES: i32 = 1;
@@ -87,6 +87,7 @@ const TAG_COLLECTION: &str = "collection";
         api_list_collections,
         api_list_documents,
         api_read_document,
+        api_update_document,
     ),
     tags(
         (name = TAG_ADMINISTRATION, description = "Administrative tasks"),
