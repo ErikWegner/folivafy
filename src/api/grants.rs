@@ -53,6 +53,10 @@ pub struct GrantCollection {
 }
 
 impl GrantCollection {
+    pub fn new(name: String, id: Uuid, oao: bool) -> Self {
+        Self { name, id, oao }
+    }
+
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
