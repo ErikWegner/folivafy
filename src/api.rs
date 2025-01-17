@@ -43,7 +43,7 @@ use thiserror::Error;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, error};
 
-use crate::api::hooks::staged_delete;
+use crate::{api::hooks::staged_delete, cron::ImmediateCronSender};
 use crate::{
     mail,
     monitoring::{health_routes, HealthMonitor},
@@ -110,17 +110,14 @@ pub(crate) struct ApiContext {
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
     data_service: Arc<FolivafyDataService>,
-    immediate_cron_signal: tokio::sync::mpsc::Sender<()>,
+    immediate_cron_signal: ImmediateCronSender,
 }
 
 impl ApiContext {
     pub(crate) async fn trigger_cron_with_condition(&self, condition: bool) {
         if condition {
             debug!("Triggering immediate cron");
-            let _ = self
-                .immediate_cron_signal
-                .send_timeout((), tokio::time::Duration::from_millis(20))
-                .await;
+            let _ = self.immediate_cron_signal.send(());
         }
     }
 }
@@ -318,7 +315,7 @@ async fn api_routes(
     db: DatabaseConnection,
     hooks: Arc<Hooks>,
     data_service: Arc<FolivafyDataService>,
-    immediate_cron_signal: tokio::sync::mpsc::Sender<()>,
+    immediate_cron_signal: ImmediateCronSender,
 ) -> anyhow::Result<Router> {
     let issuer = env::var("FOLIVAFY_JWT_ISSUER").context("FOLIVAFY_JWT_ISSUER is not set")?;
     let danger_accept_invalid_certs = env::var("FOLIVAFY_DANGEROUS_ACCEPT_INVALID_CERTS")

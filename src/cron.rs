@@ -2,7 +2,7 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{oneshot, watch};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -25,6 +25,8 @@ use crate::{
     },
     BackgroundTask,
 };
+
+pub(crate) type ImmediateCronSender = watch::Sender<()>;
 
 lazy_static! {
     pub static ref CRON_USER_ID: Uuid = Uuid::parse_str("cdf5c014-a59a-409e-a40a-56644cd6bad5")
@@ -151,10 +153,12 @@ pub(crate) fn setup_cron(
     hooks: Arc<Hooks>,
     cron_interval: std::time::Duration,
     data_service: Arc<FolivafyDataService>,
-) -> (BackgroundTask, tokio::sync::mpsc::Sender<()>) {
+) -> (BackgroundTask, ImmediateCronSender) {
     let mut interval = tokio::time::interval(cron_interval);
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     debug!("cron_interval: {:?}", cron_interval);
-    let (immediate_cron_signal, mut immediate_cron_recv) = mpsc::channel::<()>(1);
+    let (immediate_cron_signal, mut immediate_cron_recv) = watch::channel(());
     let (shutdown_cron_signal, mut shutdown_cron_recv) = oneshot::channel::<()>();
     let loop_immediate_cron_signal = immediate_cron_signal.clone();
     let loop_data_service1 = data_service.clone();
@@ -175,15 +179,15 @@ pub(crate) fn setup_cron(
                     let r = cron(loopdb.clone(), &hooks, loop_data_service1.clone()).await;
                     if r.trigger_cron {
                         debug!("Triggering cron task");
-                        let _ = loop_immediate_cron_signal.send(()).await;
+                        let _ = loop_immediate_cron_signal.send(());
                     }
                 }
-                _ = immediate_cron_recv.recv() => {
+                _ = immediate_cron_recv.changed() => {
                     debug!("Immediate cron signal received");
                     let r = cron(loopdb.clone(), &hooks, loop_data_service2.clone()).await;
                     if r.trigger_cron {
                         debug!("Triggering cron task");
-                        let _ = loop_immediate_cron_signal.send(()).await;
+                        let _ = loop_immediate_cron_signal.send(());
                     }
                 }
             }
