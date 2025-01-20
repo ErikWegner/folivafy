@@ -340,6 +340,7 @@ pub enum MailMessageStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MailMessage {
+    from: Option<String>,
     to: String,
     bcc: Option<String>,
     subject: String,
@@ -382,7 +383,13 @@ impl MailMessage {
             );
         }
         let mut b = Message::builder()
-            .from(from.parse().context("From")?)
+            .from(
+                self.from
+                    .clone()
+                    .unwrap_or_else(|| from.to_string())
+                    .parse()
+                    .context("From")?,
+            )
             .to(self.to.parse().context("Recipient")?)
             .subject(self.subject.clone());
         if let Some(bcc) = self.bcc.as_ref() {
@@ -411,6 +418,7 @@ impl MailMessage {
 }
 
 pub struct MailMessageBuilder {
+    from: Option<String>,
     to: Option<String>,
     bcc: Option<String>,
     subject: Option<String>,
@@ -422,6 +430,7 @@ pub struct MailMessageBuilder {
 impl MailMessageBuilder {
     pub fn new() -> Self {
         Self {
+            from: None,
             to: None,
             bcc: None,
             subject: None,
@@ -429,6 +438,24 @@ impl MailMessageBuilder {
             body_html: None,
             attachments: Vec::new(),
         }
+    }
+
+    /// Set the from field of the mail message.
+    ///
+    /// # Parameters
+    ///
+    /// * `from` - The from field, as a string.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `MailMessageBuilder` object.
+    ///
+    /// # Note
+    ///
+    /// If this method is not called, the from field will be set to the default value, which is configured for the instance.
+    pub fn set_from(mut self, from: &str) -> Self {
+        self.from = Some(from.into());
+        self
     }
 
     pub fn set_to(mut self, to: &str) -> Self {
@@ -479,6 +506,7 @@ impl MailMessageBuilder {
             (self.to, self.subject, self.body_text, self.body_html)
         {
             Ok(MailMessage {
+                from: self.from,
                 to,
                 bcc: self.bcc,
                 subject,
